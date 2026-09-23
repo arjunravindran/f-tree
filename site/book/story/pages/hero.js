@@ -44,9 +44,13 @@ const { w: W, h: H } = PAGE;
  * changes is how the lamps are arranged: more rows, further off, each lamp smaller, exactly as the
  * approved frame draws the river receding. The rows never take a lamp away and never add one.
  */
-const MAX_LAMP_ROWS = 9;
+const MAX_LAMP_ROWS = 12;
 const NEAR_LAMP = 26;   // pt wide, the nearest row
 const FAR_LAMP = 12;    // pt wide, the furthest
+/** A lamp narrower than this stops reading as a lamp, so the field takes another row instead. */
+const MIN_LAMP = 5;
+/** How wide the furthest row runs, as a fraction of the lamps zone: the river bends away. */
+const FAR_SPREAD = 0.62;
 /*
  * A lamp keeps its own glow while it is near enough for the glow to read. Further off it is drawn
  * as `diya-small`, the same lamp without the glow discs: `ghat-night` already lays one warm glow
@@ -57,10 +61,25 @@ const FAR_LAMP = 12;    // pt wide, the furthest
  */
 const GLOWS_ABOVE = 16;
 
-/** Rows of lamps for `n` people: enough rows that a row's lamps sit side by side, not on top. */
+/**
+ * How many rows of lamps `n` people take. It grows as the square root of the count, which is what
+ * keeps a row's lamps standing side by side rather than on top of one another as the family grows:
+ * both the number of rows and the lamps on each grow with sqrt(n), so the spacing along a row
+ * shrinks with sqrt(n) rather than with n. `pages-hero.test.mjs` holds the result to the design
+ * system's own bar - no lamp overlapping its neighbour, and none narrower than `MIN_LAMP` - for
+ * families up to twice the largest the planner is built for.
+ *
+ * A family too large for even `MAX_LAMP_ROWS` rows at that size gets the largest lamps its rows
+ * allow, and every one of them: the one thing the cover may never do is leave somebody unlit,
+ * which is what a cap here would mean.
+ */
+const LAMPS_A_ROW = 2.6;
+const rowsFor = (n) => Math.max(1, Math.min(MAX_LAMP_ROWS, Math.round(Math.sqrt(n / LAMPS_A_ROW))));
+
+/** Rows of lamps for `n` people: one lamp each, none of them on top of another. */
 export function lampRows(n, box) {
   if (n <= 0) return [];
-  const rows = Math.max(1, Math.min(MAX_LAMP_ROWS, Math.round(Math.sqrt(n / 2.6))));
+  const rows = rowsFor(n);
   const base = Math.floor(n / rows), extra = n % rows;
   const out = [];
   let at = 0;
@@ -68,7 +87,7 @@ export function lampRows(n, box) {
     // The far rows are the fuller ones: perspective crowds what is furthest away.
     const count = base + (i < extra ? 1 : 0);
     const t = rows === 1 ? 1 : i / (rows - 1);          // 0 far, 1 near
-    const spread = 0.46 + 0.54 * Math.pow(t, 0.8);
+    const spread = FAR_SPREAD + (1 - FAR_SPREAD) * Math.pow(t, 0.8);
     const cy = box.y + box.h * (0.12 + 0.82 * t);
     const half = (box.w * spread) / 2;
     const cx = box.x + box.w * (0.5 + 0.06 * (1 - t));   // the far rows sit a little upstream
@@ -366,7 +385,8 @@ function closing(ctx, page, story) {
     const x = qr.x, y = qr.y - 22;
     items.push(rect(x, y, plate, plate, { r: 7, fill: P.card }));
     items.push(qrPath(SITE_QR, x + 7, y + 7, plate - 14, P.deep));
-    items.push(ctx.line(x + plate / 2, y - 10, SCAN, 'text', 8.5, P.flame, { align: 'middle', width: plate + 40, kind: 'caption' }));
+    // beside the plate, not over it: above it is `closing-sky`'s own busy town.
+    items.push(ctx.line(x - 12, y + plate / 2, SCAN, 'text', 9, P.flame, { align: 'end', width: 160, kind: 'caption' }));
   }
   items.push(...folio(ctx, P.flame));
   return ctx.page(MISSING, items, P.deep);

@@ -350,6 +350,17 @@ test('chapterCopy composes for every chapter id in plan.js\'s CHAPTERS, and degr
   }
 });
 
+test('{from-family} is the line a cover carries, not the family\'s title said twice', () => {
+  // "The Kumar Family" is already a whole phrase, so a template cannot build "from the Kumar
+  // family" out of {family} - "from the {family} family" prints the article and the noun twice.
+  const family = readFamily(doc([M('a', 'Ankit Kumar', '1995'), M('b', 'Ravi Kumar', '1960')], []), { now: NOW });
+  const kin = kinOf(family, resolveFeatured(family, {}), {});
+  const vars = chapterVars('opening', family, kin);
+  assert.equal(vars.family, 'The Kumar Family');
+  assert.equal(vars['from-family'], 'from the Kumar family');
+  assert.equal(fillPlaceholders('{from-family}', vars), 'from the Kumar family');
+});
+
 test('chapterCopy also composes over every format-2 template already in the catalogue', () => {
   const format2 = Object.values(TEMPLATES).filter((t) => t.format === 2);
   // None ship in the catalogue yet - #259 adds diwali-story - so chapterVars/chapterCopy
