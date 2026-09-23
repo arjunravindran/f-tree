@@ -89,12 +89,27 @@ export function framedPerson(ctx, person, { id, outer, view = [], hero = false, 
   }
 
   const items = [art.frame(id, opening, inner, { shadow: { dx: 1.7, dy: 2.3 } })];
-  if (person?.deceased) {
-    // The mala hangs on the frame of somebody the record says has died, and never anywhere else.
-    items.push(art.place('mala-departed', { x: outer.x + outer.w / 2, y: outer.y + outer.h * 0.94, w: outer.w * 0.92, departed: true }));
-  }
+  if (person?.deceased) items.push(mala(art, { outer, opening, round: !hero }));
   ctx.zone('face', { x: opening.x, y: opening.y, w: opening.w, h: opening.h });
   return items;
+}
+
+/*
+ * The mala hangs on the frame of somebody the record says has died, and nowhere else.
+ *
+ * `mala-departed` is drawn in the round frames' units, anchored on the frame's centre, and hangs
+ * about seven tenths of the opening below it (site/book/art/README.md). A round frame takes it at
+ * its centre, as the README says. An arch is not round and its centre is the figure's own head, so
+ * the arch hangs it from the sill instead: the same drawing, at the opening's width, with the
+ * garland's foot just past the frame's - never over the person, and never past the frame.
+ */
+const MALA_SPAN = 1.2;   // the drawing's viewBox is 120 units across where its frame is 100
+const MALA_DROP = 0.7;   // and its foot is 70 units below the anchor
+
+function mala(art, { outer, opening, round }) {
+  const w = opening.w * MALA_SPAN;
+  const y = round ? outer.y + outer.h / 2 : outer.y + outer.h + 2 - MALA_DROP * opening.w;
+  return art.place('mala-departed', { x: outer.x + outer.w / 2, y, w, departed: true });
 }
 
 /**

@@ -32,8 +32,8 @@ export const PAPERCUT_PALETTE = Object.freeze({
  * The storybook template as a template document (not yet validated), every chapter the planner
  * knows, in the story's order.
  *
- * `{featured}`, `{featured-first}`, `{family}`, `{n}` and `{year}` are the only placeholders a
- * template may use, and a line that has no fact to fill one drops the clause rather than printing
+ * `{featured}`, `{featured-first}`, `{family}`, `{from-family}`, `{n}` and `{year}` are the only
+ * placeholders a template may use, and a line that has no fact to fill one drops the clause rather than printing
  * a gap (`copy.js`'s `renderCopy`). A `line` written as `{ one, other }` picks by `{n}`.
  */
 export const STORY_TEMPLATE = Object.freeze({
@@ -46,7 +46,7 @@ export const STORY_TEMPLATE = Object.freeze({
   palette: PAPERCUT_PALETTE,
   cover: {
     greeting: 'शुभ दीपावली',
-    subtitle: 'from the {family} family',
+    subtitle: '{from-family}',
     line: { one: 'One lamp, and the family behind it', other: 'One lamp for each of us' },
   },
   story: {
@@ -68,6 +68,6 @@ export const STORY_TEMPLATE = Object.freeze({
     register: { title: 'Everyone', line: { one: '{n} person, and where to find them.', other: 'All {n} of us, and where to find each one.' } },
     'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{n} lamps are lit for names nobody has written down yet.' } },
     legacy: { title: 'One line of light', line: 'One lamp for every generation behind {featured-first}.' },
-    closing: { title: 'शुभ दीपावली', line: 'Is someone missing? Add them, and send the book again next year.' },
+    closing: { title: 'शुभ दीपावली', line: 'Add them, with a name, a year or a photograph, and next year\u2019s book will have them.' },
   },
 });

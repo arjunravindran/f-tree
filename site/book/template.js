@@ -73,12 +73,17 @@ export const REQUIRED_CHAPTERS = ['cover', 'opening', 'register', 'closing'];
 
 /**
  * `copy` and cover text may only interpolate these - anything else is refused, not skipped.
+ * `{family}` is the family's own title ("The Kumar Family"); `{from-family}` is the same title
+ * turned into the line the approved cover carries under the greeting ("from the Kumar family",
+ * "शर्मा परिवार की ओर से"), which a five-token template cannot build out of `{family}` itself -
+ * "from the {family} family" would print "from the The Kumar Family family". Format-1 templates
+ * reach the same phrase through `blocks/words.js`'s `fill`, which is where both come from.
  * `PLACEHOLDER` (the token syntax) is exported so copy.js (#252) finds a `{token}` the same way
  * this file does, rather than a second parser that could drift from this one. `PLACEHOLDERS`
  * (the accepted names) stays private: a template's copy is already refused at load time if it
  * names anything else, so nothing downstream needs the name set again.
  */
-const PLACEHOLDERS = new Set(['featured', 'featured-first', 'family', 'n', 'year']);
+const PLACEHOLDERS = new Set(['featured', 'featured-first', 'family', 'n', 'year', 'from-family']);
 export const PLACEHOLDER = /\{([^{}]*)\}/g;
 
 const ART_KINDS = ['papercut'];

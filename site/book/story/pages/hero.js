@@ -27,12 +27,12 @@
  * imports only.
  */
 
-import { PAGE, rect, group } from '../../format.js';
+import { PAGE, PathData, circle, path, rect, group } from '../../format.js';
 import { SITE_QR } from '../../qr.js';
 import { qrPath } from '../../blocks/art.js';
 import { diyaRow, rangoli, toran } from '../../art/procedural/index.js';
 import { chapterCopy, chapterVars, fillPlaceholders, nameOf, noteCaption, openingLine, pickLine } from '../copy.js';
-import { SAFE, folio, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, titleBlock } from './parts/page.js';
+import { SAFE, folio, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
 import { frameOuter, framedPerson, joinFrames, nameStack, openingIn, yearsCaption } from './parts/people.js';
 
 const { w: W, h: H } = PAGE;
@@ -45,8 +45,8 @@ const { w: W, h: H } = PAGE;
  * approved frame draws the river receding. The rows never take a lamp away and never add one.
  */
 const MAX_LAMP_ROWS = 9;
-const NEAR_LAMP = 24;   // pt wide, the nearest row
-const FAR_LAMP = 9;     // pt wide, the furthest
+const NEAR_LAMP = 26;   // pt wide, the nearest row
+const FAR_LAMP = 12;    // pt wide, the furthest
 /*
  * A lamp keeps its own glow while it is near enough for the glow to read. Further off it is drawn
  * as `diya-small`, the same lamp without the glow discs: `ghat-night` already lays one warm glow
@@ -68,11 +68,12 @@ export function lampRows(n, box) {
     // The far rows are the fuller ones: perspective crowds what is furthest away.
     const count = base + (i < extra ? 1 : 0);
     const t = rows === 1 ? 1 : i / (rows - 1);          // 0 far, 1 near
-    const spread = 0.52 + 0.48 * t;
+    const spread = 0.46 + 0.54 * Math.pow(t, 0.8);
     const cy = box.y + box.h * (0.12 + 0.82 * t);
     const half = (box.w * spread) / 2;
     const cx = box.x + box.w * (0.5 + 0.06 * (1 - t));   // the far rows sit a little upstream
-    const w = Math.min(FAR_LAMP + (NEAR_LAMP - FAR_LAMP) * t, count > 1 ? ((2 * half) / (count - 1)) * 0.95 : NEAR_LAMP);
+    // the rows near the foot grow fastest, which is how a receding row of lamps really looks
+    const w = Math.min(FAR_LAMP + (NEAR_LAMP - FAR_LAMP) * t * t, count > 1 ? ((2 * half) / (count - 1)) * 0.95 : NEAR_LAMP);
     out.push({ from: at, count, x1: cx - half, x2: cx + half, y: cy, w });
     at += count;
   }
@@ -88,7 +89,7 @@ function lamps(ctx, ids, box, seed) {
   const items = [];
   for (const [i, row] of lampRows(ids.length, box).entries()) {
     const at = new Set([...unknown].filter((k) => k >= row.from && k < row.from + row.count).map((k) => k - row.from));
-    const drawn = diyaRow(ctx.art, row.x1, row.y, row.x2, row.y, row.count, `${seed} lamps ${i}`, { w: row.w, jitter: 0.3, unknownAt: at, lamp: row.w >= GLOWS_ABOVE ? 'diya' : 'diya-small' });
+    const drawn = diyaRow(ctx.art, row.x1, row.y, row.x2, row.y, row.count, `${seed} lamps ${i}`, { w: row.w, jitter: 0.3, unknownAt: at, lamp: row.w >= GLOWS_ABOVE ? 'diya' : 'diya-small', unknownLamp: 'diya-unknown' });
     if (drawn) items.push(drawn);
   }
   return items;
@@ -100,10 +101,10 @@ function lamps(ctx, ids, box, seed) {
  * own colours so no reader can mistake one for a relative (book-design-system.md, principle 1).
  */
 const GHAT_FIGURES = Object.freeze([
-  { art: 'hero-female-adult', at: 0.16, h: 0.72, tint: 'haze' },
-  { art: 'hero-person-adult', at: 0.4, h: 0.82, tint: 'deep' },
-  { art: 'hero-person-child', at: 0.6, h: 0.5, tint: 'glow' },
-  { art: 'hero-male-adult', at: 0.82, h: 0.78, tint: 'deep' },
+  { art: 'hero-female-adult', at: 0.14, h: 0.6, tint: 'haze' },
+  { art: 'hero-person-adult', at: 0.36, h: 0.68, tint: 'deep' },
+  { art: 'hero-person-child', at: 0.55, h: 0.42, tint: 'glow' },
+  { art: 'hero-male-adult', at: 0.78, h: 0.64, tint: 'night' },
 ]);
 
 const figures = (ctx, box) => GHAT_FIGURES.map((f) => ctx.art.place(f.art, {
@@ -123,9 +124,12 @@ function cover(ctx, page, story) {
   const items = [ghat.item];
   const top = ghat.at('toran');
   items.push(toran(art, P, top.x, top.x + top.w, top.y + 22, `${seed} toran`, { size: 26 }));
-  for (const x of [0.19, 0.81]) {
-    items.push(art.place('kandil', { x: top.x + top.w * x, y: top.y + 30, w: 44 }));
-    ctx.zone('busy', { x: top.x + top.w * x - 24, y: top.y + 30, w: 48, h: 60 });
+  for (const at of [0.19, 0.81]) {
+    // hung well below the toran on a thread, as the approved cover hangs them
+    const x = top.x + top.w * at, y = top.y + 64;
+    items.push(path(new PathData().M(x, top.y + 34).L(x, y).toString(), { stroke: P.gold, sw: 0.8, op: 0.7 }));
+    items.push(art.place('kandil', { x, y, w: 44 }));
+    ctx.zone('busy', { x: x - 26, y: top.y + 30, w: 52, h: 96 });
   }
   items.push(...figures(ctx, ghat.at('figures')));
   items.push(...lamps(ctx, ids, ghat.at('lamps'), seed));
@@ -137,9 +141,11 @@ function cover(ctx, page, story) {
 
   const title = ghat.at('title');
   const cx = midX(title), width = title.w;
-  const greetingSize = ctx.fit(tpl.cover.greeting, 'display', 46, width, 26);
+  // Set as large as the zone allows: the cover is read at 150 px in a chat app before it is ever
+  // read at full size, and the greeting and the family's own line are what have to survive that.
+  const greetingSize = ctx.fit(tpl.cover.greeting, 'display', 52, width, 26);
   const subtitle = fillPlaceholders(tpl.cover.subtitle, vars);
-  const subtitleSize = ctx.fit(subtitle, 'display', 33, width, 18);
+  const subtitleSize = ctx.fit(subtitle, 'display', 36, width, 18);
   items.push(ctx.line(cx, title.y + 56, tpl.cover.greeting, 'display', greetingSize, P.gold, { align: 'middle', width, kind: 'title' }));
   items.push(ctx.line(cx, title.y + 56 + greetingSize * 0.96, subtitle, 'display', subtitleSize, P.card, { align: 'middle', width, kind: 'title' }));
   const line = fillPlaceholders(pickLine(tpl.cover.line, vars.n), vars);
@@ -155,13 +161,20 @@ function cover(ctx, page, story) {
 
 /* ------------------------------------------------------------------ the arch pages */
 
-/** The day sky seen through an arch window, as one flat gradient behind the figure. */
+/**
+ * The day seen through an arch window: one flat gradient from a washed sky down to the warm
+ * middle distance, and the low sun the approved opening frame puts behind its figure. Both
+ * painters draw a linear gradient and a circle, and neither costs a soft mask.
+ */
 function view(ctx, box) {
   const ref = ctx.gradient(`view-${Math.round(box.y)}-${Math.round(box.y + box.h)}`, {
     type: 'linear', x1: 0, y1: box.y, x2: 0, y2: box.y + box.h,
     stops: [[0, ctx.P.sky, 1], [0.58, ctx.P.dayHaze, 1], [1, ctx.P.dayMid, 1]],
   });
-  return [rect(box.x, box.y, box.w, box.h, { fill: ref })];
+  return [
+    rect(box.x, box.y, box.w, box.h, { fill: ref }),
+    circle(box.x + box.w * 0.6, box.y + box.h * 0.27, Math.min(box.w, box.h) * 0.13, { fill: ctx.P.flame, op: 0.85 }),
+  ];
 }
 
 /**
@@ -170,20 +183,25 @@ function view(ctx, box) {
  * under it, `window` turns the page over - which is the whole of the design system's "no two
  * consecutive pages share both a composition and an art placement".
  */
-function archPage(ctx, page, { label, frame, words, archWidth = 258 }) {
+const ARCH_WIDTH = 296;
+
+function archPage(ctx, page, { label, frame, words, sillLamps = 2 }) {
   const { P } = ctx;
   const high = page.variant === 'arch';
-  const outer = frameOuter('arch-jharokha', (W - archWidth) / 2, high ? 96 : 404, archWidth);
+  const outer = frameOuter('arch-jharokha', (W - ARCH_WIDTH) / 2, high ? 104 : 326, ARCH_WIDTH);
   const items = [paperGround(ctx, ctx.family.title), sanjhiBand(ctx)];
   const opening = openingIn('arch-jharokha', outer);
   items.push(...frame(outer, opening));
-  // Two lamps on the sill. Nothing on this page counts people, so a lamp here is ornament, which
-  // is the one condition the design system puts on a decorative lamp.
-  for (const k of [0.16, 0.84]) items.push(ctx.art.place('diya', { x: opening.x + opening.w * k, y: opening.y + opening.h + 4, w: 22 }));
-  ctx.zone('busy', { x: outer.x, y: outer.y, w: outer.w, h: outer.h + 8 });
+  // Lamps on the sill. Nothing on this page counts people, so a lamp here is ornament, which is
+  // the one condition the design system puts on a decorative lamp.
+  const sill = sillLamps === 1 ? [0.5] : [0.24, 0.76];
+  for (const k of sill) items.push(ctx.art.place('diya', { x: opening.x + opening.w * k, y: opening.y + opening.h + 5, w: sillLamps === 1 ? 34 : 24 }));
+  ctx.zone('busy', { x: outer.x, y: outer.y, w: outer.w, h: outer.h + 10 });
 
-  const block = words(high ? outer.y + outer.h + 40 : SAFE.y + 44);
-  items.push(...block);
+  const block = words(high ? outer.y + outer.h + 52 : SAFE.y + 40);
+  items.push(...block.items);
+  // The page ends with a tailpiece where the words do, so neither half of it floats in white.
+  if (high) items.push(...tailpiece(ctx, W / 2, Math.min(block.bottom + 64, SAFE.y + SAFE.h - 34)));
   items.push(...folio(ctx, P.inkSoft));
   return ctx.page(label, items, P.paper);
 }
@@ -206,17 +224,19 @@ function openingHero(ctx, page, story) {
       let at = y;
       if (caption) {
         items.push(ctx.line(W / 2, at, caption, 'hand', 14.5, P.inkSoft, { align: 'middle', width: SAFE.w, kind: 'caption' }));
-        at += 30;
+        at += 32;
       }
       const block = titleBlock(ctx, { title: copy?.title, line: sentence, cx: W / 2, y: at, width: 430, titleSize: 34, lineSize: 13, lead: 19, maxLines: 5 });
       items.push(...block.items);
+      let bottom = block.bottom;
       // An eldest F has no roots or courtyards chapter: the opening is where the book says so,
       // rather than leaving the reader to notice two chapters missing (plan.js's `folds`).
-      if (page.folds.length && caption) {
-        const first = nameOf(family, story.kin, story.kin.featured);
-        items.push(ctx.line(W / 2, block.bottom + 30, `${first} is the first name this family remembers.`, 'hand', 13.5, P.clay, { align: 'middle', width: SAFE.w, kind: 'caption' }));
+      const first = nameOf(family, story.kin, story.kin.featured);
+      if (page.folds.length && first) {
+        bottom += 32;
+        items.push(ctx.line(W / 2, bottom, `${first} is the first name this family remembers.`, 'hand', 13.5, P.clay, { align: 'middle', width: SAFE.w, kind: 'caption' }));
       }
-      return items;
+      return { items, bottom };
     },
   });
 }
@@ -235,13 +255,12 @@ function waiting(ctx, page) {
   describe(ctx, page);
   return archPage(ctx, page, {
     label: WAITING_TITLE,
-    frame: (outer, opening) => [
-      ctx.art.frame('arch-jharokha', opening, view(ctx, opening), { shadow: { dx: 1.7, dy: 2.3 } }),
-      ctx.art.place('diya', { x: opening.x + opening.w / 2, y: opening.y + opening.h - 6, w: 40 }),
-    ],
+    frame: (outer, opening) => [ctx.art.frame('arch-jharokha', opening, view(ctx, opening), { shadow: { dx: 1.7, dy: 2.3 } })],
+    sillLamps: 1,
     words: (y) => {
       const block = titleBlock(ctx, { title: WAITING_TITLE, line: WAITING_LINE, cx: W / 2, y: y + 12, width: 420, titleSize: 30, lineSize: 13, lead: 19, maxLines: 5 });
-      return [...block.items, ctx.line(W / 2, block.bottom + 34, WAITING_HAND, 'hand', 14, P.clay, { align: 'middle', width: SAFE.w, kind: 'caption' })];
+      const bottom = block.bottom + 34;
+      return { items: [...block.items, ctx.line(W / 2, bottom, WAITING_HAND, 'hand', 14, P.clay, { align: 'middle', width: SAFE.w, kind: 'caption' })], bottom };
     },
   });
 }
@@ -267,13 +286,15 @@ function portraitHero(ctx, page, story) {
   if (!arches) items.push(ctx.art.place('divider-lotus', { x: W / 2, y: head.bottom + 26, w: 150 }));
 
   const id = arches ? 'arch-jharokha' : 'medallion';
-  const top = head.bottom + 48;
+  const top = head.bottom + (arches ? 54 : 74);
   const one = people.length === 1;
-  const width = one ? (arches ? 238 : 214) : (arches ? 196 : 176);
+  const width = one ? (arches ? 262 : 236) : (arches ? 210 : 190);
   const gap = one ? 0 : Math.min(60, W - 2 * SAFE.x - 2 * width);
   const left = (W - (people.length * width + gap)) / 2;
   const boxes = people.map((p, i) => frameOuter(id, left + i * (width + gap), top, width));
 
+  let lowest = top;
+  let noted = false;
   people.forEach((p, i) => {
     const outer = boxes[i];
     const opening = openingIn(id, outer);
@@ -282,10 +303,16 @@ function portraitHero(ctx, page, story) {
       outer, hero: arches, gen: story.kin.people.get(p?.id)?.gen ?? null, featuredBy: family.byId.get(story.kin.featured)?.by ?? null,
       view: arches ? view(ctx, opening) : [],
     }));
-    const stack = nameStack(ctx, story, p, { cx: outer.x + outer.w / 2, y: outer.y + outer.h + 26, width: width + gap / 2, featuredName });
+    const stack = nameStack(ctx, story, p, { cx: outer.x + outer.w / 2, y: outer.y + outer.h + (arches ? 30 : 40), width: width + gap / 2, featuredName });
     items.push(...stack.items);
-    const note = p && !page.continued && i === 0 ? noteFor(ctx, page, p) : null;
-    if (note) items.push(noteCard(ctx, note, { cx: W / 2, y: Math.max(stack.bottom + 30, H - 190), width: 330 }).items);
+    lowest = Math.max(lowest, stack.bottom);
+    // At most one handwritten note to a page (book-design-system.md), so the first person who has
+    // one gets it, and it sits under both portraits rather than beside one of them.
+    const note = noted || page.continued || !p ? null : noteFor(ctx, page, p);
+    if (note) {
+      noted = true;
+      items.push(noteCard(ctx, note, { cx: W / 2, y: Math.min(lowest + 46, H - 176), width: 340 }).items);
+    }
   });
   if (people.length === 2) {
     items.push(...joinFrames(ctx, people[0], people[1], {
@@ -293,6 +320,8 @@ function portraitHero(ctx, page, story) {
     }));
   }
   ctx.zone('busy', { x: boxes[0].x, y: top, w: boxes[boxes.length - 1].x + width - boxes[0].x, h: boxes[0].h });
+  // A page that ends early closes with a tailpiece rather than a field of empty paper.
+  if (!noted) items.push(...tailpiece(ctx, W / 2, Math.min(lowest + 74, SAFE.y + SAFE.h - 34)));
   items.push(...folio(ctx, P.inkSoft));
   return ctx.page(copy?.title || page.chapter, items, P.paper);
 }
@@ -330,12 +359,14 @@ function closing(ctx, page, story) {
   if (copy?.line) items.push(...ctx.lines(midX(missing), missing.y + 62, copy.line, 'text', 12.5, P.card, { width: missing.w - 40, maxLines: 3, lead: 19, align: 'middle', kind: 'body' }).items);
 
   if (ctx.attribution) {
+    // Lifted clear of the folio: `ctx.footer` prints the page number 22 pt from the foot, and a
+    // plate that reached it would have the number printed across the code.
     const qr = sky.at('qr');
-    const plate = Math.min(96, qr.w);
-    const x = qr.x, y = qr.y;
+    const plate = Math.min(92, qr.w);
+    const x = qr.x, y = qr.y - 22;
     items.push(rect(x, y, plate, plate, { r: 7, fill: P.card }));
     items.push(qrPath(SITE_QR, x + 7, y + 7, plate - 14, P.deep));
-    items.push(ctx.line(x + plate / 2, y - 9, SCAN, 'text', 8.5, P.flame, { align: 'middle', width: plate + 30, kind: 'caption' }));
+    items.push(ctx.line(x + plate / 2, y - 10, SCAN, 'text', 8.5, P.flame, { align: 'middle', width: plate + 40, kind: 'caption' }));
   }
   items.push(...folio(ctx, P.flame));
   return ctx.page(MISSING, items, P.deep);

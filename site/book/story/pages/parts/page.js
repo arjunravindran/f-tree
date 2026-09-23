@@ -126,6 +126,17 @@ export function titleBlock(ctx, { title, line, cx, y, width, titleSize = 32, tit
 }
 
 /**
+ * The tailpiece a page that ends early closes with: a lit diya over a short marigold string
+ * (book-design-system.md, "Page furniture"). Ornament, on a page that counts nobody.
+ */
+export function tailpiece(ctx, cx, y) {
+  return [
+    ctx.art.place('mala', { x: cx, y, w: 150 }),
+    ctx.art.place('diya', { x: cx, y: y + 2, w: 26 }),
+  ];
+}
+
+/**
  * The book's one handwritten note: a torn card with a strip of tape, at most one to a page
  * (book-design-system.md, "Page furniture"). `text` is already clamped to three lines by
  * `family.js`'s `clampNote`; this only lays them out.

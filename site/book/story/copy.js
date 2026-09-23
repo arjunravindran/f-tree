@@ -30,7 +30,7 @@
  */
 
 import { PLACEHOLDER } from '../template.js';
-import { andList, countWords, ORDINALS } from '../blocks/words.js';
+import { andList, countWords, fromFamily, ORDINALS } from '../blocks/words.js';
 import { byKey } from '../family.js';
 import { CHAPTERS, NO_NOTES } from './plan.js';
 
@@ -321,8 +321,8 @@ const CHAPTER_COUNT = {
 /**
  * The `vars` any chapter's `copy` line may draw on, filled with whatever `family` and `kin`
  * actually know: `featured`/`featured-first` and `year` only when the featured person is
- * nameable, `family` from the family's own title, `n` only for a chapter `CHAPTER_COUNT` knows
- * how to count. A var this chapter has nothing to say is left out of the object entirely, so
+ * nameable, `family` and `from-family` from the family's own title, `n` only for a chapter
+ * `CHAPTER_COUNT` knows how to count. A var this chapter has nothing to say is left out of the object entirely, so
  * `fillPlaceholders` drops its token rather than printing a blank.
  */
 export function chapterVars(chapterId, family, kin) {
@@ -335,7 +335,12 @@ export function chapterVars(chapterId, family, kin) {
     const year = family.byId.get(kin.featured)?.by;
     if (year !== null && year !== undefined) vars.year = year;
   }
-  if (family.title) vars.family = family.title;
+  if (family.title) {
+    vars.family = family.title;
+    // The same title as the line a cover prints under the greeting. `blocks/words.js` owns the
+    // phrasing, including the Hindi one, so format 1 and format 2 say it the same way.
+    vars['from-family'] = fromFamily(family.title);
+  }
   const n = CHAPTER_COUNT[chapterId]?.(family, kin);
   if (n !== undefined) vars.n = n;
   return vars;
