@@ -50,10 +50,16 @@ import { seeded } from '../seed.js';
  *   jitter     how far a lamp may drift off the line, as a multiple of `w`.
  *   unknownAt  a Set of indices, or a predicate `(i) => boolean`, for a person whose name is not
  *              known. Drawn with #253's 'lamp-unknown' symbol instead of a plain lit 'diya'.
+ *   lamp       which lamp drawing a named person's lamp is - 'diya' by default, the lit lamp with
+ *              its own glow. A row far enough off that the glow no longer reads, or one on a page
+ *              that already lights the whole area, should ask for 'diya-small' instead: the same
+ *              lamp without the glow discs, which is what it is for (site/book/art/README.md) and
+ *              which costs a row well under half as much (see the budget above). The count is never
+ *              what changes: one lamp is one person whichever drawing lights them.
  * Returns one group item, or `null` for `count === 0` - a page with nobody to light draws nothing,
  * rather than an empty group.
  */
-export function diyaRow(art, x1, y1, x2, y2, count, seed, { w = 20, jitter = 0.18, unknownAt = new Set() } = {}) {
+export function diyaRow(art, x1, y1, x2, y2, count, seed, { w = 20, jitter = 0.18, unknownAt = new Set(), lamp = 'diya' } = {}) {
   if (!Number.isInteger(count) || count < 0) throw new Error(`art: diyaRow count must be a whole number of people, got ${count}`);
   if (count === 0) return null;
   const rand = seeded(seed);
@@ -65,7 +71,7 @@ export function diyaRow(art, x1, y1, x2, y2, count, seed, { w = 20, jitter = 0.1
     const jx = (rand() - 0.5) * jitter * width, jy = (rand() - 0.5) * jitter * width;
     const x = x1 + (x2 - x1) * t + jx;
     const y = y1 + (y2 - y1) * t + jy;
-    items.push(art.place(isUnknown(i) ? 'lamp-unknown' : 'diya', { x, y, w: width }));
+    items.push(art.place(isUnknown(i) ? 'lamp-unknown' : lamp, { x, y, w: width }));
   }
   return group(items);
 }
