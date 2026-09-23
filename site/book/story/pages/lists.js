@@ -130,15 +130,15 @@ function lane(ctx, page, story) {
  * None of the motifs is a lamp. Lamps count people in this book, and a lamp beside a figure on
  * this page would read as counting the wrong thing.
  */
-const FIGURES = [
+export const FIGURES = [
   { motif: 'mango-leaf', circle: 'siblings', noun: 'sibling' },
   { motif: 'lotus', circle: 'children', noun: { one: 'child', many: 'children' } },
   { motif: 'marigold', circle: 'branches', role: 'cousin', noun: 'cousin' },
-  { motif: 'corner-paisley', circle: 'branches', role: 'aunt-uncle', noun: { one: 'aunt or uncle', many: 'aunts and uncles' } },
+  { motif: 'peepal', circle: 'branches', role: 'aunt-uncle', noun: { one: 'aunt or uncle', many: 'aunts and uncles' } },
   { motif: 'marigold-bead', circle: 'descendants', role: 'grandchild', noun: { one: 'grandchild', many: 'grandchildren' } },
-  { motif: 'peepal', circle: 'grandparents', noun: { one: 'grandparent', many: 'grandparents' } },
+  { motif: 'mango-leaf', circle: 'grandparents', noun: { one: 'grandparent', many: 'grandparents' } },
   { motif: 'marigold', circle: 'in-laws', noun: { one: 'relative by marriage', many: 'relatives by marriage' } },
-  { motif: 'mango-leaf', circle: 'lane', noun: { one: 'more relative in the family', many: 'more relatives in the family' } },
+  { motif: 'lotus', circle: 'lane', noun: { one: 'more relative in the family', many: 'more relatives in the family' } },
 ];
 
 /** How many vignettes the page has room for without crowding. */
@@ -171,13 +171,13 @@ function numbers(ctx, page, story) {
 
   const figures = figuresFor(family, story.kin);
   const colW = (SAFE.w - 34) / 2;
-  const top = 206;
-  const rowH = Math.min(168, (SAFE.bottom - 60 - top) / Math.max(1, Math.ceil(figures.length / 2)));
+  const top = 200;
+  const rowH = (SAFE.bottom - 66 - top) / Math.max(1, Math.ceil(figures.length / 2));
   figures.forEach(({ motif: id, line }, i) => {
     const x = SAFE.x + (i % 2) * (colW + 34);
-    const y = top + Math.floor(i / 2) * rowH;
-    items.push(motif(ctx, id, x + 34, y + 26, 60, { shadow: { dx: 1.2, dy: 1.6 } }));
-    items.push(...ctx.lines(x + 78, y + 18, line, 'hand', 13, P.ink, { width: colW - 84, maxLines: 3, lead: 17.5, kind: 'body' }).items);
+    const middle = top + (Math.floor(i / 2) + 0.5) * rowH;
+    items.push(motif(ctx, id, x + 38, middle, 68, { shadow: { dx: 1.2, dy: 1.6 } }));
+    items.push(...ctx.lines(x + 86, middle - 8, line, 'hand', 13.5, P.ink, { width: colW - 92, maxLines: 3, lead: 18, kind: 'body' }).items);
   });
   if (figures.length) items.push(ctx.art.place('divider-lotus', { x: PAGE.w / 2, y: SAFE.bottom - 16, w: 150, op: 0.7 }));
 
@@ -188,7 +188,7 @@ function numbers(ctx, page, story) {
 /** A paisley in each top corner: the day page's quiet alternative to a Sanjhi band. */
 const corners = (ctx) => [
   ctx.art.place('corner-paisley', { x: 18, y: 18, w: 58, anchor: 'top-left', op: 0.55 }),
-  ctx.art.place('corner-paisley', { x: PAGE.w - 18, y: 18, w: 58, anchor: 'top-left', flip: 'x', op: 0.55 }),
+  ctx.art.place('corner-paisley', { x: PAGE.w - 18, y: 18, w: 58, anchor: 'top-right', flip: 'x', op: 0.55 }),
 ];
 
 /* ------------------------------------------------------------------ everyone: the register */
@@ -430,8 +430,10 @@ function legacy(ctx, page, story) {
   // The line climbs from the deepest generation on record down to the featured person's own lamp.
   const gens = generationsBehind(kin);
   const axis = mirrored ? 420 : 175;
-  const base = 640;
   const step = Math.min(70, 300 / Math.max(1, gens));
+  // The column is centred in the page's open middle however tall it turns out to be, so a family
+  // with two generations behind it does not leave half a night sky empty above the lamps.
+  const base = 460 + (step * gens) / 2 + 40;
   const top = base - step * (gens + 0.5);
   items.push(path(`M ${axis} ${base} L ${axis} ${top}`, { stroke: P.gold, sw: 1, op: 0.3 }));
   if (gens) items.push(diyaRow(ctx.art, axis, base - step * gens, axis, base - step, gens, familySeed(ctx, story, 'legacy'), { w: (i, t) => 17 + 9 * t, jitter: 0.1 }));
@@ -446,7 +448,7 @@ function legacy(ctx, page, story) {
   if (roots) items.push(ctx.line(axis, top - 20, roots, 'hand', ctx.fit(roots, 'hand', 12, 190, 8), P.gold, { align: 'middle', width: 190, kind: 'caption' }));
 
   const words = noteCaption(page.copyKey, family, kin.featured, ctx.options) ?? copy?.line;
-  if (words) items.push(...handCard(ctx, words, mirrored ? 185 : 415, 470, 210));
+  if (words) items.push(...handCard(ctx, words, mirrored ? 185 : 415, (top + base) / 2 - 46, 210));
 
   items.push(...ctx.footer(P.silver));
   return ctx.page(copy?.title ?? 'One line of light', items, P.deep);
