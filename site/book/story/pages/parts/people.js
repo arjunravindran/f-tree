@@ -73,7 +73,7 @@ export function portrait(ctx, story, id, cx, cy, d) {
  * Every line is centred in `width` and told to stay inside it, so two neighbouring captions can
  * never print over each other however long a name is.
  */
-export function caption(ctx, story, page, id, { cx, top, width }) {
+export function caption(ctx, story, page, id, { cx, top, width, nameLines = 0 }) {
   const { kin } = story;
   const family = ctx.family;
   const p = family.byId.get(id);
@@ -81,17 +81,15 @@ export function caption(ctx, story, page, id, { cx, top, width }) {
   let y = top;
   const featuredName = nameOf(family, kin, kin.featured);
 
-  const name = nameOf(family, kin, id);
-  const placed = name ? null : stillToBeFoundCaption(family, kin, id);
-  const first = name ?? placed;
+  const { text: first, role, size } = nameLine(ctx, story, id, width);
   if (first) {
     y += TYPE.name;
-    const role = p.name ? 'strong' : 'hand';
-    const ink = p.name ? ctx.P.ink : ctx.P.brass;
-    const broken = ctx.lines(cx, y, first, role, ctx.fit(first, role, TYPE.name, width, TYPE.nameMin), ink,
+    const broken = ctx.lines(cx, y, first, role, size, p.name ? ctx.P.ink : ctx.P.brass,
       { width, maxLines: 2, align: 'middle', lead: TYPE.name * 1.2, kind: 'name' });
     items.push(...broken.items);
-    y = broken.bottom;
+    // A row reserves the same number of name lines for everybody on it, so the dates and the kin
+    // words below line up across the row however long one person's name is.
+    y += (Math.max(nameLines, broken.count) - 1) * TYPE.name * 1.2;
   }
 
   const years = lifeYears(p);
@@ -102,7 +100,7 @@ export function caption(ctx, story, page, id, { cx, top, width }) {
 
   // The kin word, in the hand face in clay (design system, "Typography"). Left out where the
   // name line already *is* the relation, which would print the same fact twice.
-  const word = placed ? null : kinCaption(kin, family, id, featuredName);
+  const word = nameOf(family, kin, id) || !first ? kinCaption(kin, family, id, featuredName) : null;
   if (word) {
     y += TYPE.kin * 1.4;
     items.push(ctx.line(cx, y, word, 'hand', ctx.fit(word, 'hand', TYPE.kin, width, 8), ctx.P.clay, { align: 'middle', width, kind: 'caption' }));
@@ -111,19 +109,32 @@ export function caption(ctx, story, page, id, { cx, top, width }) {
   return { items, bottom: y + 4 };
 }
 
-/** How tall `caption` will be for `id`: the tallest caption sets the row's height. */
-export function captionHeight(ctx, story, id, width) {
-  const family = ctx.family;
-  const p = family.byId.get(id);
-  const name = nameOf(family, story.kin, id) ?? stillToBeFoundCaption(family, story.kin, id);
+/**
+ * The name line under a frame: the person's own name, or - for somebody the record never named -
+ * the relation they are named by, in the hand face. One rule, so measuring a caption and drawing
+ * it can never disagree about what it says.
+ */
+function nameLine(ctx, story, id, width) {
+  const p = ctx.family.byId.get(id);
+  const text = nameOf(ctx.family, story.kin, id) ?? stillToBeFoundCaption(ctx.family, story.kin, id);
+  const role = p.name ? 'strong' : 'hand';
+  return { text, role, size: text ? ctx.fit(text, role, TYPE.name, width, TYPE.nameMin) : TYPE.name };
+}
+
+/** How many lines `id`'s name takes at `width`: the row's tallest sets them all. */
+export function nameLineCount(ctx, story, id, width) {
+  const { text, role, size } = nameLine(ctx, story, id, width);
+  return text ? ctx.lines(0, 0, text, role, size, ctx.P.ink, { width, maxLines: 2, lead: TYPE.name * 1.2 }).count : 0;
+}
+
+/** How tall `caption` will be for `id` with `nameLines` reserved for the name. */
+export function captionHeight(ctx, story, id, width, nameLines) {
+  const p = ctx.family.byId.get(id);
+  const { text } = nameLine(ctx, story, id, width);
   let h = 4;
-  if (name) {
-    const role = p.name ? 'strong' : 'hand';
-    const size = ctx.fit(name, role, TYPE.name, width, TYPE.nameMin);
-    h += TYPE.name + (ctx.lines(0, 0, name, role, size, ctx.P.ink, { width, maxLines: 2, lead: TYPE.name * 1.2 }).count - 1) * TYPE.name * 1.2;
-  }
+  if (text) h += TYPE.name + (Math.max(nameLines, 1) - 1) * TYPE.name * 1.2;
   if (lifeYears(p)) h += TYPE.dates * 1.35;
-  if (!name || p.name) h += TYPE.kin * 1.4;
+  if (nameOf(ctx.family, story.kin, id) || !text) h += TYPE.kin * 1.4;
   return h;
 }
 

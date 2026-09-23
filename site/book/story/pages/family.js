@@ -33,10 +33,10 @@
 import { group, PAGE } from '../../format.js';
 import { chapterCopy, kinCaption, nameOf, rootsLine, stillToBeFoundCaption } from '../copy.js';
 import {
-  SAFE, TYPE, clipBox, clipRect, cutEdge, doorway, folio, groundLine, handmadePaper,
-  noteCard, noteHeight, sanjhiBand, step, titleBlock,
+  SAFE, TYPE, clipRect, doorway, folio, groundLine, handmadePaper,
+  noteCard, noteHeight, sanjhiBand, step, tailpiece, titleBlock,
 } from './parts/paper.js';
-import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, pageNote, portrait } from './parts/people.js';
+import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait } from './parts/people.js';
 
 /** A frame's slot is this much wider than its opening: the petal rim, plus air. */
 const PITCH = 1.34;
@@ -47,6 +47,8 @@ const CLUSTER_GAP = 20;
 const ROW_GAP = 16;
 /** How much smaller somebody a circle out from the story is drawn. */
 const SECONDARY = 0.72;
+/** The most air a page puts above a row when it has room to spare. */
+const SLACK = 34;
 
 const PAGE_MID = PAGE.w / 2;
 
@@ -109,9 +111,16 @@ function fitRow(ctx, clusters, max) {
   return Math.min(max, room / unit);
 }
 
+/** How many lines the longest name in a row takes, which every caption on it reserves. */
+const rowNameLines = (ctx, story, ids, width) => Math.max(1, ...ids.map((id) => nameLineCount(ctx, story, id, width)));
+
 /** The tallest caption in a row, which sets how much room the row's words need. */
-const rowCaptionHeight = (ctx, story, clusters, d) =>
-  Math.max(...clusters.flat().map((id) => captionHeight(ctx, story, id, d * PITCH - 6)));
+function rowCaptionHeight(ctx, story, clusters, d) {
+  const width = d * PITCH - 6;
+  const ids = clusters.flat();
+  const lines = rowNameLines(ctx, story, ids, width);
+  return Math.max(...ids.map((id) => captionHeight(ctx, story, id, width, lines)));
+}
 
 /**
  * Draws one row of households: the ground they stand on (or the step, or the toran over the
@@ -120,6 +129,7 @@ const rowCaptionHeight = (ctx, story, clusters, d) =>
 function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
   const pitch = d * PITCH;
   const total = rowWidth(ctx, clusters, d);
+  const nameLines = rowNameLines(ctx, story, clusters.flat(), pitch - 6);
   const behind = [];
   const front = [];
   const captions = [];
@@ -135,7 +145,7 @@ function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
     }
     ids.forEach((id, j) => {
       front.push(...portrait(ctx, story, id, centres[j], cy, d));
-      captions.push(...caption(ctx, story, page, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6 }).items);
+      captions.push(...caption(ctx, story, page, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6, nameLines }).items);
     });
     x += width + CLUSTER_GAP;
   });
@@ -255,8 +265,16 @@ function nameRun(ctx, story, id, { x, y, width }) {
 
 /* ------------------------------------------------------------------ the two courtyards */
 
-/** Where each house stands on the `aangan`, for the page that cuts the unused one out. */
-const HOUSE = Object.freeze({ left: { x: 24, y: 104, w: 256, h: 266 }, right: { x: 306, y: 104, w: 270, h: 266 } });
+/**
+ * Where each house stands on the `aangan`, for the page that cuts the unused one out: from the top
+ * of the page down to the courtyard floor, and out past the page's edge, so the cut follows the
+ * floor's own line rather than leaving a rectangle drawn in the sky.
+ */
+const FLOOR = 379;
+const HOUSE = Object.freeze({
+  left: { x: -10, y: -10, w: PAGE.w / 2 + 10, h: FLOOR + 10 },
+  right: { x: PAGE.w / 2, y: -10, w: PAGE.w / 2 + 10, h: FLOOR + 10 },
+});
 
 /**
  * The courtyards chapter: the grandparents as two households, the father's house on one side and
@@ -284,22 +302,26 @@ function courtyards(ctx, page, story) {
 
   const scene = ctx.art.place('aangan', placement);
   const items = [cut ? group([scene], { clip: cut.clip }) : scene];
-  if (cut) items.push(...cutEdge(ctx, cut.edge.x, cut.edge.dir));
   reportScene(ctx, all, cut ? (z) => (inside(z, cut.hole) ? null : z) : null);
 
   const copy = words(ctx, page, story.kin);
   items.push(...titleBlock(ctx, page, copy, by.title).items);
 
+  // Both households' words start on the same line, whichever text zone each one sits in, so two
+  // courtyards drawn side by side read as one row rather than two that slipped.
+  const wordsTop = Math.max(by.left.y, by.right.y);
   for (const house of shown) {
     items.push(...household(ctx, story, page, house, {
       frames: cut ? union(houses[0].frames, houses[1].frames) : house.frames,
-      text: cut ? union(houses[0].text, houses[1].text) : house.text,
-      toran: cut ? null : house.toran,
+      text: { ...(cut ? union(houses[0].text, houses[1].text) : house.text), y: wordsTop },
+      toran: house.toran,
     }));
   }
 
   const note = pageNote(ctx, page);
-  if (note) items.push(...noteCard(ctx, page, note, { cx: by.note.x + by.note.w / 2, top: by.note.y + 6, w: Math.min(by.note.w, 340) }).items);
+  const noteMid = by.note.x + by.note.w / 2;
+  if (note) items.push(...noteCard(ctx, page, note, { cx: noteMid, top: by.note.y + 6, w: Math.min(by.note.w, 340) }).items);
+  else items.push(...tailpiece(ctx, noteMid, by.note.y + 20));
   items.push(...folio(ctx));
   return ctx.page(page.chapter, items, ctx.P.paper);
 }
@@ -321,8 +343,7 @@ function cutHouse(keepPaternal, mirrored) {
   const hole = { ...(keepPaternal === mirrored ? HOUSE.left : HOUSE.right) };
   const outer = clipRect(0, 0, PAGE.w, PAGE.h);
   const inner = clipRect(hole.x + hole.w, hole.y, -hole.w, hole.h);   // wound the other way: a hole
-  const onLeft = hole.x < PAGE_MID;
-  return { clip: `${outer}${inner}`, hole, edge: { x: onLeft ? hole.x + hole.w : hole.x, dir: onLeft ? 1 : -1 } };
+  return { clip: `${outer}${inner}`, hole };
 }
 
 /** One household: its toran, its frames under its own house, and its words below them. */
@@ -333,7 +354,8 @@ function household(ctx, story, page, house, { frames, text, toran }) {
   const inWall = house.ids.filter((id) => !ctx.family.byId.get(id).name).slice(0, house.niches.length);
   const onFloor = house.ids.filter((id) => !inWall.includes(id));
 
-  const d = Math.max(FRAME.min, Math.min(FRAME.max, frames.h / (RIM + HANG + 0.2), (frames.w - 8) / (Math.max(1, onFloor.length) * PITCH)));
+  const unit = slots(ctx, onFloor, 0, 1).width || PITCH;
+  const d = Math.max(FRAME.min, Math.min(FRAME.max, frames.h / (RIM + HANG + 0.2), (frames.w - 8) / unit));
   const pitch = d * PITCH;
   const cy = frames.y + d * RIM + 6;
   const items = [];
@@ -345,17 +367,17 @@ function household(ctx, story, page, house, { frames, text, toran }) {
     items.push(ctx.art.place('aala', { x: z.x + z.w / 2, y: z.y + z.h, h: z.h * 0.96 }));
   });
 
-  const x0 = frames.x + frames.w / 2 - (onFloor.length * pitch) / 2;
-  const at = (j) => x0 + pitch * (j + 0.5);
+  const { centres } = slots(ctx, onFloor, frames.x + frames.w / 2 - (unit * d) / 2, d);
   for (let j = 0; j + 1 < onFloor.length; j++) {
-    if (married(ctx, onFloor[j], onFloor[j + 1])) items.push(...marriage(ctx, onFloor[j], onFloor[j + 1], { x1: at(j), x2: at(j + 1), cy, d }));
+    if (married(ctx, onFloor[j], onFloor[j + 1])) items.push(...marriage(ctx, onFloor[j], onFloor[j + 1], { x1: centres[j], x2: centres[j + 1], cy, d }));
   }
-  onFloor.forEach((id, j) => items.push(...portrait(ctx, story, id, at(j), cy, d)));
+  onFloor.forEach((id, j) => items.push(...portrait(ctx, story, id, centres[j], cy, d)));
 
   const capW = Math.min(pitch - 6, text.w / Math.max(1, onFloor.length) - 4);
+  const nameLines = rowNameLines(ctx, story, onFloor, capW);
   let bottom = text.y;
   onFloor.forEach((id, j) => {
-    const block = caption(ctx, story, page, id, { cx: at(j), top: text.y - 2, width: capW });
+    const block = caption(ctx, story, page, id, { cx: centres[j], top: text.y - 2, width: capW, nameLines });
     items.push(...block.items);
     bottom = Math.max(bottom, block.bottom);
   });
@@ -408,9 +430,9 @@ function sizeRows(ctx, story, rows, top, bottom) {
   const room = bottom - top;
   let d = base;
   if (height(d) > room) d = Math.max(FRAME.min, d * (room / height(d)));
-  // Whatever room is left over is shared out between the rows, so a page of two rows breathes
-  // rather than crowding into the top of the paper.
-  const slack = Math.max(0, room - height(d)) / (rows.length + 1);
+  // Whatever room is left over is shared out between the rows, up to a point: a page of one row
+  // should breathe, not float in the middle of an empty sheet.
+  const slack = Math.min(SLACK, Math.max(0, room - height(d)) / (rows.length + 1));
   const out = [];
   let y = top + slack;
   for (const row of rows) {
@@ -419,6 +441,20 @@ function sizeRows(ctx, story, rows, top, bottom) {
     y += rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP + slack;
   }
   return out;
+}
+
+/**
+ * What closes a page whose chapter ran out before the paper did: a diya and a short mala under
+ * the last row, or the lotus divider on a stepped page. A page whose rows reach the foot gets
+ * neither, rather than a tailpiece printed over its own last caption.
+ */
+function closer(ctx, story, page, rows) {
+  const last = rows[rows.length - 1];
+  const bottom = last ? last.cy + last.d * HANG + 6 + rowCaptionHeight(ctx, story, last.clusters, last.d) : SAFE.top;
+  if (page.variant === 'steps') {
+    return bottom + 26 <= SAFE.bottom ? [ctx.art.place('divider-lotus', { x: PAGE_MID, y: SAFE.bottom - 14, w: 150 })] : [];
+  }
+  return bottom + 52 <= SAFE.bottom ? tailpiece(ctx, PAGE_MID, bottom + 18) : [];
 }
 
 /**
@@ -439,8 +475,8 @@ function gathering(ctx, page, story) {
   const rows = sizeRows(ctx, story, rowsOf(story, page), block.bottom + 8, SAFE.bottom - noteH);
   rows.forEach((row) => items.push(...drawRow(ctx, story, page, row, page.variant, `r${row.clusters.flat()[0]}`)));
 
-  if (page.variant === 'steps') items.push(ctx.art.place('divider-lotus', { x: PAGE_MID, y: SAFE.bottom - noteH + 12, w: 150 }));
   if (note) items.push(...noteCard(ctx, page, note, { cx: PAGE_MID, top: SAFE.bottom - noteH + 24, w: 330 }).items);
+  else items.push(...closer(ctx, story, page, rows));
   items.push(...folio(ctx));
   return ctx.page(page.chapter, items, ctx.P.paper);
 }

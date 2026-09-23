@@ -53,7 +53,7 @@ export function handmadePaper(ctx, page) {
   for (let i = 0; i < 7; i++) {
     const cx = 40 + rand() * (PAGE.w - 80);
     const cy = 60 + rand() * (PAGE.h - 120);
-    items.push(path(blob(cx, cy, 90 + rand() * 70, 7, rand, 0.62), { fill: ctx.P.paperDeep, op: 0.5 }));
+    items.push(path(blob(cx, cy, 90 + rand() * 70, 7, rand, 0.62), { fill: ctx.P.paperDeep, op: 0.26 }));
   }
   return items;
 }
@@ -170,17 +170,14 @@ export function noteHeight(ctx, note, w) {
 }
 
 /**
- * The cut edge left where a page crops a scene: the design system's paper shadow stood on end, so
- * a cropped scene reads as one sheet of cut paper rather than a drawing that ran out.
+ * The tailpiece a chapter that ends early closes with: a lit diya and a short mala
+ * (docs/book-design-system.md, "Page furniture"). It is what stands in the quiet foot of a page
+ * that has no handwritten note to carry.
  */
-export const cutEdge = (ctx, x, dir) => [rect(dir > 0 ? x : x - 2.4, 0, 2.4, PAGE.h, { fill: ctx.P.ink, op: 0.14 })];
+export const tailpiece = (ctx, cx, y) => [
+  ctx.art.place('mala', { x: cx, y, w: 150 }),
+  ctx.art.place('diya', { x: cx, y: y + 34, w: 26 }),
+];
 
 /** A rectangle as an absolute path, for a group clip (format 2). */
 export const clipRect = (x, y, w, h) => String(new PathData().M(x, y).L(x + w, y).L(x + w, y + h).L(x, y + h).Z());
-
-/** `box` cut down to `keep`, or null where the two do not meet: a cropped scene's zones. */
-export function clipBox(box, keep) {
-  const x = Math.max(box.x, keep.x), y = Math.max(box.y, keep.y);
-  const w = Math.min(box.x + box.w, keep.x + keep.w) - x, h = Math.min(box.y + box.h, keep.y + keep.h) - y;
-  return w > 0 && h > 0 ? { x, y, w, h } : null;
-}
