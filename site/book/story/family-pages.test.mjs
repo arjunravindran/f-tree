@@ -18,7 +18,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { composeWithPages } from '../compose.js';
-import { validateBook } from '../format.js';
+import { PAGE, validateBook } from '../format.js';
 import { withStubs } from '../qa/stub-pages.mjs';
 import { STORY_TEMPLATE } from '../qa/story-template.mjs';
 import { loadFixture, NOW, STORYBOOK_MANIFEST } from '../qa/book-fixtures.mjs';
@@ -83,10 +83,23 @@ const only = (report, book, pageNo) => ({
   report: { ...report, textBoxes: report.textBoxes.filter((b) => b.page === pageNo), artZones: report.artZones.filter((z) => z.page === pageNo) },
 });
 
+/**
+ * Nothing a reader has to see is drawn off the paper. Art may bleed off a page (a scene does), but
+ * a portrait frame or a name that walked off the edge is a layout that ran out of room, which the
+ * shared invariants do not look for because a format-1 block never could.
+ */
+function offPage(report, pageNo) {
+  const out = [];
+  const beyond = (b) => b.x < -1 || b.y < -1 || b.x + b.w > PAGE.w + 1 || b.y + b.h > PAGE.h + 1;
+  for (const b of report.textBoxes.filter((t) => t.page === pageNo && beyond(t))) out.push(`page ${pageNo}: "${b.s}" is off the page`);
+  for (const z of report.artZones.filter((a) => a.page === pageNo && a.kind === 'face' && beyond(a))) out.push(`page ${pageNo}: a frame at ${Math.round(z.x)},${Math.round(z.y)} is off the page`);
+  return out;
+}
+
 /** Every layout invariant that is about one page, over one page. */
 function layoutFaults(book, report, pageNo) {
   const one = only(report, book, pageNo);
-  return [...sizes(one), ...noTextOverlap(one), ...noTextInBusyArt(one)];
+  return [...sizes(one), ...noTextOverlap(one), ...noTextInBusyArt(one), ...offPage(report, pageNo)];
 }
 
 /* ------------------------------------------------------------------ the pages draw at all */
@@ -204,7 +217,8 @@ test('a marigold string joins two people the record married, and nobody else', a
   const { book, report } = await compose('story-three-spouses', steps);
   const spouses = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 3);
   assert.ok(spouses, 'the three-spouses fixture no longer has its spouses page');
-  assert.equal(uses(book.pages[spouses.page - 1], 'pc-mala'), 0, 'a string was drawn between two people who never married');
+  const page3 = book.pages[spouses.page - 1];
+  assert.equal(uses(page3, 'pc-mala') + uses(page3, 'pc-diya'), 0, 'two people who never married were joined on the page');
 
   // The parents of a family that did marry are joined by one.
   const parents = await compose('story-devanagari', steps);
@@ -270,22 +284,31 @@ test('only the right-hand house has niches, so a lamp elsewhere goes in a frame'
 /* ------------------------------------------------------------------ the gathering's composition */
 
 test('children stand below their parents, and siblings share one ground line', async () => {
-  const { book, report, kin } = await compose('story-devanagari');
+  const { book, report, kin, family } = await compose('story-devanagari');
   const info = report.pages.find((p) => p.archetype === 'gathering' && new Set(p.people.map((id) => kin.people.get(id).gen)).size > 1);
   assert.ok(info, 'no gathering page in this fixture holds two generations');
-  // Every frame's face zone, by the generation of the person it holds.
-  const zones = report.artZones.filter((z) => z.page === info.page && z.kind === 'face');
-  const rows = new Map();
-  for (const id of info.people) {
-    const g = kin.people.get(id).gen;
-    rows.set(g, rows.get(g) ?? []);
-  }
-  assert.ok(rows.size > 1);
-  const gens = [...rows.keys()].sort((a, b) => a - b);
-  // The face zones fall into as many bands as there are generations, in the same order.
-  const bands = [...new Set(zones.map((z) => Math.round(z.y)))].sort((a, b) => a - b);
-  assert.ok(bands.length >= gens.length, `${bands.length} bands of frames for ${gens.length} generations`);
   assert.deepEqual(validateBook(book), []);
+
+  // Each person's own name line says where on the page they stand.
+  const where = new Map();
+  for (const id of info.people) {
+    const name = family.byId.get(id).name;
+    const box = report.textBoxes.find((b) => b.page === info.page && b.kind === 'name' && b.s === name);
+    assert.ok(box, `${id} has no name line on the page`);
+    where.set(id, { y: box.y, gen: kin.people.get(id).gen });
+  }
+  const rows = [...new Set([...where.values()].map((v) => v.gen))].sort((a, b) => a - b);
+  for (let i = 1; i < rows.length; i++) {
+    const above = Math.max(...[...where.values()].filter((v) => v.gen === rows[i - 1]).map((v) => v.y));
+    const below = Math.min(...[...where.values()].filter((v) => v.gen === rows[i]).map((v) => v.y));
+    assert.ok(above < below, `generation ${rows[i]} is not drawn below generation ${rows[i - 1]}`);
+  }
+
+  // Siblings - one generation, one household - share one ground line, so their names do too.
+  for (const g of rows) {
+    const ys = [...where.values()].filter((v) => v.gen === g).map((v) => v.y);
+    assert.ok(Math.max(...ys) - Math.min(...ys) < 1, `one generation's people are on ${new Set(ys).size} ground lines`);
+  }
 });
 
 test('an aunt is drawn smaller than the parent she stands under', async () => {
@@ -299,11 +322,18 @@ test('an aunt is drawn smaller than the parent she stands under', async () => {
 
 test('a half-sibling group is drawn as its own household, not merged into one row', async () => {
   const { report, plans } = await compose('story-half-siblings');
-  const info = report.pages.find((p) => p.archetype === 'gathering' && p.page > 3);
-  const plan = plans.find((p) => p.pageNo === info.page);
+  const plan = plans.find((p) => p.archetype === 'gathering' && p.chapter === 'siblings');
+  assert.ok(plan, 'the fixture no longer draws a siblings page');
   assert.ok(plan.groups.length > 1, 'the fixture no longer splits its siblings by the parents they share');
-  const zones = report.artZones.filter((z) => z.page === info.page && z.kind === 'face').sort((a, b) => a.x - b.x);
-  // Two people the plan put in different groups are further apart than two it put in the same one.
-  const gaps = zones.slice(1).map((z, i) => z.x - zones[i].x);
+
+  // The siblings are one generation, so they stand on one ground line: one band of face zones.
+  const bands = new Map();
+  for (const z of report.artZones.filter((a) => a.page === plan.pageNo && a.kind === 'face')) {
+    const key = Math.round(z.y);
+    bands.set(key, [...(bands.get(key) ?? []), z]);
+  }
+  const row = [...bands.values()].sort((a, b) => b.length - a.length)[0].sort((a, b) => a.x - b.x);
+  assert.equal(row.length, plan.people.length, 'the siblings are not all on one ground line');
+  const gaps = row.slice(1).map((z, i) => z.x - row[i].x);
   assert.ok(Math.max(...gaps) > Math.min(...gaps) + 1, 'every frame is evenly spaced: the households do not read apart');
 });

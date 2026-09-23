@@ -239,7 +239,9 @@ function banyan(ctx, page, story) {
 function nameList(ctx, story, box, columns, top = box.y) {
   const items = [];
   const colW = (box.w - 30) / 2;
-  const lead = TYPE.name * 1.36;
+  const rows = Math.max(1, ...columns.map((ids) => ids.length));
+  // A long column closes the leading up rather than running off the foot of the page.
+  const lead = Math.max(11.5, Math.min(TYPE.name * 1.36, (box.y + box.h - top - 4) / rows));
   columns.forEach((ids, c) => {
     ids.forEach((id, i) => items.push(...nameRun(ctx, story, id, { x: box.x + c * (colW + 30), y: top + lead * (i + 1), width: colW })));
   });
