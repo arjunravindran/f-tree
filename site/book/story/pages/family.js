@@ -4,9 +4,446 @@
  * relationship - a marigold string for a marriage, children below their parents, one ground line
  * for siblings - and never a label or a connecting line.
  *
- * Fill `PAGES` in as each archetype lands. index.js says what a page function is handed and what
- * it must do; plan.js's `VARIANTS` names the variants each one has to honour.
+ * ## What each one draws
+ *
+ *   banyan      the earliest names the record holds, in medallions on the banyan's own `root-*`
+ *               zones, eldest highest, with "N generations before F" under the chapter title.
+ *   courtyards  the paternal and maternal grandparents as two households on the `aangan` scene.
+ *               The scene always draws both houses, so a family that knows only one side has the
+ *               other house cut out of the paper and its household stood in the middle of the
+ *               courtyard instead.
+ *   gathering   everybody else the story's circles hold: parents with their brothers and sisters
+ *               smaller beside them, siblings on one ground line, spouses and the family that
+ *               joined with them, children and grandchildren.
+ *
+ * ## The one composition the gathering uses
+ *
+ * A row for each generation `kin.js` placed the page's people at, eldest first, so children always
+ * stand below their parents; within a row, one cluster for each of the plan's own groups - a
+ * household - on its own ground line, with a marigold string over a married pair. People a circle
+ * out from the story (an aunt, an in-law) are drawn smaller, on a second line of the same
+ * generation, which is how "their siblings appear smaller" is drawn rather than said.
+ *
+ * Nothing here re-decides who is on a page, how they group, or what number it carries: that is
+ * `story/plan.js`'s work, and this only reads the `PagePlan` it is handed.
+ *
+ * Composer code: deterministic, static relative imports, no clock, no locale, no DOM, no random.
  */
 
+import { group, PAGE } from '../../format.js';
+import { chapterCopy, kinCaption, nameOf, rootsLine, stillToBeFoundCaption } from '../copy.js';
+import {
+  SAFE, TYPE, clipBox, clipRect, cutEdge, doorway, folio, groundLine, handmadePaper,
+  noteCard, noteHeight, sanjhiBand, step, titleBlock,
+} from './parts/paper.js';
+import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, pageNote, portrait } from './parts/people.js';
+
+/** A frame's slot is this much wider than its opening: the petal rim, plus air. */
+const PITCH = 1.34;
+/** The extra air a married pair takes, so the marigold string between them is not hidden. */
+const WED = 0.42;
+/** Between two households on one row, and between one row and the next. */
+const CLUSTER_GAP = 20;
+const ROW_GAP = 16;
+/** How much smaller somebody a circle out from the story is drawn. */
+const SECONDARY = 0.72;
+
+const PAGE_MID = PAGE.w / 2;
+
+/* ------------------------------------------------------------------ shared pieces */
+
+/** The chapter's words, or empty ones where this template names no copy for the chapter. */
+const words = (ctx, page, kin) => chapterCopy(page.copyKey, { family: ctx.family, kin, tpl: ctx.tpl })
+  ?? { title: null, line: null };
+
+/** A scene's zones, and the same zones by name, as one placement puts them on the page. */
+function sceneZones(ctx, id, placement) {
+  const all = ctx.art.zones(id, placement);
+  const by = {};
+  for (const z of all) if (z.name !== undefined) by[z.name] = z;
+  return { all, by };
+}
+
+/**
+ * Tells the QA harness what the scene covers, so "no words over busy art" is checked against
+ * something. A page that cut part of the scene away reports only what is left of each zone.
+ */
+function reportScene(ctx, zones, keep) {
+  for (const z of zones) {
+    if (z.kind === 'text') continue;
+    const box = keep ? keep(z) : z;
+    if (box) ctx.zone(z.kind, { x: box.x, y: box.y, w: box.w, h: box.h });
+  }
+}
+
+/** The plan's own groups, cut down to the people a row draws, with the empty groups dropped. */
+const clustersOf = (page, pick) => page.groups.map((g) => g.people.filter(pick)).filter((c) => c.length);
+
+/**
+ * One cluster's frame centres: a slot each, and wider air around a married pair so the marigold
+ * string between the two frames is seen rather than hidden behind them.
+ */
+function slots(ctx, ids, x0, d) {
+  const pitch = d * PITCH;
+  const centres = [];
+  let x = x0;
+  for (let i = 0; i < ids.length; i++) {
+    centres.push(x + pitch / 2);
+    x += pitch;
+    if (i + 1 < ids.length && married(ctx, ids[i], ids[i + 1])) x += d * WED;
+  }
+  return { centres, width: x - x0 };
+}
+
+/** How wide a row of clusters is at frame size `d`, in slots, married-pair air and the gaps. */
+function rowWidth(ctx, clusters, d) {
+  let w = (clusters.length - 1) * CLUSTER_GAP;
+  for (const ids of clusters) w += slots(ctx, ids, 0, d).width;
+  return w;
+}
+
+/** The largest frame size, no bigger than `max`, that a row of clusters fits the safe width at. */
+function fitRow(ctx, clusters, max) {
+  const unit = rowWidth(ctx, clusters, 1) - (clusters.length - 1) * CLUSTER_GAP;
+  const room = SAFE.right - SAFE.left - (clusters.length - 1) * CLUSTER_GAP;
+  return Math.min(max, room / unit);
+}
+
+/** The tallest caption in a row, which sets how much room the row's words need. */
+const rowCaptionHeight = (ctx, story, clusters, d) =>
+  Math.max(...clusters.flat().map((id) => captionHeight(ctx, story, id, d * PITCH - 6)));
+
+/**
+ * Draws one row of households: the ground they stand on (or the step, or the toran over the
+ * doorway), the frames, the marigold strings, and the words under each frame.
+ */
+function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
+  const pitch = d * PITCH;
+  const total = rowWidth(ctx, clusters, d);
+  const behind = [];
+  const front = [];
+  const captions = [];
+  let x = PAGE_MID - total / 2;
+  clusters.forEach((ids, i) => {
+    const { centres, width } = slots(ctx, ids, x, d);
+    const span = { x1: centres[0] - d / 2, x2: centres[centres.length - 1] + d / 2, y: cy + d * 0.5 };
+    if (variant === 'steps') behind.push(...step(ctx, span));
+    else behind.push(...groundLine(ctx, page, span, `${tag}-${i}`));
+    if (variant === 'doorways') behind.push(...doorway(ctx, page, { x1: span.x1, x2: span.x2, y: cy - d * RIM - 14 }, `${tag}-${i}`));
+    for (let j = 0; j + 1 < ids.length; j++) {
+      if (married(ctx, ids[j], ids[j + 1])) behind.push(...marriage(ctx, ids[j], ids[j + 1], { x1: centres[j], x2: centres[j + 1], cy, d }));
+    }
+    ids.forEach((id, j) => {
+      front.push(...portrait(ctx, story, id, centres[j], cy, d));
+      captions.push(...caption(ctx, story, page, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6 }).items);
+    });
+    x += width + CLUSTER_GAP;
+  });
+  return [...behind, ...front, ...captions];
+}
+
+/* ------------------------------------------------------------------ the banyan of ancestors */
+
+/**
+ * The `banyan` scene's six medallion zones, as two columns - the left of the tree and the right -
+ * each eldest first, since the scene draws the eldest highest. Read off the zones' own boxes
+ * rather than their names, so a mirrored placement still gives the left-hand column first.
+ */
+function rootColumns(zones) {
+  const roots = zones.filter((z) => z.kind === 'face' && z.name !== undefined && z.name.startsWith('root-'));
+  const by = (a, b) => a.y - b.y || a.x - b.x;
+  return [
+    roots.filter((z) => z.x + z.w / 2 < PAGE_MID).sort(by),
+    roots.filter((z) => z.x + z.w / 2 >= PAGE_MID).sort(by),
+  ];
+}
+
+/**
+ * The page's ancestors down the two sides of the tree: the father's line on the left, the mother's
+ * on the right. A family that knows only one line still fills both sides, eldest first, rather
+ * than hanging every medallion off one branch.
+ */
+function rootSides(story, people) {
+  const left = people.filter((id) => story.kin.people.get(id)?.side === 'paternal');
+  const right = people.filter((id) => story.kin.people.get(id)?.side !== 'paternal');
+  if (left.length && right.length) return [left, right];
+  const one = left.length ? left : right;
+  return [one.slice(0, Math.ceil(one.length / 2)), one.slice(Math.ceil(one.length / 2))];
+}
+
+/** `ids` spread over `n` zones, the fuller zones last, so the eldest hang alone and highest. */
+function spread(ids, n) {
+  const out = [];
+  let at = 0;
+  for (let i = 0; i < n; i++) {
+    const size = Math.floor((ids.length - at) / (n - i));
+    out.push(ids.slice(at, at + size));
+    at += size;
+  }
+  return out;
+}
+
+/**
+ * The roots chapter: the earliest names the record holds, in medallions hung on the banyan, and
+ * named on the ground below it. The tree is marked busy from edge to edge, so the page's words sit
+ * in the scene's own two text zones - the title above the canopy and the names below the roots -
+ * in the same two columns the medallions hang in.
+ */
+function banyan(ctx, page, story) {
+  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  const placement = { x: 0, y: 0, w: PAGE.w, ...(page.variant === 'canopy' ? { flip: 'x' } : {}) };
+  const { all, by } = sceneZones(ctx, 'banyan', placement);
+  const items = [ctx.art.place('banyan', placement)];
+  reportScene(ctx, all);
+
+  const copy = words(ctx, page, story.kin);
+  items.push(...titleBlock(ctx, page, { title: copy.title, line: rootsLine(ctx.family, story.kin) }, by.title).items);
+
+  const columns = rootColumns(all);
+  const sides = rootSides(story, page.people);
+  const listed = [[], []];
+  columns.forEach((zones, c) => {
+    spread(sides[c], zones.length).forEach((ids, i) => {
+      if (!ids.length) return;
+      const z = zones[i];
+      const d = Math.min(z.w, (z.w * 1.18) / ids.length);
+      const pitch = d * 1.06;
+      const x0 = z.x + z.w / 2 - (ids.length * pitch) / 2;
+      ids.forEach((id, j) => items.push(...portrait(ctx, story, id, x0 + pitch * (j + 0.5), z.y + z.h / 2, d)));
+      listed[c].push(...ids);
+    });
+  });
+
+  items.push(...rootNames(ctx, story, copy.line, by.story, listed));
+  items.push(...folio(ctx));
+  return ctx.page(page.chapter, items, ctx.P.paper);
+}
+
+/** The names under the tree, in the same two columns the medallions hang in. */
+function rootNames(ctx, story, line, box, columns) {
+  const items = [];
+  let top = box.y;
+  if (line) {
+    top += TYPE.name * 1.1;
+    items.push(ctx.line(box.x + box.w / 2, top, line, 'text', 11, ctx.P.inkSoft, { align: 'middle', width: box.w, kind: 'body' }));
+    top += 8;
+  }
+  const colW = (box.w - 30) / 2;
+  const lead = TYPE.name * 1.36;
+  columns.forEach((ids, c) => {
+    ids.forEach((id, i) => items.push(...nameRun(ctx, story, id, { x: box.x + c * (colW + 30), y: top + lead * (i + 1), width: colW })));
+  });
+  return items;
+}
+
+/** One line of the names list: the name, and the kin word beside it in the hand face. */
+function nameRun(ctx, story, id, { x, y, width }) {
+  const { kin } = story;
+  const p = ctx.family.byId.get(id);
+  const name = nameOf(ctx.family, kin, id) ?? stillToBeFoundCaption(ctx.family, kin, id);
+  ctx.show(id);
+  if (!name) return [];
+  const word = p.name ? kinCaption(kin, ctx.family, id) : null;
+  const role = p.name ? 'strong' : 'hand';
+  const kinW = word ? ctx.measure(word, 'hand', TYPE.kin) + 8 : 0;
+  const size = ctx.fit(name, role, TYPE.name, width - kinW, TYPE.nameMin);
+  const nameW = Math.min(ctx.measure(name, role, size), width - kinW);
+  const items = [ctx.line(x, y, name, role, size, p.name ? ctx.P.ink : ctx.P.brass, { width: nameW, kind: 'name' })];
+  if (word) items.push(ctx.line(x + nameW + 8, y, word, 'hand', TYPE.kin, ctx.P.clay, { width: kinW, kind: 'caption' }));
+  return items;
+}
+
+/* ------------------------------------------------------------------ the two courtyards */
+
+/** Where each house stands on the `aangan`, for the page that cuts the unused one out. */
+const HOUSE = Object.freeze({ left: { x: 24, y: 104, w: 256, h: 266 }, right: { x: 306, y: 104, w: 270, h: 266 } });
+
+/**
+ * The courtyards chapter: the grandparents as two households, the father's house on one side and
+ * the mother's on the other, under torans, with the lamps in the right-hand house's wall lit for
+ * anybody in that household whose name was never written down.
+ *
+ * The scene always draws both houses. A family that knows only one side has the other house cut
+ * out of the paper - the sky, the ground and the tulsi between them all stay - and stands its one
+ * household in the middle of the courtyard rather than off to one side.
+ */
+function courtyards(ctx, page, story) {
+  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  const mirrored = page.variant === 'mirrored';
+  const placement = { x: 0, y: 0, w: PAGE.w, ...(mirrored ? { flip: 'x' } : {}) };
+  const { all, by } = sceneZones(ctx, 'aangan', placement);
+
+  // The father's side takes the house `household-left` stands under, whichever side of the page a
+  // mirrored placement puts it on; everybody else takes the other house.
+  const houses = [
+    { ids: page.people.filter((id) => story.kin.people.get(id)?.side === 'paternal'), frames: by['household-left'], text: by.left, toran: by['toran-left'], niches: [] },
+    { ids: page.people.filter((id) => story.kin.people.get(id)?.side !== 'paternal'), frames: by['household-right'], text: by.right, toran: by['toran-right'], niches: [by['aala-right-1'], by['aala-right-2']].filter(Boolean) },
+  ];
+  const shown = houses.filter((h) => h.ids.length);
+  const cut = shown.length === 1 ? cutHouse(houses[0].ids.length > 0, mirrored) : null;
+
+  const scene = ctx.art.place('aangan', placement);
+  const items = [cut ? group([scene], { clip: cut.clip }) : scene];
+  if (cut) items.push(...cutEdge(ctx, cut.edge.x, cut.edge.dir));
+  reportScene(ctx, all, cut ? (z) => (inside(z, cut.hole) ? null : z) : null);
+
+  const copy = words(ctx, page, story.kin);
+  items.push(...titleBlock(ctx, page, copy, by.title).items);
+
+  for (const house of shown) {
+    items.push(...household(ctx, story, page, house, {
+      frames: cut ? union(houses[0].frames, houses[1].frames) : house.frames,
+      text: cut ? union(houses[0].text, houses[1].text) : house.text,
+      toran: cut ? null : house.toran,
+    }));
+  }
+
+  const note = pageNote(ctx, page);
+  if (note) items.push(...noteCard(ctx, page, note, { cx: by.note.x + by.note.w / 2, top: by.note.y + 6, w: Math.min(by.note.w, 340) }).items);
+  items.push(...folio(ctx));
+  return ctx.page(page.chapter, items, ctx.P.paper);
+}
+
+/** Two zone boxes joined into one, for a page standing a single household in the middle. */
+const union = (a, b) => ({
+  x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
+  w: Math.max(a.x + a.w, b.x + b.w) - Math.min(a.x, b.x), h: Math.max(a.y + a.h, b.y + b.h) - Math.min(a.y, b.y),
+});
+
+const inside = (box, hole) => box.x >= hole.x && box.y >= hole.y && box.x + box.w <= hole.x + hole.w && box.y + box.h <= hole.y + hole.h;
+
+/**
+ * The clip that cuts the unused house out of the `aangan`: the whole page, with a hole punched
+ * where that house stands. Two rings in one path, wound opposite ways, which format 2's nonzero
+ * rule leaves as a hole - so the sky, the ground and the tulsi in the middle are still drawn.
+ */
+function cutHouse(keepPaternal, mirrored) {
+  const hole = { ...(keepPaternal === mirrored ? HOUSE.left : HOUSE.right) };
+  const outer = clipRect(0, 0, PAGE.w, PAGE.h);
+  const inner = clipRect(hole.x + hole.w, hole.y, -hole.w, hole.h);   // wound the other way: a hole
+  const onLeft = hole.x < PAGE_MID;
+  return { clip: `${outer}${inner}`, hole, edge: { x: onLeft ? hole.x + hole.w : hole.x, dir: onLeft ? 1 : -1 } };
+}
+
+/** One household: its toran, its frames under its own house, and its words below them. */
+function household(ctx, story, page, house, { frames, text, toran }) {
+  // A name nobody wrote down is a lamp kept in the wall of that person's own house: the aala
+  // niche, which is the notation wherever a scene leaves room for a wall. Only the right-hand
+  // house has niches, so everybody else takes the dashed brass lamp in a frame instead.
+  const inWall = house.ids.filter((id) => !ctx.family.byId.get(id).name).slice(0, house.niches.length);
+  const onFloor = house.ids.filter((id) => !inWall.includes(id));
+
+  const d = Math.max(FRAME.min, Math.min(FRAME.max, frames.h / (RIM + HANG + 0.2), (frames.w - 8) / (Math.max(1, onFloor.length) * PITCH)));
+  const pitch = d * PITCH;
+  const cy = frames.y + d * RIM + 6;
+  const items = [];
+  if (toran) items.push(...doorway(ctx, page, { x1: toran.x, x2: toran.x + toran.w, y: toran.y + toran.h / 2 }, `t${Math.round(toran.x)}`));
+
+  inWall.forEach((id, i) => {
+    const z = house.niches[i];
+    ctx.show(id);
+    items.push(ctx.art.place('aala', { x: z.x + z.w / 2, y: z.y + z.h, h: z.h * 0.96 }));
+  });
+
+  const x0 = frames.x + frames.w / 2 - (onFloor.length * pitch) / 2;
+  const at = (j) => x0 + pitch * (j + 0.5);
+  for (let j = 0; j + 1 < onFloor.length; j++) {
+    if (married(ctx, onFloor[j], onFloor[j + 1])) items.push(...marriage(ctx, onFloor[j], onFloor[j + 1], { x1: at(j), x2: at(j + 1), cy, d }));
+  }
+  onFloor.forEach((id, j) => items.push(...portrait(ctx, story, id, at(j), cy, d)));
+
+  const capW = Math.min(pitch - 6, text.w / Math.max(1, onFloor.length) - 4);
+  let bottom = text.y;
+  onFloor.forEach((id, j) => {
+    const block = caption(ctx, story, page, id, { cx: at(j), top: text.y - 2, width: capW });
+    items.push(...block.items);
+    bottom = Math.max(bottom, block.bottom);
+  });
+  // Anybody whose lamp is in the wall is named by their relation, under the house they belong to.
+  inWall.forEach((id) => {
+    const block = caption(ctx, story, page, id, { cx: text.x + text.w / 2, top: bottom, width: text.w - 8 });
+    items.push(...block.items);
+    bottom = block.bottom;
+  });
+  return items;
+}
+
+/* ------------------------------------------------------------------ the gathering */
+
+/** Somebody a circle out from the story - an aunt, an in-law, a cousin - is drawn smaller. */
+const OUTER_CIRCLES = new Set(['branches', 'in-laws', 'lane']);
+const isOuter = (story, id) => OUTER_CIRCLES.has(story.kin.people.get(id)?.circle);
+
+/**
+ * The rows a gathering falls into: one for each generation `kin.js` placed these people at, eldest
+ * first, and within a generation the story's own people before the circle beyond them. Children
+ * therefore always stand below their parents, and an aunt below and smaller than her brother.
+ */
+function rowsOf(story, page) {
+  const gen = (id) => story.kin.people.get(id)?.gen ?? 0;
+  const gens = [...new Set(page.people.map(gen))].sort((a, b) => a - b);
+  const rows = [];
+  for (const g of gens) {
+    for (const outer of [false, true]) {
+      const clusters = clustersOf(page, (id) => gen(id) === g && isOuter(story, id) === outer);
+      if (clusters.length) rows.push({ clusters, outer });
+    }
+  }
+  return rows;
+}
+
+/**
+ * How big every frame is, and where each row sits: one size for the story's own people and a
+ * smaller one for the circle beyond them, both cut down together until the rows fit the page.
+ */
+function sizeRows(ctx, story, rows, top, bottom) {
+  const core = rows.filter((r) => !r.outer);
+  const base = Math.min(FRAME.max, ...(core.length ? core : rows).map((r) => fitRow(ctx, r.clusters, FRAME.max)));
+  const sizeOf = (row, d) => Math.min(row.outer ? d * SECONDARY : d, fitRow(ctx, row.clusters, FRAME.max));
+  const height = (d) => rows.reduce((sum, row) => {
+    const rd = sizeOf(row, d);
+    return sum + rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP;
+  }, 0);
+
+  const room = bottom - top;
+  let d = base;
+  if (height(d) > room) d = Math.max(FRAME.min, d * (room / height(d)));
+  // Whatever room is left over is shared out between the rows, so a page of two rows breathes
+  // rather than crowding into the top of the paper.
+  const slack = Math.max(0, room - height(d)) / (rows.length + 1);
+  const out = [];
+  let y = top + slack;
+  for (const row of rows) {
+    const rd = sizeOf(row, d);
+    out.push({ clusters: row.clusters, d: rd, cy: y + rd * RIM });
+    y += rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP + slack;
+  }
+  return out;
+}
+
+/**
+ * A page of the family - parents, siblings, spouses, children, or a small chapter's household -
+ * composed as rows of generations on cream paper.
+ */
+function gathering(ctx, page, story) {
+  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  const items = handmadePaper(ctx, page);
+  if (page.variant === 'band') items.push(...sanjhiBand(ctx, page));
+
+  const copy = words(ctx, page, story.kin);
+  const block = titleBlock(ctx, page, copy, { x: SAFE.left, y: page.variant === 'band' ? 62 : SAFE.top, w: SAFE.right - SAFE.left });
+  items.push(...block.items);
+
+  const note = pageNote(ctx, page);
+  const noteH = noteHeight(ctx, note, 330);
+  const rows = sizeRows(ctx, story, rowsOf(story, page), block.bottom + 8, SAFE.bottom - noteH);
+  rows.forEach((row) => items.push(...drawRow(ctx, story, page, row, page.variant, `r${row.clusters.flat()[0]}`)));
+
+  if (page.variant === 'steps') items.push(ctx.art.place('divider-lotus', { x: PAGE_MID, y: SAFE.bottom - noteH + 12, w: 150 }));
+  if (note) items.push(...noteCard(ctx, page, note, { cx: PAGE_MID, top: SAFE.bottom - noteH + 24, w: 330 }).items);
+  items.push(...folio(ctx));
+  return ctx.page(page.chapter, items, ctx.P.paper);
+}
+
 /** Archetype id -> draw(ctx, page, story). #257: banyan, courtyards, gathering. */
-export const PAGES = Object.freeze({});
+export const PAGES = Object.freeze({ banyan, courtyards, gathering });
