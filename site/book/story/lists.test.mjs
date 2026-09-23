@@ -57,7 +57,10 @@ const linesOn = (report, page, kind) => report.textBoxes.filter((b) => b.page ==
 test('the register lists everyone in scope, on every fixture', async () => {
   for (const fixture of EVERY) {
     const { family, report, plan } = await book(fixture);
-    const listed = new Set(pagesOfKind(report, 'register').flatMap((p) => p.people));
+    // What was DRAWN, not what was planned: `ctx.show` is called by the row that prints a name, so
+    // a register that quietly dropped a row would still be planned right and fail here.
+    const on = new Set(pagesOfKind(report, 'register').map((p) => p.page));
+    const listed = new Set(Object.keys(report.shown).filter((id) => report.shown[id].some((n) => on.has(n))));
     const inScope = family.people.map((p) => p.id);
     for (const id of inScope) assert.ok(listed.has(id), `${fixture}: ${id} is in scope and on no register page`);
     assert.equal(listed.size, inScope.length, `${fixture}: the register lists somebody who is not in scope`);
