@@ -49,6 +49,8 @@ const ROW_GAP = 16;
 const SECONDARY = 0.72;
 /** The most air a page puts above a row when it has room to spare. */
 const SLACK = 34;
+/** The room a hung toran needs above a row, on the variant that draws households as doorways. */
+const TORAN_ROOM = 30;
 
 const PAGE_MID = PAGE.w / 2;
 
@@ -229,7 +231,25 @@ function banyan(ctx, page, story) {
   return ctx.page(page.chapter, items, ctx.P.paper);
 }
 
-/** The names under the tree, in the same two columns the medallions hang in. */
+/**
+ * A list of names, in two columns, each with its kin word beside it in the hand face. It is what a
+ * page uses where a caption cannot sit under its own frame: under the banyan, whose every inch is
+ * busy art, and under a household too crowded to give each frame its own words.
+ */
+function nameList(ctx, story, box, columns, top = box.y) {
+  const items = [];
+  const colW = (box.w - 30) / 2;
+  const lead = TYPE.name * 1.36;
+  columns.forEach((ids, c) => {
+    ids.forEach((id, i) => items.push(...nameRun(ctx, story, id, { x: box.x + c * (colW + 30), y: top + lead * (i + 1), width: colW })));
+  });
+  return items;
+}
+
+/** The two halves of `ids`, for a two-column list that fills the left column first. */
+const halves = (ids) => [ids.slice(0, Math.ceil(ids.length / 2)), ids.slice(Math.ceil(ids.length / 2))];
+
+/** The names under the tree, under the chapter's own line, in the columns the medallions hang in. */
 function rootNames(ctx, story, line, box, columns) {
   const items = [];
   let top = box.y;
@@ -238,12 +258,7 @@ function rootNames(ctx, story, line, box, columns) {
     items.push(ctx.line(box.x + box.w / 2, top, line, 'text', 11, ctx.P.inkSoft, { align: 'middle', width: box.w, kind: 'body' }));
     top += 8;
   }
-  const colW = (box.w - 30) / 2;
-  const lead = TYPE.name * 1.36;
-  columns.forEach((ids, c) => {
-    ids.forEach((id, i) => items.push(...nameRun(ctx, story, id, { x: box.x + c * (colW + 30), y: top + lead * (i + 1), width: colW })));
-  });
-  return items;
+  return [...items, ...nameList(ctx, story, box, columns, top)];
 }
 
 /** One line of the names list: the name, and the kin word beside it in the hand face. */
@@ -354,10 +369,15 @@ function household(ctx, story, page, house, { frames, text, toran }) {
   const inWall = house.ids.filter((id) => !ctx.family.byId.get(id).name).slice(0, house.niches.length);
   const onFloor = house.ids.filter((id) => !inWall.includes(id));
 
-  const unit = slots(ctx, onFloor, 0, 1).width || PITCH;
-  const d = Math.max(FRAME.min, Math.min(FRAME.max, frames.h / (RIM + HANG + 0.2), (frames.w - 8) / unit));
+  // A house front is only so wide. Past what fits on its doorstep at a legible size the household
+  // stands in several rows and is named in a list below, rather than crushing a name into a
+  // slot too narrow to read it in.
+  const perRow = Math.max(1, Math.floor(frames.w / (FRAME.min * PITCH)));
+  const rowCount = Math.max(1, Math.ceil(onFloor.length / perRow));
+  const listed = rowCount > 1;
+  const unit = listed ? perRow * PITCH : slots(ctx, onFloor, 0, 1).width || PITCH;
+  const d = Math.max(FRAME.min, Math.min(FRAME.max, frames.h / rowCount / (RIM + HANG + 0.2), (frames.w - 8) / unit));
   const pitch = d * PITCH;
-  const cy = frames.y + d * RIM + 6;
   const items = [];
   if (toran) items.push(...doorway(ctx, page, { x1: toran.x, x2: toran.x + toran.w, y: toran.y + toran.h / 2 }, `t${Math.round(toran.x)}`));
 
@@ -367,21 +387,27 @@ function household(ctx, story, page, house, { frames, text, toran }) {
     items.push(ctx.art.place('aala', { x: z.x + z.w / 2, y: z.y + z.h, h: z.h * 0.96 }));
   });
 
-  const { centres } = slots(ctx, onFloor, frames.x + frames.w / 2 - (unit * d) / 2, d);
-  for (let j = 0; j + 1 < onFloor.length; j++) {
-    if (married(ctx, onFloor[j], onFloor[j + 1])) items.push(...marriage(ctx, onFloor[j], onFloor[j + 1], { x1: centres[j], x2: centres[j + 1], cy, d }));
+  const rowTop = frames.y + d * RIM + 6;
+  const rowPitch = frames.h / rowCount;
+  for (let r = 0; r < rowCount; r++) {
+    const ids = onFloor.slice(r * perRow, (r + 1) * perRow);
+    if (!ids.length) continue;
+    const { centres, width } = slots(ctx, ids, 0, d);
+    const x0 = frames.x + frames.w / 2 - width / 2;
+    const cy = rowTop + r * rowPitch;
+    for (let j = 0; j + 1 < ids.length; j++) {
+      if (married(ctx, ids[j], ids[j + 1])) items.push(...marriage(ctx, ids[j], ids[j + 1], { x1: x0 + centres[j], x2: x0 + centres[j + 1], cy, d }));
+    }
+    ids.forEach((id, j) => items.push(...portrait(ctx, story, id, x0 + centres[j], cy, d)));
+    if (listed) continue;
+    const capW = Math.min(pitch - 6, text.w / ids.length - 4);
+    const nameLines = rowNameLines(ctx, story, ids, capW);
+    ids.forEach((id, j) => items.push(...caption(ctx, story, page, id, { cx: x0 + centres[j], top: text.y - 2, width: capW, nameLines }).items));
   }
-  onFloor.forEach((id, j) => items.push(...portrait(ctx, story, id, centres[j], cy, d)));
+  if (listed) items.push(...nameList(ctx, story, text, halves(onFloor)));
 
-  const capW = Math.min(pitch - 6, text.w / Math.max(1, onFloor.length) - 4);
-  const nameLines = rowNameLines(ctx, story, onFloor, capW);
-  let bottom = text.y;
-  onFloor.forEach((id, j) => {
-    const block = caption(ctx, story, page, id, { cx: centres[j], top: text.y - 2, width: capW, nameLines });
-    items.push(...block.items);
-    bottom = Math.max(bottom, block.bottom);
-  });
   // Anybody whose lamp is in the wall is named by their relation, under the house they belong to.
+  let bottom = text.y + (listed ? Math.ceil(onFloor.length / 2) * TYPE.name * 1.36 + 6 : captionHeight(ctx, story, onFloor[0] ?? inWall[0], text.w - 8, 1) + 8);
   inWall.forEach((id) => {
     const block = caption(ctx, story, page, id, { cx: text.x + text.w / 2, top: bottom, width: text.w - 8 });
     items.push(...block.items);
@@ -418,13 +444,13 @@ function rowsOf(story, page) {
  * How big every frame is, and where each row sits: one size for the story's own people and a
  * smaller one for the circle beyond them, both cut down together until the rows fit the page.
  */
-function sizeRows(ctx, story, rows, top, bottom) {
+function sizeRows(ctx, story, rows, top, bottom, headroom) {
   const core = rows.filter((r) => !r.outer);
   const base = Math.min(FRAME.max, ...(core.length ? core : rows).map((r) => fitRow(ctx, r.clusters, FRAME.max)));
   const sizeOf = (row, d) => Math.min(row.outer ? d * SECONDARY : d, fitRow(ctx, row.clusters, FRAME.max));
   const height = (d) => rows.reduce((sum, row) => {
     const rd = sizeOf(row, d);
-    return sum + rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP;
+    return sum + headroom + rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP;
   }, 0);
 
   const room = bottom - top;
@@ -437,8 +463,8 @@ function sizeRows(ctx, story, rows, top, bottom) {
   let y = top + slack;
   for (const row of rows) {
     const rd = sizeOf(row, d);
-    out.push({ clusters: row.clusters, d: rd, cy: y + rd * RIM });
-    y += rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP + slack;
+    out.push({ clusters: row.clusters, d: rd, cy: y + headroom + rd * RIM });
+    y += headroom + rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP + slack;
   }
   return out;
 }
@@ -472,7 +498,7 @@ function gathering(ctx, page, story) {
 
   const note = pageNote(ctx, page);
   const noteH = noteHeight(ctx, note, 330);
-  const rows = sizeRows(ctx, story, rowsOf(story, page), block.bottom + 8, SAFE.bottom - noteH);
+  const rows = sizeRows(ctx, story, rowsOf(story, page), block.bottom + 8, SAFE.bottom - noteH, page.variant === 'doorways' ? TORAN_ROOM : 0);
   rows.forEach((row) => items.push(...drawRow(ctx, story, page, row, page.variant, `r${row.clusters.flat()[0]}`)));
 
   if (note) items.push(...noteCard(ctx, page, note, { cx: PAGE_MID, top: SAFE.bottom - noteH + 24, w: 330 }).items);

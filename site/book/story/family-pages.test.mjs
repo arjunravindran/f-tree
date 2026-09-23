@@ -1,0 +1,309 @@
+/*
+ * The family page archetypes (#257): the banyan of ancestors, the two courtyards, and the
+ * gathering that draws parents, siblings, spouses and children.
+ *
+ * What is checked here is what the pages promise beyond "it drew something": that the art says
+ * what the record says and nothing more (a mala only on somebody who has died, a lamp rather than
+ * an invented face for a name nobody wrote down), that kinship is drawn as composition (a marigold
+ * string only between two people the record actually married, children below their parents), that
+ * the plan's own decisions are drawn rather than second-guessed, and that a page at the design
+ * system's density caps is still readable - no text over art, no text over text, nothing under the
+ * size floors.
+ *
+ * The pages are composed through `qa/stub-pages.mjs`, so these run before #256 and #258 land and
+ * keep running after they do.
+ */
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { composeWithPages } from '../compose.js';
+import { validateBook } from '../format.js';
+import { withStubs } from '../qa/stub-pages.mjs';
+import { STORY_TEMPLATE } from '../qa/story-template.mjs';
+import { loadFixture, NOW, STORYBOOK_MANIFEST } from '../qa/book-fixtures.mjs';
+import { noTextInBusyArt, noTextOverlap, sizes } from '../qa/invariants.mjs';
+import { readFamily } from '../family.js';
+import { kinOf } from './kin.js';
+import { resolveFeatured } from './featured.js';
+import { PAGES } from './pages/family.js';
+
+const MINE = Object.keys(PAGES);
+
+/** The fixture's own featured person, so a test names the same F the manifest does. */
+const featuredOf = (fixture) => STORYBOOK_MANIFEST[fixture]?.ids?.featured;
+
+/**
+ * Composes a fixture's whole book with #257's pages (and stubs for the rest), optionally rewriting
+ * the `PagePlan` handed to one archetype - which is how a page at a density cap, or a variant the
+ * planner would not have chosen for this family, gets drawn without inventing a whole context.
+ */
+async function compose(fixture, { rewrite, archetype, ...options } = {}) {
+  const doc = await loadFixture(fixture);
+  const opts = { now: NOW, featured: featuredOf(fixture), ...options };
+  const plans = [];
+  const table = { ...withStubs() };
+  for (const a of MINE) {
+    table[a] = (ctx, page, story) => {
+      const p = rewrite && (!archetype || archetype === a) ? { ...page, ...rewrite(page, story) } : page;
+      plans.push(p);
+      return PAGES[p.archetype](ctx, p, story);
+    };
+  }
+  const { book, report } = composeWithPages(doc, opts, STORY_TEMPLATE, table);
+  const family = readFamily(doc, opts);
+  const kin = kinOf(family, resolveFeatured(family, opts), { words: opts.words });
+  return { book, report, plans, family, kin, opts };
+}
+
+/** The page numbers an archetype drew. */
+const pagesOf = (report, archetype) => report.pages.filter((p) => p.archetype === archetype).map((p) => p.page);
+
+/** How many times a page draws the symbol `ref`, `use`s inside groups included. */
+function uses(page, ref) {
+  let n = 0;
+  const walk = (items) => {
+    for (const it of items) {
+      if (it.t === 'use' && it.ref === ref) n++;
+      if (it.t === 'group') walk(it.items);
+    }
+  };
+  walk(page.items);
+  return n;
+}
+
+/** The clips a page puts a whole scene behind: how a page crops one. A frame's opening is not one. */
+function sceneCrops(page, ref) {
+  return page.items.filter((it) => it.t === 'group' && it.clip !== undefined && it.items.some((c) => c.t === 'use' && c.ref === ref));
+}
+
+/** The report cut down to one page, for the invariants that are about a single page. */
+const only = (report, book, pageNo) => ({
+  book,
+  report: { ...report, textBoxes: report.textBoxes.filter((b) => b.page === pageNo), artZones: report.artZones.filter((z) => z.page === pageNo) },
+});
+
+/** Every layout invariant that is about one page, over one page. */
+function layoutFaults(book, report, pageNo) {
+  const one = only(report, book, pageNo);
+  return [...sizes(one), ...noTextOverlap(one), ...noTextInBusyArt(one)];
+}
+
+/* ------------------------------------------------------------------ the pages draw at all */
+
+test('every family page composes, describes itself from the plan, and keeps the layout rules', async () => {
+  for (const fixture of ['story-large', 'story-half-siblings', 'story-twelve-siblings', 'story-three-spouses', 'story-unknown-names', 'story-devanagari', 'story-leaf', 'story-eldest']) {
+    const { book, report, plans } = await compose(fixture);
+    assert.deepEqual(validateBook(book), [], `${fixture}: not a valid Book`);
+    const drawn = report.pages.filter((p) => MINE.includes(p.archetype));
+    assert.ok(drawn.length, `${fixture} draws none of #257's pages`);
+    for (const info of drawn) {
+      const plan = plans.find((p) => p.pageNo === info.page);
+      // The plan decides who a page is about and what limits it; an archetype only reports it.
+      assert.deepEqual([...info.people], [...plan.people], `${fixture} page ${info.page}: drew a different cast`);
+      assert.equal(info.variant, plan.variant, `${fixture} page ${info.page}: drew another variant`);
+      assert.equal(info.density, plan.density, `${fixture} page ${info.page}: reported another density`);
+      assert.deepEqual(layoutFaults(book, report, info.page), [], `${fixture} page ${info.page}`);
+      for (const id of plan.people) assert.ok(report.shown[id]?.includes(info.page), `${fixture} page ${info.page}: ${id} is on it but not shown`);
+    }
+  }
+});
+
+test('every variant the planner may ask for draws, and draws differently', async () => {
+  for (const [archetype, variants, fixture] of [
+    ['banyan', ['roots', 'canopy'], 'story-large'],
+    ['courtyards', ['facing', 'mirrored'], 'story-large'],
+    ['gathering', ['band', 'doorways', 'steps'], 'story-large'],
+  ]) {
+    const drawn = new Set();
+    for (const variant of variants) {
+      const { book, report } = await compose(fixture, { archetype, rewrite: () => ({ variant }) });
+      for (const pageNo of pagesOf(report, archetype)) {
+        assert.deepEqual(layoutFaults(book, report, pageNo), [], `${archetype}/${variant} page ${pageNo}`);
+        drawn.add(JSON.stringify(book.pages[pageNo - 1].items));
+      }
+    }
+    assert.ok(drawn.size > 1, `${archetype}'s variants all drew the same page: they are not different art placements`);
+  }
+});
+
+/* ------------------------------------------------------------------ the density caps */
+
+/*
+ * The design system's caps are the plan's (`DENSITY`): 8 on a family page, 12 on a gathering. A
+ * page at its cap is the one a layout is most likely to break on, and the fixtures do not always
+ * reach it, so these draw one on purpose.
+ */
+
+/** The first `n` people of `kin`'s biggest circle, as one page plan for `archetype`. */
+const crowd = (archetype, density, n) => (page, story) => {
+  const pool = [...story.kin.people.keys()].filter((id) => id !== story.kin.featured);
+  const people = pool.slice(0, n);
+  assert.equal(people.length, n, 'the fixture does not hold enough people to fill a page');
+  return { archetype, density, people, groups: [{ key: 'crowd:', people }] };
+};
+
+test('a family page at its cap of eight is still readable', async () => {
+  const { book, report } = await compose('story-large', { archetype: 'gathering', rewrite: crowd('gathering', 'family', 8) });
+  const pageNo = pagesOf(report, 'gathering')[0];
+  assert.deepEqual(layoutFaults(book, report, pageNo), []);
+  assert.equal(report.pages[pageNo - 1].people.length, 8);
+});
+
+test('a gathering at its cap of twelve is still readable, on the tree and in the courtyards too', async () => {
+  for (const archetype of MINE) {
+    const { book, report } = await compose('story-large', { archetype, rewrite: crowd(archetype, 'gathering', 12) });
+    for (const pageNo of pagesOf(report, archetype)) {
+      assert.deepEqual(layoutFaults(book, report, pageNo), [], `${archetype} with twelve people`);
+      assert.equal(report.pages[pageNo - 1].people.length, 12);
+    }
+  }
+});
+
+test('everybody on a crowded page is still drawn, never quietly dropped', async () => {
+  for (const archetype of MINE) {
+    const { report, plans } = await compose('story-large', { archetype, rewrite: crowd(archetype, 'gathering', 12) });
+    const pageNo = pagesOf(report, archetype)[0];
+    for (const id of plans.find((p) => p.pageNo === pageNo).people) {
+      assert.ok(report.shown[id]?.includes(pageNo), `${archetype}: ${id} is on the page and was not drawn`);
+    }
+  }
+});
+
+/* ------------------------------------------------------------------ the notation */
+
+test('a mala hangs on the frame of everybody who has died, and on nobody else', async () => {
+  for (const fixture of ['story-large', 'story-unknown-names', 'story-three-spouses']) {
+    const { book, report, family } = await compose(fixture);
+    for (const info of report.pages.filter((p) => MINE.includes(p.archetype))) {
+      const departed = info.people.filter((id) => family.byId.get(id).deceased).length;
+      assert.equal(uses(book.pages[info.page - 1], 'pc-mala-departed'), departed,
+        `${fixture} page ${info.page}: ${departed} of the people on it have died`);
+    }
+  }
+});
+
+test('a name nobody wrote down is a lamp, never an invented face', async () => {
+  const { book, report, family } = await compose('story-unknown-names');
+  const lamps = { 'pc-lamp-unknown': 0, 'pc-aala': 0 };
+  let nameless = 0;
+  for (const info of report.pages.filter((p) => MINE.includes(p.archetype))) {
+    nameless += info.people.filter((id) => !family.byId.get(id).name).length;
+    for (const ref of Object.keys(lamps)) lamps[ref] += uses(book.pages[info.page - 1], ref);
+  }
+  assert.ok(nameless > 0, 'the fixture has nobody without a name');
+  assert.equal(lamps['pc-lamp-unknown'] + lamps['pc-aala'], nameless, 'one lamp for each name not known, and no more');
+});
+
+test('a marigold string joins two people the record married, and nobody else', async () => {
+  // The `steps` variant closes a page with the lotus divider rather than the tailpiece's own
+  // short mala, so every `mala` left on the page is a marriage and nothing else.
+  const steps = { rewrite: () => ({ variant: 'steps' }), archetype: 'gathering' };
+
+  // F's three spouses are married to F, never to each other: a page of the three must draw none.
+  const { book, report } = await compose('story-three-spouses', steps);
+  const spouses = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 3);
+  assert.ok(spouses, 'the three-spouses fixture no longer has its spouses page');
+  assert.equal(uses(book.pages[spouses.page - 1], 'pc-mala'), 0, 'a string was drawn between two people who never married');
+
+  // The parents of a family that did marry are joined by one.
+  const parents = await compose('story-devanagari', steps);
+  const page = parents.report.pages.find((p) => p.archetype === 'gathering' && p.people.some((id) => parents.kin.people.get(id).circle === 'parents'));
+  const married = parents.book.pages[page.page - 1];
+  const joined = uses(married, 'pc-mala') + uses(married, 'pc-diya');
+  assert.ok(joined > 0, 'the page drew no string and no diya between two people the record married');
+});
+
+test('kin captions are the reviewed Hindi words when the reader asked for them', async () => {
+  const en = await compose('story-large', { words: 'en' });
+  const hi = await compose('story-large', { words: 'hi' });
+  const captions = ({ book, report }) => report.textBoxes
+    .filter((b) => b.kind === 'caption' && report.pages[b.page - 1] && MINE.includes(report.pages[b.page - 1].archetype))
+    .map((b) => b.s);
+  const english = captions(en);
+  const hindi = captions(hi);
+  assert.ok(english.includes('grandfather'), `no English kin word on a family page: ${english.join(', ')}`);
+  assert.ok(hindi.some((s) => /[ऀ-ॿ]/.test(s)), `no Devanagari kin word with words: 'hi': ${hindi.join(', ')}`);
+  assert.ok(!hindi.includes('grandfather'), 'an English kin word survived words: \'hi\'');
+});
+
+/* ------------------------------------------------------------------ the two courtyards */
+
+test('a family that knows only one side has the other house cut away', async () => {
+  const one = await compose('story-half-siblings');   // one grandparent, on the father's side
+  const page = one.report.pages.find((p) => p.archetype === 'courtyards');
+  assert.ok(page, 'the fixture no longer plans a courtyards page');
+  assert.equal(page.people.length, 1);
+  assert.equal(sceneCrops(one.book.pages[page.page - 1], 'pc-aangan').length, 1, 'the unused house was not cut out of the scene');
+
+  // The cut-away half's own art is not reported as covering the page any more, because it is gone.
+  const zones = one.report.artZones.filter((z) => z.page === page.page);
+  assert.ok(zones.length, 'the page reported no art zones at all');
+  assert.ok(!zones.some((z) => z.x > 297 && z.y < 300 && z.kind === 'busy'), 'the page still claims the house it cut away');
+
+  // Both sides known: both houses stand, and nothing is cut.
+  const both = await compose('story-large');
+  const twoSided = both.report.pages.find((p) => p.archetype === 'courtyards');
+  assert.equal(twoSided.people.length, 4);
+  assert.equal(sceneCrops(both.book.pages[twoSided.page - 1], 'pc-aangan').length, 0, 'a page that knows both sides cut a house away');
+});
+
+test('only the right-hand house has niches, so a lamp elsewhere goes in a frame', async () => {
+  // This fixture's grandparents include one the record never named. Drawn as a courtyards page,
+  // that lamp is an aala in the wall only if their house is the one with niches in it.
+  const { book, report, family, kin } = await compose('story-unknown-names', {
+    archetype: 'gathering',
+    rewrite: (page, story) => {
+      const people = [...story.kin.circles.grandparents];
+      return { archetype: 'courtyards', variant: 'facing', density: 'gathering', people, groups: [{ key: 'grandparents:', people }] };
+    },
+  });
+  const page = report.pages.find((p) => p.archetype === 'courtyards');
+  const nameless = page.people.filter((id) => !family.byId.get(id).name);
+  assert.ok(nameless.length > 0, 'the fixture has no nameless grandparent');
+  const inRightHouse = nameless.filter((id) => kin.people.get(id).side !== 'paternal');
+  const drawn = book.pages[page.page - 1];
+  assert.equal(uses(drawn, 'pc-aala'), Math.min(inRightHouse.length, 2), 'a niche was lit for somebody whose house has none');
+  assert.equal(uses(drawn, 'pc-lamp-unknown'), nameless.length - Math.min(inRightHouse.length, 2), 'somebody whose name is not known got neither a niche nor a lamp');
+});
+
+/* ------------------------------------------------------------------ the gathering's composition */
+
+test('children stand below their parents, and siblings share one ground line', async () => {
+  const { book, report, kin } = await compose('story-devanagari');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && new Set(p.people.map((id) => kin.people.get(id).gen)).size > 1);
+  assert.ok(info, 'no gathering page in this fixture holds two generations');
+  // Every frame's face zone, by the generation of the person it holds.
+  const zones = report.artZones.filter((z) => z.page === info.page && z.kind === 'face');
+  const rows = new Map();
+  for (const id of info.people) {
+    const g = kin.people.get(id).gen;
+    rows.set(g, rows.get(g) ?? []);
+  }
+  assert.ok(rows.size > 1);
+  const gens = [...rows.keys()].sort((a, b) => a - b);
+  // The face zones fall into as many bands as there are generations, in the same order.
+  const bands = [...new Set(zones.map((z) => Math.round(z.y)))].sort((a, b) => a - b);
+  assert.ok(bands.length >= gens.length, `${bands.length} bands of frames for ${gens.length} generations`);
+  assert.deepEqual(validateBook(book), []);
+});
+
+test('an aunt is drawn smaller than the parent she stands under', async () => {
+  const { report, kin } = await compose('story-leaf');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.some((id) => kin.people.get(id).role === 'aunt-uncle'));
+  assert.ok(info, 'the fixture no longer draws aunts and uncles on the parents page');
+  const zones = report.artZones.filter((z) => z.page === info.page && z.kind === 'face').map((z) => z.w);
+  const biggest = Math.max(...zones), smallest = Math.min(...zones);
+  assert.ok(smallest < biggest * 0.95, `every frame on the page is the same size (${biggest})`);
+});
+
+test('a half-sibling group is drawn as its own household, not merged into one row', async () => {
+  const { report, plans } = await compose('story-half-siblings');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.page > 3);
+  const plan = plans.find((p) => p.pageNo === info.page);
+  assert.ok(plan.groups.length > 1, 'the fixture no longer splits its siblings by the parents they share');
+  const zones = report.artZones.filter((z) => z.page === info.page && z.kind === 'face').sort((a, b) => a.x - b.x);
+  // Two people the plan put in different groups are further apart than two it put in the same one.
+  const gaps = zones.slice(1).map((z, i) => z.x - zones[i].x);
+  assert.ok(Math.max(...gaps) > Math.min(...gaps) + 1, 'every frame is evenly spaced: the households do not read apart');
+});

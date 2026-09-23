@@ -131,9 +131,11 @@ test('a storybook composes through the dispatch: format 2, every planned page, t
   const { plan } = await plannedArchetypes('story-large');
   const { book, report } = composeWithPages(doc, { now: NOW }, STORY_TEMPLATE, withStubs());
   assert.deepEqual(validateBook(book), [], 'the book the dispatch drew is not a valid Book');
-  // Stubs place no art, and a book declares the lowest format that draws it - so this one is
-  // format 1 until a real archetype puts a `use` on a page (see the ctx.art test below).
-  assert.equal(book.format, 1);
+  // A book declares the lowest format that draws it, so this one is format 1 while every page on
+  // it is a stub - stubs place no art - and format 2 from the first real archetype that puts a
+  // `use` on one of these pages (see the ctx.art test below).
+  const stubbed = missingArchetypes().length === Object.keys(VARIANTS).length;
+  assert.equal(book.format, stubbed ? 1 : 2);
   assert.equal(book.pages.length, plan.pages.length);
   assert.deepEqual(report.pages.map((p) => p.page), plan.pages.map((p) => p.pageNo), 'a page was drawn under the wrong number');
   assert.deepEqual(report.pages.map((p) => p.archetype), plan.pages.map((p) => p.archetype));
