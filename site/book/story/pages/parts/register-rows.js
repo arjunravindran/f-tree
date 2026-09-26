@@ -29,7 +29,7 @@ const DATE_SIZE = 8.4;
 const REF_SIZE = 9;
 const HEADING_SIZE = 12.5;
 /** A register cameo is 22 pt across (design system, "People"). */
-export const CAMEO = 22;
+const CAMEO = 22;
 const GAP = 6;            // between the cameo and the name, and either side of the leader
 const REF_COLUMN = 16;    // the page-reference column at the right of a row
 
@@ -143,7 +143,7 @@ export function personRow(ctx, story, id, x, y, w, { portraits = true } = {}) {
 }
 
 /** Below this many rows the register reads better down one column than across two short ones. */
-export const MIN_COLUMNS = 8;
+const MIN_COLUMNS = 8;
 
 /**
  * Where a page's rows break between its two columns: as near the middle as the rows allow, never
