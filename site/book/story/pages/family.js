@@ -147,7 +147,7 @@ function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
     }
     ids.forEach((id, j) => {
       front.push(...portrait(ctx, story, id, centres[j], cy, d));
-      captions.push(...caption(ctx, story, page, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6, nameLines }).items);
+      captions.push(...caption(ctx, story, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6, nameLines }).items);
     });
     x += width + CLUSTER_GAP;
   });
@@ -213,7 +213,6 @@ function banyan(ctx, page, story) {
 
   const columns = rootColumns(all);
   const sides = rootSides(story, page.people);
-  const listed = [[], []];
   columns.forEach((zones, c) => {
     spread(sides[c], zones.length).forEach((ids, i) => {
       if (!ids.length) return;
@@ -222,11 +221,12 @@ function banyan(ctx, page, story) {
       const pitch = d * 1.06;
       const x0 = z.x + z.w / 2 - (ids.length * pitch) / 2;
       ids.forEach((id, j) => items.push(...portrait(ctx, story, id, x0 + pitch * (j + 0.5), z.y + z.h / 2, d)));
-      listed[c].push(...ids);
     });
   });
 
-  items.push(...rootNames(ctx, story, copy.line, by.story, listed));
+  // The names are listed by side, not by where a medallion ended up, so nobody on the page can be
+  // left unnamed by a zone that did not take them.
+  items.push(...rootNames(ctx, story, copy.line, by.story, sides));
   items.push(...folio(ctx));
   return ctx.page(page.chapter, items, ctx.P.paper);
 }
@@ -404,14 +404,14 @@ function household(ctx, story, page, house, { frames, text, toran }) {
     if (listed) continue;
     const capW = Math.min(pitch - 6, text.w / ids.length - 4);
     const nameLines = rowNameLines(ctx, story, ids, capW);
-    ids.forEach((id, j) => items.push(...caption(ctx, story, page, id, { cx: x0 + centres[j], top: text.y - 2, width: capW, nameLines }).items));
+    ids.forEach((id, j) => items.push(...caption(ctx, story, id, { cx: x0 + centres[j], top: text.y - 2, width: capW, nameLines }).items));
   }
   if (listed) items.push(...nameList(ctx, story, text, halves(onFloor)));
 
   // Anybody whose lamp is in the wall is named by their relation, under the house they belong to.
   let bottom = text.y + (listed ? Math.ceil(onFloor.length / 2) * TYPE.name * 1.36 + 6 : captionHeight(ctx, story, onFloor[0] ?? inWall[0], text.w - 8, 1) + 8);
   inWall.forEach((id) => {
-    const block = caption(ctx, story, page, id, { cx: text.x + text.w / 2, top: bottom, width: text.w - 8 });
+    const block = caption(ctx, story, id, { cx: text.x + text.w / 2, top: bottom, width: text.w - 8 });
     items.push(...block.items);
     bottom = block.bottom;
   });

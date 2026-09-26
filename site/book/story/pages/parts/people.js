@@ -73,7 +73,7 @@ export function portrait(ctx, story, id, cx, cy, d) {
  * Every line is centred in `width` and told to stay inside it, so two neighbouring captions can
  * never print over each other however long a name is.
  */
-export function caption(ctx, story, page, id, { cx, top, width, nameLines = 0 }) {
+export function caption(ctx, story, id, { cx, top, width, nameLines = 0 }) {
   const { kin } = story;
   const family = ctx.family;
   const p = family.byId.get(id);
