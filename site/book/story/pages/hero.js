@@ -47,8 +47,8 @@ const { w: W, h: H } = PAGE;
 const MAX_LAMP_ROWS = 12;
 const NEAR_LAMP = 26;   // pt wide, the nearest row
 const FAR_LAMP = 12;    // pt wide, the furthest
-/** A lamp narrower than this stops reading as a lamp, so the field takes another row instead. */
-const MIN_LAMP = 5;
+/** A lamp narrower than this stops reading as a lamp. `pages-hero.test.mjs` holds the rows to it. */
+export const MIN_LAMP = 5;
 /** How wide the furthest row runs, as a fraction of the lamps zone: the river bends away. */
 const FAR_SPREAD = 0.62;
 /*
@@ -100,8 +100,8 @@ export function lampRows(n, box) {
 }
 
 /**
- * The lamp field: `ids` in the order the book knows them, one lamp each, the ones whose names are
- * not known drawn as the dashed brass lamp `diyaRow` keeps for exactly that.
+ * The lamp field: `ids` in the order the book knows them, one lamp each, and a person whose name
+ * nobody knows lit by the dashed-bowl lamp the app's own notation keeps for them.
  */
 function lamps(ctx, ids, box, seed) {
   const unknown = new Set(ids.map((id, i) => (ctx.family.byId.get(id)?.name ? -1 : i)).filter((i) => i >= 0));
@@ -167,7 +167,9 @@ function cover(ctx, page, story) {
   const subtitleSize = ctx.fit(subtitle, 'display', 36, width, 18);
   items.push(ctx.line(cx, title.y + 56, tpl.cover.greeting, 'display', greetingSize, P.gold, { align: 'middle', width, kind: 'title' }));
   items.push(ctx.line(cx, title.y + 56 + greetingSize * 0.96, subtitle, 'display', subtitleSize, P.card, { align: 'middle', width, kind: 'title' }));
-  const line = fillPlaceholders(pickLine(tpl.cover.line, vars.n), vars);
+  // "One lamp for each of us" over a river with no lamps on it: a book with nobody in it yet has
+  // the greeting and the family's own line, and says the rest on the page that follows.
+  const line = ids.length ? fillPlaceholders(pickLine(tpl.cover.line, vars.n), vars) : null;
   if (line) {
     items.push(...ctx.lines(cx, title.y + 62 + greetingSize * 0.96 + subtitleSize * 1.2, line, 'hand', 16, P.flame, { width, maxLines: 2, lead: 22, align: 'middle', kind: 'caption' }).items);
   }
@@ -234,9 +236,8 @@ function openingHero(ctx, page, story) {
   const caption = yearsCaption(ctx, story, person);
   return archPage(ctx, page, {
     label: copy?.title || 'The opening',
-    frame: (outer) => framedPerson(ctx, person, {
-      id: 'arch-jharokha', outer, hero: true, gen: 0, featuredBy: person?.by ?? null,
-      view: view(ctx, openingIn('arch-jharokha', outer)),
+    frame: (outer, opening) => framedPerson(ctx, person, {
+      id: 'arch-jharokha', outer, hero: true, gen: 0, featuredBy: person?.by ?? null, view: view(ctx, opening),
     }),
     words: (y) => {
       const items = [];
@@ -250,8 +251,8 @@ function openingHero(ctx, page, story) {
       let bottom = block.bottom;
       // An eldest F has no roots or courtyards chapter: the opening is where the book says so,
       // rather than leaving the reader to notice two chapters missing (plan.js's `folds`).
-      const first = nameOf(family, story.kin, story.kin.featured);
-      if (page.folds.length && first) {
+      const first = page.folds.length ? nameOf(family, story.kin, story.kin.featured) : null;
+      if (first) {
         bottom += 32;
         items.push(ctx.line(W / 2, bottom, `${first} is the first name this family remembers.`, 'hand', 13.5, P.clay, { align: 'middle', width: SAFE.w, kind: 'caption' }));
       }
@@ -338,7 +339,7 @@ function portraitHero(ctx, page, story) {
       cx: W / 2, y: boxes[0].y + boxes[0].h * 0.42, width: Math.max(40, boxes[1].x - (boxes[0].x + boxes[0].w) + 30),
     }));
   }
-  ctx.zone('busy', { x: boxes[0].x, y: top, w: boxes[boxes.length - 1].x + width - boxes[0].x, h: boxes[0].h });
+  if (boxes.length) ctx.zone('busy', { x: boxes[0].x, y: top, w: boxes[boxes.length - 1].x + width - boxes[0].x, h: boxes[0].h });
   // A page that ends early closes with a tailpiece rather than a field of empty paper.
   if (!noted) items.push(...tailpiece(ctx, W / 2, Math.min(lowest + 74, SAFE.y + SAFE.h - 34)));
   items.push(...folio(ctx, P.inkSoft));

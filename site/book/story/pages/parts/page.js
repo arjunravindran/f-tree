@@ -36,7 +36,14 @@ export function scene(ctx, id, placement) {
     ctx.zone(z.kind, z);
     if (z.name !== undefined) zones.set(z.name, z);
   }
-  return { item: ctx.art.place(id, placement), zones, at: (name) => zones.get(name) };
+  const at = (name) => {
+    const z = zones.get(name);
+    // A page asks for the room a scene promised it by name. A scene that no longer marks that
+    // room has to say so here, rather than have the page lay its words over the picture.
+    if (!z) throw new Error(`art: the "${id}" scene has no zone called "${name}" - the named zones are ${[...zones.keys()].join(', ')}, from <rect data-zone data-name> in art/src/papercut/scenes/${id}.svg`);
+    return z;
+  };
+  return { item: ctx.art.place(id, placement), zones, at };
 }
 
 /** The middle of a box, for text centred in a zone. */

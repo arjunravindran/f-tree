@@ -30,7 +30,7 @@ import { kinOf } from './kin.js';
 import { planStory, VARIANTS } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { openingLine } from './copy.js';
-import { PAGES, lampRows } from './pages/hero.js';
+import { PAGES, lampRows, MIN_LAMP } from './pages/hero.js';
 import { SAFE } from './pages/parts/page.js';
 
 const FIXTURES = Object.keys(BOOK_FIXTURES);
@@ -152,12 +152,19 @@ test('no row of lamps overlaps itself, at any size of family', () => {
     for (const r of rows) {
       const spacing = r.count > 1 ? Math.abs(r.x2 - r.x1) / (r.count - 1) : Infinity;
       assert.ok(r.w <= spacing + 1e-9, `${n}: a lamp ${r.w} pt wide on a row spaced ${spacing}`);
-      assert.ok(r.w >= 5, `${n}: a lamp only ${r.w.toFixed(1)} pt wide no longer reads as a lamp`);
+      assert.ok(r.w >= MIN_LAMP, `${n}: a lamp only ${r.w.toFixed(1)} pt wide no longer reads as a lamp`);
       assert.ok(r.x1 >= box.x - 1e-9 && r.x2 <= box.x + box.w + 1e-9, `${n}: a row runs outside the lamps zone`);
       assert.ok(r.y >= box.y && r.y <= box.y + box.h, `${n}: a row sits outside the lamps zone`);
     }
   }
   assert.deepEqual(lampRows(0, box), [], 'nobody to light is no rows at all');
+});
+
+test('a cover with nobody to light does not claim a lamp for each of us', async () => {
+  const { report, book } = await compose('story-empty');
+  assert.equal(uses(book.pages[0].items).filter((r) => LAMPS.includes(r)).length, 0);
+  assert.ok(!said(report, 1).includes('lamp'), said(report, 1));
+  assert.ok(said(report, 1).includes(STORY_TEMPLATE.cover.greeting), 'the greeting is still there');
 });
 
 test('the cover is the family\'s: it names nobody, and reports nobody as shown', async () => {
