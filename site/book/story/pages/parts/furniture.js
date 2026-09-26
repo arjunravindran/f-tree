@@ -87,12 +87,14 @@ export function motif(ctx, id, x, y, size, options = {}) {
  */
 export function sanjhiBand(ctx, { foot = false, tint } = {}) {
   const tile = 44, depth = 42;
-  const y = foot ? PAGE.h : 0;
+  // `flip: 'y'` mirrors the tile inside its own box, so a foot band has to be placed at the band's
+  // own top edge; placed at the page's foot it would be drawn entirely off the paper.
+  const y = foot ? PAGE.h - depth : 0;
   const items = [];
   for (let i = 0; i * tile < PAGE.w; i++) {
     items.push(ctx.art.place('band-sanjhi', { x: i * tile, y, w: tile, anchor: 'top-left', ...(foot ? { flip: 'y' } : {}), ...(tint ? { tint } : {}) }));
   }
-  ctx.zone('busy', { x: 0, y: foot ? PAGE.h - depth : 0, w: PAGE.w, h: depth });
+  ctx.zone('busy', { x: 0, y, w: PAGE.w, h: depth });
   return [group(items)];
 }
 

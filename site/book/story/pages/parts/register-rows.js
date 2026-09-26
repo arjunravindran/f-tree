@@ -83,8 +83,11 @@ function cameo(ctx, story, id, cx, cy) {
   const r = CAMEO / 2;
   const p = ctx.family.byId.get(id);
   ctx.zone('face', { x: cx - r, y: cy - r, w: CAMEO, h: CAMEO });
+  // A photograph first, whether or not a name was recorded with it: `ctx.portrait` draws a person
+  // with no name inside the dashed brass perimeter, which is the notation, and a family that kept
+  // the picture of somebody whose name was lost should not have it replaced by a lamp.
+  if (p?.photo && ctx.options.photos) return ctx.portrait(p, cx, cy, r, { ring: ctx.P.gold, unknownRing: ctx.P.brass });
   if (!p?.name) return [ctx.art.place('lamp-unknown', { x: cx, y: cy, w: CAMEO })];
-  if (p.photo && ctx.options.photos) return ctx.portrait(p, cx, cy, r, { ring: ctx.P.gold, unknownRing: ctx.P.brass });
   const stage = { year: ctx.now.year, gen: story.kin.people.get(id)?.gen ?? null, featuredBy: ctx.family.byId.get(story.kin.featured)?.by ?? null };
   const inner = [ctx.art.place(avatarFor(p, stage), { x: cx, y: cy, w: CAMEO, anchor: 'center' })];
   return [ctx.art.frame('cameo', { x: cx - r, y: cy - r, w: CAMEO, h: CAMEO }, inner, { shadow: { dx: 0.6, dy: 0.8 } })];
@@ -139,14 +142,20 @@ export function personRow(ctx, story, id, x, y, w, { portraits = true } = {}) {
   return [group(items)];
 }
 
+/** Below this many rows the register reads better down one column than across two short ones. */
+export const MIN_COLUMNS = 8;
+
 /**
  * Where a page's rows break between its two columns: as near the middle as the rows allow, never
- * leaving a section heading alone at the foot of the first column.
+ * leaving a section heading alone at the foot of the first column, and not at all for a register
+ * short enough that two columns would be two stubs - a family of one would otherwise get a heading
+ * in one column and the same heading, marked "continued", over the single name in the other.
  *
  * `rows` is the page's rows in order, each `{ heading }` or not.
  */
 export function splitColumns(rows) {
+  if (rows.length < MIN_COLUMNS) return [rows, []];
   let at = Math.ceil(rows.length / 2);
-  if (at > 1 && rows[at - 1]?.heading) at -= 1;
+  if (rows[at - 1]?.heading) at -= 1;
   return [rows.slice(0, at), rows.slice(at)];
 }

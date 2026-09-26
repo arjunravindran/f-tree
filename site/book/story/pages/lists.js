@@ -436,7 +436,10 @@ function legacy(ctx, page, story) {
   const base = 460 + (step * gens) / 2 + 40;
   const top = base - step * (gens + 0.5);
   items.push(path(`M ${axis} ${base} L ${axis} ${top}`, { stroke: P.gold, sw: 1, op: 0.3 }));
-  if (gens) items.push(diyaRow(ctx.art, axis, base - step * gens, axis, base - step, gens, familySeed(ctx, story, 'legacy'), { w: (i, t) => 17 + 9 * t, jitter: 0.1 }));
+  // A lamp never grows past the pitch that carries it: an imported line twenty generations deep
+  // still has to read as one lamp per generation, not as a smear of overlapping ones.
+  const lamp = (i, t) => Math.min(17 + 9 * t, step * 0.86);
+  if (gens) items.push(diyaRow(ctx.art, axis, base - step * gens, axis, base - step, gens, familySeed(ctx, story, 'legacy'), { w: lamp, jitter: 0.1 }));
 
   items.push(ctx.art.place('diya', { x: axis, y: base, w: 38 }));
   ctx.zone('busy', ctx.art.box('diya', { x: axis, y: base, w: 38 }));

@@ -27,7 +27,7 @@ import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { countInCircle, numberFact } from './copy.js';
 import { FIGURES, figuresFor, generationsBehind } from './pages/lists.js';
-import { ROW, SECTION_TITLES } from './pages/parts/register-rows.js';
+import { NAME_SIZE, ROW, SECTION_TITLES } from './pages/parts/register-rows.js';
 import { SAFE, lifeDates } from './pages/parts/furniture.js';
 
 /** Every fixture the QA harness runs the book over, and the storybook's own among them. */
@@ -146,11 +146,19 @@ test('a full register page fits the paper at the real font metrics', async () =>
         `the ${side} column's "${boxes[i - 1].s}" and "${boxes[i].s}" collide`);
     }
   }
-  // The row pitch itself: a name's ink band at its own metrics has to sit inside one row.
-  const ink = measure('Shyam Lal', METRICS[STORY_TEMPLATE.fonts.strong], 9.6);
-  assert.ok(ink > 0, 'the strong face has no advance table');
-  const names = linesOn(report, full.pageNo, 'name');
-  for (const b of names) assert.ok(b.h < ROW, `a name's ink band is ${b.h} pt, which does not fit a ${ROW} pt row`);
+  // The row pitch itself, against the faces' own tables rather than an assumed line height: a
+  // name's full line height (ascender to descender, as the face declares them) has to sit inside
+  // one row, and so does the dates column beside it. Remetrick `book_strong` taller and this is
+  // what fails, rather than 48 rows silently running off the foot of the paper.
+  for (const [role, size] of [['strong', NAME_SIZE], ['text', NAME_SIZE]]) {
+    const face = METRICS[STORY_TEMPLATE.fonts[role]];
+    const height = (size * (face.ascender - face.descender)) / face.unitsPerEm;
+    assert.ok(height < ROW, `${face.name} at ${size} pt needs ${height.toFixed(2)} pt, over the ${ROW} pt row`);
+  }
+  // And a name really does print no wider than the column it was fitted to.
+  for (const b of linesOn(report, full.pageNo, 'name')) {
+    assert.ok(b.w <= measure(b.s, METRICS[STORY_TEMPLATE.fonts[b.font]], b.size) + 0.01, `"${b.s}" prints wider than it measures`);
+  }
 });
 
 test('every circle kin.js can put somebody in has a register heading', () => {
