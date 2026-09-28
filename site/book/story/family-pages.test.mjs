@@ -27,6 +27,7 @@ import { readFamily } from '../family.js';
 import { kinOf } from './kin.js';
 import { resolveFeatured } from './featured.js';
 import { PAGES } from './pages/family.js';
+import { SAFE } from './pages/parts/paper.js';
 
 const MINE = Object.keys(PAGES);
 
@@ -153,6 +154,30 @@ const crowd = (archetype, density, n) => (page, story) => {
   assert.equal(people.length, n, 'the fixture does not hold enough people to fill a page');
   return { archetype, density, people, groups: [{ key: 'crowd:', people }] };
 };
+
+test('a short page\'s rows are centred in the band, not pinned to the top of an empty sheet', async () => {
+  // Round 1 finding 14: pages 3-9 of the story-large contact sheet were seven consecutive cream
+  // pages whose lower two-thirds were pale void, because SLACK caps how much of a short page's
+  // spare room the gaps between its one or two rows can soak up. A page of one small row (F's own
+  // two siblings) has a whole page's worth of room to spare.
+  const people = ['f-sib0', 'f-sib1'];
+  const { report } = await compose('story-large', {
+    archetype: 'gathering',
+    rewrite: () => ({ archetype: 'gathering', density: 'family', people, groups: [{ key: 'siblings:', people }] }),
+  });
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === people.length);
+  assert.ok(info, 'the rewrite did not produce the expected gathering page');
+  const faces = report.artZones.filter((z) => z.page === info.page && z.kind === 'face');
+  assert.ok(faces.length, 'the page has no face zones to measure');
+  const rowMid = (Math.min(...faces.map((z) => z.y)) + Math.max(...faces.map((z) => z.y + z.h))) / 2;
+  // The band the row was laid out in runs from just under the title to the safe area's foot
+  // (no note or tailpiece changes that on a page this empty). Centred means the row's own
+  // vertical middle lands close to the band's middle, not in its top third.
+  const band = { top: 90, bottom: SAFE.bottom };
+  const bandMid = (band.top + band.bottom) / 2;
+  assert.ok(Math.abs(rowMid - bandMid) < (band.bottom - band.top) * 0.2,
+    `the row's middle (${Math.round(rowMid)}) is not near the band's middle (${Math.round(bandMid)})`);
+});
 
 test('a family page at its cap of eight is still readable', async () => {
   const { book, report } = await compose('story-large', { archetype: 'gathering', rewrite: crowd('gathering', 'family', 8) });

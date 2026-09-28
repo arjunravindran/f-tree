@@ -460,8 +460,14 @@ function sizeRows(ctx, story, rows, top, bottom, headroom) {
   // Whatever room is left over is shared out between the rows, up to a point: a page of one row
   // should breathe, not float in the middle of an empty sheet.
   const slack = Math.min(SLACK, Math.max(0, room - height(d)) / (rows.length + 1));
+  // SLACK caps how much of a short page's spare room the gaps between rows soak up, so a one- or
+  // two-row page can still be left with a wide band of room neither the rows nor the gaps used -
+  // the seven-page run of half-empty sheets round 1 called out as the run's own visual signature
+  // (finding 14). What SLACK could not absorb is split evenly above and below the block instead,
+  // centring it in the band rather than pinning it to the top of an otherwise empty lower half.
+  const unabsorbed = Math.max(0, room - (height(d) + slack * (rows.length + 1)));
   const out = [];
-  let y = top + slack;
+  let y = top + slack + unabsorbed / 2;
   for (const row of rows) {
     const rd = sizeOf(row, d);
     out.push({ clusters: row.clusters, d: rd, cy: y + headroom + rd * RIM });
