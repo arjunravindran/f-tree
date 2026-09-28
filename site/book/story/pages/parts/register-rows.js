@@ -18,7 +18,7 @@
 
 import { path, circle, group } from '../../../format.js';
 import { CIRCLES } from '../../kin.js';
-import { nameOf, stillToBeFoundCaption } from '../../copy.js';
+import { kinCaption, nameOf, stillToBeFoundCaption } from '../../copy.js';
 import { avatarFor } from '../../avatars.js';
 import { lifeDates } from './furniture.js';
 
@@ -94,6 +94,30 @@ function cameo(ctx, story, id, cx, cy) {
 }
 
 /**
+ * Everyone in scope whose own name collides with somebody else's on the register: the same name
+ * *and* the same page reference (or the same absence of one). Two such rows are a real breach of
+ * the register's one job - a reader following either row's reference cannot tell which person they
+ * found - so `personRow` carries more for anyone this set names (round 2, finding 4). Computed over
+ * the whole family, not one page's rows, because the two rows sharing a name are not always on the
+ * same register page.
+ */
+export function duplicateRegisterNames(ctx, story) {
+  const { family } = ctx;
+  const { kin } = story;
+  const bySignature = new Map();
+  for (const id of kin.people.keys()) {
+    const p = family.byId.get(id);
+    if (!p?.name) continue;
+    const ref = story.plan.pagesOf.get(id)?.[0] ?? 'none';
+    const sig = `${p.name}|${ref}`;
+    bySignature.set(sig, [...(bySignature.get(sig) ?? []), id]);
+  }
+  const ids = new Set();
+  for (const collides of bySignature.values()) if (collides.length > 1) for (const id of collides) ids.add(id);
+  return { ids, featuredName: nameOf(family, kin, kin.featured) };
+}
+
+/**
  * One person's row, on the baseline `y`, in a column `w` wide from `x`.
  *
  * The name is the one name a book ever prints for somebody (`copy.js`'s `nameOf`): their own, or
@@ -105,8 +129,12 @@ function cameo(ctx, story, id, cx, cy) {
  * `portraits` false leaves the cameos off and pulls the names left: a book whose register runs to
  * several pages cannot afford a bust per row against the 10 MB budget, and it is the picture that
  * goes, never a person.
+ *
+ * `disambiguate` (`duplicateRegisterNames`'s own return) carries a kin word alongside anyone whose
+ * name and page reference are not enough to tell them from somebody else in the register - never
+ * fewer rows, never a row silently dropped, just one more fact on the rows that need it.
  */
-export function personRow(ctx, story, id, x, y, w, { portraits = true } = {}) {
+export function personRow(ctx, story, id, x, y, w, { portraits = true, disambiguate = null } = {}) {
   const { P, family } = ctx;
   const kin = story.kin;
   ctx.show(id);
@@ -127,35 +155,71 @@ export function personRow(ctx, story, id, x, y, w, { portraits = true } = {}) {
     dateLeft -= dw;
   }
 
-  // Their own name, or the one the family calls them by; never "Unknown", never empty.
+  // Their own name, or the one the family calls them by; never "Unknown", never empty. A name
+  // that collides with another row's own name and page reference carries the kin word too, in
+  // the same line - the register never adds a second line a page's row-count did not plan for.
   const own = Boolean(p?.name);
-  const name = nameOf(family, kin, id) ?? stillToBeFoundCaption(family, kin, id) ?? 'A name still to be found';
+  let name = nameOf(family, kin, id) ?? stillToBeFoundCaption(family, kin, id) ?? 'A name still to be found';
+  if (own && disambiguate?.ids.has(id)) {
+    const word = kinCaption(kin, family, id, disambiguate.featuredName);
+    if (word) name = `${name} (${word})`;
+  }
   const room = Math.max(24, dateLeft - GAP - left);
   const size = ctx.fit(name, own ? 'strong' : 'hand', NAME_SIZE, room, 9);
   const nameW = Math.min(room, ctx.measure(name, own ? 'strong' : 'hand', size));
   items.push(ctx.line(left, y, name, own ? 'strong' : 'hand', size, own ? P.ink : P.brass, { width: nameW, kind: 'name' }));
 
   // The leader that carries the eye from a name to its dates, drawn only where there is room for
-  // more than a couple of dots.
+  // more than a couple of dots. Denser than a hairline (round 2, finding 5): the approved frame's
+  // leaders read at a glance, and `op: 0.45` on a short gap did not.
   const from = left + nameW + GAP, to = dateLeft - GAP;
-  if (to - from > 8) items.push(path(`M ${from} ${y - 2.6} L ${to} ${y - 2.6}`, { stroke: P.inkSoft, sw: 0.8, dash: [0.01, 3.4], cap: 'round', op: 0.45 }));
+  if (to - from > 8) items.push(path(`M ${from} ${y - 2.6} L ${to} ${y - 2.6}`, { stroke: P.inkSoft, sw: 0.9, dash: [0.1, 3.2], cap: 'round', op: 0.55 }));
   return [group(items)];
 }
 
 /** Below this many rows the register reads better down one column than across two short ones. */
 const MIN_COLUMNS = 8;
 
+/** A section split by a column break should leave at least this many rows on each side of it. */
+const MIN_SECTION_SPLIT = 2;
+
+/**
+ * Whether breaking at `at` (the first row of the second column) leaves a section orphaned: a
+ * heading with nothing, or with only one name, on one side of the break. `rows[at]` itself opening
+ * a fresh section is always a clean break - the two columns then say different things and neither
+ * carries a stray continuation.
+ */
+function orphansASection(rows, at) {
+  if (at <= 0 || at >= rows.length) return false;
+  if (rows[at].heading) return false;
+  let h = at - 1;
+  while (h >= 0 && !rows[h].heading) h -= 1;
+  if (h < 0) return false;
+  const before = at - 1 - h;
+  let end = at;
+  while (end < rows.length && !rows[end].heading) end += 1;
+  const after = end - at;
+  return before < MIN_SECTION_SPLIT || after < MIN_SECTION_SPLIT;
+}
+
 /**
  * Where a page's rows break between its two columns: as near the middle as the rows allow, never
- * leaving a section heading alone at the foot of the first column, and not at all for a register
- * short enough that two columns would be two stubs - a family of one would otherwise get a heading
- * in one column and the same heading, marked "continued", over the single name in the other.
+ * leaving a section heading alone - or with only one name under it - on either side of the break
+ * (round 2, finding 3: two headings, "Brothers and sisters" and its own "continued", each over a
+ * single name, is worse than either column running a little long or a little short), and not split
+ * at all for a register short enough that two columns would be two stubs - a family of one would
+ * otherwise get a heading in one column and the same heading, marked "continued", over the single
+ * name in the other.
  *
  * `rows` is the page's rows in order, each `{ heading }` or not.
  */
 export function splitColumns(rows) {
   if (rows.length < MIN_COLUMNS) return [rows, []];
-  let at = Math.ceil(rows.length / 2);
-  if (rows[at - 1]?.heading) at -= 1;
+  const middle = Math.ceil(rows.length / 2);
+  let at = middle;
+  for (let d = 0; d <= rows.length; d += 1) {
+    if (middle + d < rows.length && !orphansASection(rows, middle + d)) { at = middle + d; break; }
+    if (d > 0 && middle - d > 0 && !orphansASection(rows, middle - d)) { at = middle - d; break; }
+  }
   return [rows.slice(0, at), rows.slice(at)];
 }

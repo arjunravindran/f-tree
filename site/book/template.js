@@ -73,12 +73,17 @@ export const REQUIRED_CHAPTERS = ['cover', 'opening', 'register', 'closing'];
 
 /**
  * `copy` and cover text may only interpolate these - anything else is refused, not skipped.
+ * `{count-words}`/`{Count-words}` are `{n}` spelled out ("twelve"/"Twelve") rather than printed as
+ * digits - the register and the "still to be found" copy (#258 round 2, finding 19) need a number
+ * a hand-set line can carry without reading as a system message, mirroring the same two-case
+ * convention `blocks/words.js`'s format-1 `fill` already uses. `copy.js`'s `chapterVars`/`copyFor`
+ * derive them from `n` itself; this file only has to agree they are spellable.
  * `PLACEHOLDER` (the token syntax) is exported so copy.js (#252) finds a `{token}` the same way
  * this file does, rather than a second parser that could drift from this one. `PLACEHOLDERS`
  * (the accepted names) stays private: a template's copy is already refused at load time if it
  * names anything else, so nothing downstream needs the name set again.
  */
-const PLACEHOLDERS = new Set(['featured', 'featured-first', 'family', 'n', 'year']);
+const PLACEHOLDERS = new Set(['featured', 'featured-first', 'family', 'n', 'year', 'count-words', 'Count-words']);
 export const PLACEHOLDER = /\{([^{}]*)\}/g;
 
 const ART_KINDS = ['papercut'];

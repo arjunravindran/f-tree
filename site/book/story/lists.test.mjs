@@ -26,6 +26,7 @@ import { kinOf, CIRCLES } from './kin.js';
 import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { countInCircle, numberFact } from './copy.js';
+import { countWords } from '../blocks/words.js';
 import { FIGURES, figuresFor, generationsBehind } from './pages/lists.js';
 import { NAME_SIZE, ROW, SECTION_TITLES } from './pages/parts/register-rows.js';
 import { SAFE, lifeDates } from './pages/parts/furniture.js';
@@ -170,10 +171,13 @@ test('every circle kin.js can put somebody in has a register heading', () => {
 test('every figure on the numbers page is a kin circle\'s own count', async () => {
   for (const fixture of STORY) {
     const { family, kin } = await book(fixture);
-    for (const { line } of figuresFor(family, kin)) {
-      const f = FIGURES.find((g) => numberFact(family, kin, countInCircle(kin, g.circle, g.role ?? null), g.noun) === line);
+    // `numberFact` varies its construction by `index` (round 2, finding 23: six sentences that all
+    // began "Sneha Sharma has...") - a figure's line has to be reproduced at the same position
+    // `figuresFor` drew it in, not just from any index's construction.
+    figuresFor(family, kin).forEach(({ line }, i) => {
+      const f = FIGURES.find((g) => numberFact(family, kin, countInCircle(kin, g.circle, g.role ?? null), g.noun, i) === line);
       assert.ok(f, `${fixture}: "${line}" is not any circle's count`);
-    }
+    });
   }
 });
 
@@ -253,7 +257,12 @@ test('the lamps lit are the number the page says are lit', async () => {
     if (!pages.length) continue;
     const lit = plan.pages.reduce((n, p) => n + (p.archetype === 'still-to-be-found' ? p.people.length : 0), 0);
     const said = linesOn(report, pages[0].page, 'body').map((b) => b.s).join(' ');
-    assert.ok(new RegExp(`\\b${lit}\\b|\\bOne lamp\\b`).test(said), `${fixture}: the page says "${said}" and lights ${lit} lamps`);
+    // The count is spelled out (round 2, finding 19: a numeral in a hand-set line reads as a
+    // system message), never printed as a bare digit, so this checks for the word `countWords`
+    // gives it - "One lamp" for one, "{Count-words} lamps" otherwise - not the numeral itself.
+    const word = lit === 1 ? 'One lamp' : countWords(lit, true);
+    assert.ok(new RegExp(`\\b${word}\\b`, 'i').test(said), `${fixture}: the page says "${said}" and lights ${lit} lamps`);
+    assert.ok(!/\d/.test(said), `${fixture}: "${said}" prints a numeral in a hand-set line`);
   }
 });
 

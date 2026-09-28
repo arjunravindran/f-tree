@@ -11,13 +11,14 @@
  * Composer code: deterministic, no clock, no locale, no DOM, no Math.random, static imports only.
  */
 
-import { PAGE, path, rect, group } from '../../format.js';
+import { PAGE, path, rect, circle, group } from '../../format.js';
 import { starfield } from '../../blocks/art.js';
 import { DENSITY } from '../plan.js';
 import { chapterVars, countInCircle, kinCaption, nameOf, noteCaption, numberFact, renderCopy, rootsLine, stillToBeFoundCaption } from '../copy.js';
 import { diyaRow, rangoli } from '../../art/procedural/index.js';
-import { SAFE, familySeed, lifeDates, motif, sanjhiBand, scene, tailpiece, titleBlock } from './parts/furniture.js';
-import { ROW, personRow, sectionHeading, splitColumns } from './parts/register-rows.js';
+import { seeded } from '../../art/seed.js';
+import { SAFE, familySeed, lifeDates, motif, sanjhiBand, scene, titleBlock } from './parts/furniture.js';
+import { ROW, duplicateRegisterNames, personRow, sectionHeading, splitColumns } from './parts/register-rows.js';
 
 /** A chapter's own words, filled from what the family and the circles know (`copy.js`). */
 const copyFor = (ctx, story, page, vars = {}) =>
@@ -34,8 +35,10 @@ function whoIs(ctx, story, id) {
 /**
  * The name over a house's door. A lane is read by surname, so it is the surname the people in this
  * house share, where two or more of them do and no earlier house on the page took it already;
- * failing that the first named person's own first name; and where nobody in the house is named at
- * all, no plate rather than a made-up one.
+ * failing that, the fullest name this house has - a bare given name reads as a shop sign, not a
+ * household, so a surname already spoken for by an earlier house on the page still leaves the
+ * fuller "given name and surname" on the plate rather than degrading further (round 2, finding 10;
+ * approved frame 4 uses "Bhola Prasad", never "Bhola").
  */
 function houseName(family, people, taken) {
   const named = people.map((id) => family.byId.get(id)?.name).filter(Boolean);
@@ -47,11 +50,93 @@ function houseName(family, people, taken) {
   let best = null;
   for (const [surname, n] of counts) if (n >= 2 && !taken.has(surname) && (!best || n > best[1])) best = [surname, n];
   if (best) return best[0];
-  return named.length ? named[0].trim().split(/\s+/)[0] : null;
+  return named.length ? named[0] : null;
 }
 
-/** Whoever a house hangs off: the aunt or uncle whose branch it is, or its first member. */
-const houseHead = (kin, people) => people.find((id) => kin.people.get(id)?.role === 'aunt-uncle') ?? people[0];
+/**
+ * The aunt or uncle a house's branch descends from - `kin.js`'s own `branch` field, which every
+ * member of a branch carries whether or not that ancestor is one of the people standing in this
+ * particular house. Captioning the branch's own anchor, not whichever member happens to be first,
+ * is what lets the caption describe the whole household ("father's half-sister") rather than one
+ * person in it ("nephew"), the way approved frame 4 reads (round 2, finding 11).
+ */
+function houseBranch(kin, people) {
+  for (const id of people) {
+    const b = kin.people.get(id)?.branch;
+    if (b) return b;
+  }
+  return people[0];
+}
+
+/** Whether two of a house's own named people share a name - the register's page reference alone
+ * cannot tell them apart there, so the lane owes them their dates even in a crowded house
+ * (round 2, finding 9). */
+function hasDuplicateName(family, people) {
+  const seen = new Set();
+  for (const id of people) {
+    const n = family.byId.get(id)?.name;
+    if (!n) continue;
+    if (seen.has(n)) return true;
+    seen.add(n);
+  }
+  return false;
+}
+
+/**
+ * Which of the scene's `DENSITY.houses` slots this page's groups stand in, and which are blank.
+ * Groups keep the plan's own order and, whenever more than one slot is empty, stay centred exactly
+ * as before (an even run of blanks either side is already balanced). A *single* blank, though, used
+ * to fall at `Math.floor` of an odd split every time - always the rightmost slot, the lane's most
+ * saturated colour - so it read as the first thing on the page rather than an unused frame
+ * (round 2, finding 8). It now lands in one of the two interior slots, chosen from the family's own
+ * seed rather than always the same one.
+ */
+function laneSlots(ctx, story, groupCount) {
+  const total = DENSITY.houses;
+  const blanks = total - groupCount;
+  if (blanks === 1 && total === 4) {
+    const blank = seeded(familySeed(ctx, story, 'lane-blank'))() < 0.5 ? 1 : 2;
+    const slots = [];
+    for (let i = 0; i < total; i++) if (i !== blank) slots.push(i);
+    return { slots, blankSlots: [blank] };
+  }
+  const offset = Math.floor(blanks / 2);
+  const slots = Array.from({ length: groupCount }, (_, i) => offset + i);
+  const blankSlots = [];
+  for (let i = 0; i < total; i++) if (i < offset || i >= offset + groupCount) blankSlots.push(i);
+  return { slots, blankSlots };
+}
+
+/** An absolute rectangle path, `M L L L Z`, wound from `(x, y)` by `(w, h)` - the one shape this
+ * file clips with (`laneClip`); a negative `w` winds it the other way. */
+const rectPath = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+
+/** The `haveli-lane` scene's own vertical span for a house's roof-to-doorstep silhouette, read off
+ * its authored SVG (`art/src/papercut/scenes/haveli-lane.svg`): the "roofs" zone's own top edge
+ * down to the "doorstep" zones' own bottom edge. */
+const HOUSE_ROOF_Y = 280;
+const HOUSE_STEP_Y = 594;
+const HOUSE_HOLE_PAD = 8;
+
+/** The hole a blank house slot punches in the lane scene: its plate, board and doorstep zones'
+ * combined width, padded a little, the full roof-to-doorstep height. */
+function houseHole(plate, board, doorstep) {
+  const x0 = Math.min(plate.x, board.x, doorstep.x) - HOUSE_HOLE_PAD;
+  const x1 = Math.max(plate.x + plate.w, board.x + board.w, doorstep.x + doorstep.w) + HOUSE_HOLE_PAD;
+  return { x: x0, y: HOUSE_ROOF_Y, w: x1 - x0, h: HOUSE_STEP_Y - HOUSE_ROOF_Y };
+}
+
+/**
+ * One or more house-shaped holes punched through the whole lane scene: the page wound one way,
+ * each hole wound the other, so format 2's nonzero fill rule leaves them empty rather than filled -
+ * the sky, the street and the other houses all stay (round 2, finding 7, the same group-clip
+ * technique #257's `cutHouse` uses on the courtyards scene). A blank house used to keep its full
+ * furnished front and hang a marigold string over its empty nameboard - the book's own mourning
+ * notation, over a house nobody has died in.
+ */
+function laneClip(holes) {
+  return rectPath(0, 0, PAGE.w, PAGE.h) + holes.map((h) => rectPath(h.x + h.w, h.y, -h.w, h.h)).join('');
+}
 
 /**
  * Our lane: a house for every branch of the family, drawn on the `haveli-lane` scene.
@@ -60,11 +145,11 @@ const houseHead = (kin, people) => people.find((id) => kin.people.get(id)?.role 
  * houses, at most `DENSITY.houses` a page - so this only fills the scene's own plates and name
  * boards with them, in the order the plan put them in.
  *
- * Two things the scene cannot decide for itself. The dates go under the names only while the
- * fullest house on the page has room for two lines a person, so that one crowded house does not
- * leave the page set three different ways. And the scene always draws four houses, so a page with
- * fewer takes the middle ones and hangs a marigold string over each board it has no name for: an
- * empty nameboard reads as a mistake, a garlanded one as a door this family has not opened yet.
+ * A few things the scene cannot decide for itself. A house's own dates go under its own names only
+ * while that house has room for two lines a person - or wherever two of its own people share a
+ * name - never suppressed for the whole page by one crowded house elsewhere on it (finding 9). And
+ * the scene always draws `DENSITY.houses` houses, so a page with fewer cuts the unused ones out of
+ * the paper instead of dressing them up with nothing behind the door (finding 7, finding 8).
  */
 function lane(ctx, page, story) {
   const { P, family } = ctx;
@@ -72,30 +157,36 @@ function lane(ctx, page, story) {
   ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
   const s = scene(ctx, 'haveli-lane', { mirrored: page.variant === 'lane-mirrored' });
   const copy = copyFor(ctx, story, page);
-  const items = [...s.items, ...titleBlock(ctx, page, copy, s.zone('title'), { ink: P.ink, soft: P.inkSoft })];
 
   if (page.groups.length > DENSITY.houses) {
     throw new Error(`the lane has ${page.groups.length} houses on page ${page.pageNo}, and the scene has ${DENSITY.houses} - story/plan.js's lanePages splits them, so this page was not planned by it`);
   }
   const plates = s.across('plate', DENSITY.houses);
   const boards = s.across('house', DENSITY.houses);
-  const offset = Math.floor((DENSITY.houses - page.groups.length) / 2);
+  const doorsteps = s.across('doorstep', DENSITY.houses);
+  const { slots, blankSlots } = laneSlots(ctx, story, page.groups.length);
+
+  const scenePic = blankSlots.length
+    ? group([s.items[0]], { clip: laneClip(blankSlots.map((i) => houseHole(plates[i], boards[i], doorsteps[i]))) })
+    : s.items[0];
+  const items = [scenePic, ...titleBlock(ctx, page, copy, s.zone('title'), { ink: P.ink, soft: P.inkSoft })];
+
   const featuredName = nameOf(family, kin, kin.featured);
-  const fullest = Math.max(0, ...page.groups.map((h) => h.people.length));
-  const withDates = fullest <= 4;
   const taken = new Set();
 
   page.groups.forEach((house, i) => {
-    const plate = plates[offset + i], board = boards[offset + i];
+    const slot = slots[i];
+    const plate = plates[slot], board = boards[slot];
     const cx = board.x + board.w / 2;
     const name = houseName(family, house.people, taken);
     if (name) {
       taken.add(name);
       items.push(ctx.line(plate.x + plate.w / 2, plate.y + 10.5, name, 'strong', ctx.fit(name, 'strong', 9.5, plate.w, 9), P.ink, { align: 'middle', width: plate.w, kind: 'name' }));
     }
-    const word = kinCaption(kin, family, houseHead(kin, house.people), featuredName);
+    const word = kinCaption(kin, family, houseBranch(kin, house.people), featuredName);
     if (word) items.push(ctx.line(cx, board.y + 9, word, 'hand', ctx.fit(word, 'hand', 9.5, board.w, 8), P.clay, { align: 'middle', width: board.w, kind: 'caption' }));
 
+    const withDates = house.people.length <= 4 || hasDuplicateName(family, house.people);
     const unit = Math.min(withDates ? 23 : 13.5, (board.h - 18) / Math.max(1, house.people.length));
     house.people.forEach((id, j) => {
       ctx.show(id);
@@ -107,11 +198,12 @@ function lane(ctx, page, story) {
     });
   });
 
-  for (let i = 0; i < DENSITY.houses; i++) {
-    if (i >= offset && i < offset + page.groups.length) continue;
-    const plate = plates[i];
-    items.push(ctx.art.place('mala', { x: plate.x + plate.w / 2, y: plate.y - 1, w: plate.w + 16, shadow: { dx: 0.8, dy: 1.1 } }));
-  }
+  // The closing hand line the approved frame carries, and the lane's own furniture stopped short
+  // of (round 2, finding 13): the scene's own name blocks leave the lower quarter of the page
+  // bare, and a single line of the book's voice is the cheapest, safest way to close that without
+  // a new toran on every door pushing the byte budget past what the cost analysis allows.
+  const closingLine = 'Every door on this lane opens to family.';
+  items.push(ctx.line(PAGE.w / 2, PAGE.h - 62, closingLine, 'hand', ctx.fit(closingLine, 'hand', 14, SAFE.w, 10), P.ink, { align: 'middle', width: SAFE.w, kind: 'body' }));
 
   items.push(...ctx.footer(P.inkSoft));
   return ctx.page(copy?.title ?? 'Our lane', items, P.paper);
@@ -130,13 +222,21 @@ function lane(ctx, page, story) {
  * None of the motifs is a lamp. Lamps count people in this book, and a lamp beside a figure on
  * this page would read as counting the wrong thing.
  */
+/*
+ * The six most commonly shown together - siblings through grandparents, `MAX_FIGURES` below - each
+ * get their own motif from the vocabulary (round 2, finding 24: `mango-leaf` and `marigold` used to
+ * cover two circles apiece, so a family with both drew the same cut twice on one page). Only the
+ * two lowest-priority circles, in-laws and the lane overflow, reuse an earlier motif - they are cut
+ * by `MAX_FIGURES` whenever the six above them are all non-zero, so the reuse is rarely seen beside
+ * its twin.
+ */
 export const FIGURES = [
   { motif: 'mango-leaf', circle: 'siblings', noun: 'sibling' },
   { motif: 'lotus', circle: 'children', noun: { one: 'child', many: 'children' } },
   { motif: 'marigold', circle: 'branches', role: 'cousin', noun: 'cousin' },
   { motif: 'peepal', circle: 'branches', role: 'aunt-uncle', noun: { one: 'aunt or uncle', many: 'aunts and uncles' } },
   { motif: 'marigold-bead', circle: 'descendants', role: 'grandchild', noun: { one: 'grandchild', many: 'grandchildren' } },
-  { motif: 'mango-leaf', circle: 'grandparents', noun: { one: 'grandparent', many: 'grandparents' } },
+  { motif: 'kandil', circle: 'grandparents', noun: { one: 'grandparent', many: 'grandparents' } },
   { motif: 'marigold', circle: 'in-laws', noun: { one: 'relative by marriage', many: 'relatives by marriage' } },
   { motif: 'lotus', circle: 'lane', noun: { one: 'more relative in the family', many: 'more relatives in the family' } },
 ];
@@ -148,11 +248,29 @@ const MAX_FIGURES = 6;
 export function figuresFor(family, kin) {
   const out = [];
   for (const f of FIGURES) {
-    const line = numberFact(family, kin, countInCircle(kin, f.circle, f.role ?? null), f.noun);
+    const line = numberFact(family, kin, countInCircle(kin, f.circle, f.role ?? null), f.noun, out.length);
     if (line) out.push({ motif: f.motif, line });
     if (out.length === MAX_FIGURES) break;
   }
   return out;
+}
+
+/**
+ * A figure vignette, not a bare icon (round 2, finding 25): a soft ink shadow, a paper-deep mat
+ * disc and a thin gold ring under the motif's own drop shadow - three or four cut layers, the way
+ * every other paper-cut piece in this book is built, rather than one flat shape floating beside a
+ * line of text.
+ */
+function figureVignette(ctx, id, cx, cy, size) {
+  const { P } = ctx;
+  const r = size * 0.62;
+  ctx.zone('busy', { x: cx - r, y: cy - r, w: r * 2, h: r * 2 });
+  return [
+    circle(cx + 1.6, cy + 2, r, { fill: P.ink, op: 0.08 }),
+    circle(cx, cy, r, { fill: P.paperDeep }),
+    circle(cx, cy, r, { stroke: P.gold, sw: 0.8, op: 0.55 }),
+    motif(ctx, id, cx, cy, size, { shadow: { dx: 1, dy: 1.4 } }),
+  ];
 }
 
 /**
@@ -176,7 +294,7 @@ function numbers(ctx, page, story) {
   figures.forEach(({ motif: id, line }, i) => {
     const x = SAFE.x + (i % 2) * (colW + 34);
     const middle = top + (Math.floor(i / 2) + 0.5) * rowH;
-    items.push(motif(ctx, id, x + 38, middle, 68, { shadow: { dx: 1.2, dy: 1.6 } }));
+    items.push(...figureVignette(ctx, id, x + 38, middle, 68));
     items.push(...ctx.lines(x + 86, middle - 8, line, 'hand', 13.5, P.ink, { width: colW - 92, maxLines: 3, lead: 18, kind: 'body' }).items);
   });
   if (figures.length) items.push(ctx.art.place('divider-lotus', { x: PAGE.w / 2, y: SAFE.bottom - 16, w: 150, op: 0.7 }));
@@ -206,6 +324,14 @@ const corners = (ctx) => [
  * over it.
  */
 const PORTRAIT_PAGES = 3;
+
+/**
+ * The foot vignette every register page carries (round 2, finding 1): its rendered height, and the
+ * gap either side of it. Sized so even a full 48-row page - two columns of 24, the tallest the plan
+ * ever paginates - still has room to sit below `SAFE.bottom`.
+ */
+const FOOT_H = 54;
+const FOOT_GAP = 12;
 
 /**
  * This page's rows, in two columns: a row for each section heading, a row for each person.
@@ -251,20 +377,39 @@ function register(ctx, page, story) {
   const columns = registerColumns(page, carried);
 
   const portraits = story.plan.pages.filter((p) => p.archetype === 'register').length <= PORTRAIT_PAGES;
+  const disambiguate = duplicateRegisterNames(ctx, story);
   const gutter = 28;
-  const colW = (SAFE.w - gutter) / 2;
-  const top = 214;
+  // A register short enough to sit in one column takes the whole width rather than being left in
+  // the left half with the right half bare (round 2, finding 2).
+  const singleColumn = columns[1].length === 0;
+  const colW = singleColumn ? SAFE.w : (SAFE.w - gutter) / 2;
+
+  // A page with a lot fewer rows than it could hold is centred in the room below the title, with
+  // the foot vignette's own space kept clear beneath it, rather than pinned to the top of an
+  // otherwise empty sheet (round 2, finding 2). A full page keeps its old top - there is no room
+  // to centre it, and it already reaches close to `SAFE.bottom`.
+  const top0 = 214;
+  const rowsMax = Math.max(1, ...columns.map((c) => c.length));
+  const contentH = rowsMax * ROW;
+  const spareRoom = SAFE.bottom - top0 - FOOT_GAP - FOOT_H - FOOT_GAP;
+  const top = contentH < spareRoom ? top0 + (spareRoom - contentH) / 2 : top0;
+
   columns.forEach((column, c) => {
     const x = SAFE.x + c * (colW + gutter);
     column.forEach((row, i) => {
       const y = top + i * ROW;
       if (row.heading) items.push(...sectionHeading(ctx, row.heading, x, y, colW, row.continued));
-      else items.push(...personRow(ctx, story, row.id, x, y, colW, { portraits }));
+      else items.push(...personRow(ctx, story, row.id, x, y, colW, { portraits, disambiguate }));
     });
   });
 
-  const foot = top + Math.max(...columns.map((c) => c.length)) * ROW;
-  if (foot + 40 < SAFE.bottom) items.push(ctx.art.place('divider-lotus', { x: PAGE.w / 2, y: foot + 26, w: 150, op: 0.6 }));
+  // The foot vignette (round 2, finding 1): one drawing - a tulsi, a small deepstambh and a lotus
+  // between them - reused on every register page, never a picture per row. This is what keeps the
+  // register a page of the storybook rather than an index the pictures stopped partway through.
+  const footBottom = top + contentH + FOOT_GAP + FOOT_H;
+  items.push(ctx.art.place('register-foot', { x: PAGE.w / 2, y: footBottom, w: Math.min(SAFE.w * 0.72, 300) }));
+  ctx.zone('busy', { x: SAFE.x, y: footBottom - FOOT_H, w: SAFE.w, h: FOOT_H });
+
   items.push(...ctx.footer(P.inkSoft));
   return ctx.page(copy?.title ?? 'Everyone', items, P.paper);
 }
@@ -278,16 +423,24 @@ function register(ctx, page, story) {
  * somebody no named neighbour can place, `stillToBeFoundCaption`'s own sentence ("Ankit's
  * great-grandmother, on the maternal side"). The line under it adds their kin word and when they
  * lived - but not a kin word the name has already said, so a page never prints "Raj Kumar's late
- * wife" over "late wife".
+ * wife" over "Late" (round 2, finding 16), and not a year at all for somebody living (round 2,
+ * finding 18): the niche this page keeps a lamp in is the book's remembrance notation, which is
+ * for the departed alone (docs/book-design-system.md, "Principles"), so a living person still to
+ * be named reads "not yet placed in the tree" - the approved frame's own words - instead of an
+ * age-shaped year that would read as somebody's death is being marked beside them.
  */
 function lostName(ctx, story, id, featuredName) {
   const { family } = ctx;
   const { kin } = story;
+  const p = family.byId.get(id);
   const own = nameOf(family, kin, id);
   const name = own ?? stillToBeFoundCaption(family, kin, id) ?? 'A name still to be found';
+  if (p && !p.deceased) return { name, under: 'not yet placed in the tree' };
   const word = own ? kinCaption(kin, family, id, featuredName) : null;
   const fresh = word && !name.toLowerCase().endsWith(word.toLowerCase()) ? word : null;
-  return { name, under: [fresh, lifeDates(family.byId.get(id))].filter(Boolean).join(' · ') };
+  const dates = lifeDates(p);
+  const redundant = dates === 'Late' && name.toLowerCase().includes('late');
+  return { name, under: [fresh, redundant ? null : dates].filter(Boolean).join(' · ') };
 }
 
 /** How many lamps this book lights for names still to be found: the plan's own count, not a tally. */
@@ -303,6 +456,32 @@ const lampsLit = (plan) => plan.pages.reduce((n, p) => n + (p.archetype === 'sti
  * `lamp-unknown` (`diyaRow`'s `unknownAt`, every lamp of it) and lists the names below: exactly one
  * lamp per person either way, which is the rule the whole book is built on.
  */
+/** The `aala` motif's own width for a given height, from its compiled viewBox (72 x 84). */
+const AALA_ASPECT = 72 / 84;
+
+/**
+ * The ornament the design system draws on an aala niche - a cusped arch rim, a marigold swag and a
+ * flame finial - that #254's own asset does not carry yet (round 2, out of scope per the critique,
+ * finding 17, but placement is this issue's to try): a dashed gold rim traced over the niche's own
+ * arch, two small marigolds at its shoulders joined by a thread, and a small flame above its peak.
+ * Approximate, not #254's real cut ornament, and dropped the day that asset lands.
+ */
+function nicheOrnament(ctx, cx, bottomY, height) {
+  const { P } = ctx;
+  const w = height * AALA_ASPECT;
+  const top = bottomY - height;
+  const shoulderY = top + height * 0.34, archY = top + height * 0.06;
+  const left = cx - w * 0.42, right = cx + w * 0.42;
+  const items = [
+    path(`M ${left} ${shoulderY} Q ${cx} ${archY} ${right} ${shoulderY}`, { stroke: P.gold, sw: 1, dash: [0.01, 3.2], cap: 'round', op: 0.75 }),
+    path(`M ${cx} ${top - 2} L ${cx - 3.2} ${top + 5} L ${cx + 3.2} ${top + 5} Z`, { fill: P.flame, op: 0.9 }),
+    circle(cx, top - 4.5, 1.6, { fill: P.gold }),
+  ];
+  items.push(motif(ctx, 'marigold-bead', left, shoulderY + 2, 9));
+  items.push(motif(ctx, 'marigold-bead', right, shoulderY + 2, 9));
+  return items;
+}
+
 function stillToBeFound(ctx, page, story) {
   const { P, family } = ctx;
   const { kin } = story;
@@ -325,6 +504,7 @@ function stillToBeFound(ctx, page, story) {
       ctx.show(id);
       const cx = niches.x + cell * (i + 0.5);
       items.push(ctx.art.place('aala', { x: cx, y: niches.y + niches.h, h: height }));
+      items.push(...nicheOrnament(ctx, cx, niches.y + niches.h, height));
       const { name, under } = lostName(ctx, story, id, featuredName);
       const own = Boolean(family.byId.get(id)?.name);
       items.push(ctx.line(cx, names.y + 13, name, own ? 'strong' : 'hand', ctx.fit(name, own ? 'strong' : 'hand', 11, cell - 12, 9), own ? P.card : P.flame, { align: 'middle', width: cell - 12, kind: 'name' }));
@@ -349,15 +529,36 @@ function stillToBeFound(ctx, page, story) {
     });
   }
 
+  // The words the approved frame closes this chapter on (round 2, finding 14): the lower third had
+  // no words at all, which is the single biggest loss of feeling in the whole chapter. Two lines in
+  // the hand, then the quiet aside underneath - no tailpiece beside them, the way the approved
+  // frame draws it, since a decorative mala would compete with what the words are saying.
   const closing = s.zone('closing');
-  items.push(...tailpiece(ctx, closing.x + closing.w / 2, closing.y + 26, 150));
+  const ccx = closing.x + closing.w / 2, cw = closing.w - 30;
+  const CLOSING_LINES = [
+    ['Some names are missing, but they are not forgotten.', 'hand', 15, P.flame],
+    ['A lamp is kept for each of them, until someone remembers.', 'hand', 15, P.flame],
+    ['Perhaps someone reading this remembers.', 'text', 10.5, P.card],
+  ];
+  let cy = closing.y + 26;
+  for (const [s2, role, size, fill] of CLOSING_LINES) {
+    items.push(ctx.line(ccx, cy, s2, role, ctx.fit(s2, role, size, cw, size * 0.75), fill, { align: 'middle', width: cw, kind: 'body' }));
+    cy += size + 6;
+  }
 
   // The one rangoli this chapter lays, tilted onto the floor as `style-frames/frames.mjs` draws it,
-  // and seeded from the family so two families never get the same pattern.
+  // seeded from the family so two families never get the same pattern, and pulled in a little from
+  // the zone's own bounds and up from the foot of the page (round 2, finding 15: at the zone's full
+  // size the rangoli's own petals ran under the folio credit `ctx.footer` prints at `PAGE.h - 22`).
   const floor = s.zone('rangoli');
-  const R = Math.min(floor.w / 2, floor.h / 0.6);
+  // Shrunk and lifted off the zone's own centre: the folio credit's baseline sits at `PAGE.h - 22`
+  // with the glyphs rising about 6 pt above it, so the rangoli's own lowest point (its squashed
+  // ground ring, `R * 1.02 * 0.3` below its centre) has to clear `PAGE.h - 28` with room to spare.
+  const R = Math.min(floor.w / 2, floor.h / 0.6) * 0.68;
+  const rcx = floor.x + floor.w / 2, rcy = floor.y + floor.h * 0.3;
   items.push(group([rangoli(P, 0, 0, R, familySeed(ctx, story, 'rangoli'), { ground: P.paperDeep, colours: [P.gold, P.saffron, P.card, P.rani] })],
-    { tf: [1, 0, 0, 0.3, floor.x + floor.w / 2, floor.y + floor.h / 2], op: 0.8 }));
+    { tf: [1, 0, 0, 0.3, rcx, rcy], op: 0.8 }));
+  ctx.zone('busy', { x: rcx - R * 1.1, y: rcy - R * 0.34, w: R * 2.2, h: R * 0.68 + 8 });
 
   items.push(...ctx.footer(P.silver));
   return ctx.page(copy?.title ?? 'Still to be found', items, P.night);
@@ -398,7 +599,9 @@ function handCard(ctx, words, cx, top, w) {
   return [
     path(torn(2.2, 3), { fill: P.ink, op: 0.2 }),
     path(torn(0, 0), { fill: P.card }),
-    path(`M ${cx - 30} ${top - 6} L ${cx + 28} ${top - 9} L ${cx + 30} ${top + 5} L ${cx - 28} ${top + 8} Z`, { fill: P.silver, op: 0.8 }),
+    // The tape is gold, matching the note cards #256 and #257 draw with the same idiom (round 2,
+    // finding 22) - `silver` was this page's own drift from the shared look.
+    path(`M ${cx - 30} ${top - 6} L ${cx + 28} ${top - 9} L ${cx + 30} ${top + 5} L ${cx - 28} ${top + 8} Z`, { fill: P.gold, op: 0.8 }),
     ...body.items,
   ];
 }

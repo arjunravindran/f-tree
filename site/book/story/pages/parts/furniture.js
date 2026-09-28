@@ -1,7 +1,7 @@
 /*
  * The page furniture the closing chapters share (#258): the scene under a page, the title block
- * over it, a Sanjhi band, a tailpiece, and the two small facts every one of these pages prints the
- * same way - when somebody lived, and what a page's art is seeded from.
+ * over it, a Sanjhi band, and the two small facts every one of these pages prints the same way -
+ * when somebody lived, and what a page's art is seeded from.
  *
  * Only `pages/lists.js` and its own parts use this. It is deliberately not a general page kit: the
  * archetypes each issue owns are its own, and a helper that three issues shared would become a
@@ -98,16 +98,6 @@ export function sanjhiBand(ctx, { foot = false, tint } = {}) {
   return [group(items)];
 }
 
-/**
- * The tailpiece a chapter closes with: a short marigold string. The design system's tailpiece is
- * "a diya and a short mala", but these pages light lamps that *count* something - people still to
- * be found, generations behind the featured person - and a decorative lamp never shares a picture
- * with counting lamps, so the mala hangs alone here.
- *
- * This is `mala`, the plain string, never `mala-departed`: that one is the notation for a person
- * who has died and hangs on their frame alone.
- */
-export const tailpiece = (ctx, cx, y, w = 130) => [ctx.art.place('mala', { x: cx, y, w, shadow: { dx: 1, dy: 1.4 } })];
 
 /**
  * When somebody lived, in the compact form a list column holds: "1935 – 1999" for the departed,
