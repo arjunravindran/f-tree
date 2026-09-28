@@ -630,13 +630,25 @@ function legacy(ctx, page, story) {
   ];
   items.push(...titleBlock(ctx, page, { title: copy?.title }, { x: SAFE.x, y: 74, w: SAFE.w, h: 70 }, { ink: P.flame, align: 'middle' }));
 
-  // The line climbs from the deepest generation on record down to the featured person's own lamp.
+  // The lamp column and the note card sit the same distance either side of the page's own centre
+  // - the axis the title is centred on too (round 2, finding 20: the three used to be three
+  // unrelated numbers - the title at 50%, the column at ~20%, the card at ~65% - with no relation
+  // between any of them).
+  const OFFSET = 120;
+  const axis = mirrored ? PAGE.w / 2 + OFFSET : PAGE.w / 2 - OFFSET;
+  const cardCx = mirrored ? PAGE.w / 2 - OFFSET : PAGE.w / 2 + OFFSET;
+
+  // The line climbs from the deepest generation on record down to the featured person's own lamp,
+  // in the room between the title and the foot of the page - derived from that room, rather than
+  // fixed numbers that left 250+ pt of unbroken sky above the first lamp for a family with only a
+  // couple of generations behind it (finding 20), and generous enough for a long line that a lamp
+  // never crowds its neighbour into an unreadable smear (finding 21).
   const gens = generationsBehind(kin);
-  const axis = mirrored ? 420 : 175;
-  const step = Math.min(70, 300 / Math.max(1, gens));
-  // The column is centred in the page's open middle however tall it turns out to be, so a family
-  // with two generations behind it does not leave half a night sky empty above the lamps.
-  const base = 460 + (step * gens) / 2 + 40;
+  const ROOM_TOP = 168, ROOM_BOTTOM = SAFE.bottom - 8;
+  const step = Math.min(70, (ROOM_BOTTOM - ROOM_TOP - 40) / Math.max(1, gens));
+  // The column is centred in that room however tall it turns out to be, so a family with two
+  // generations behind it does not leave half a night sky empty above the lamps.
+  const base = Math.min(ROOM_BOTTOM, (ROOM_TOP + ROOM_BOTTOM) / 2 + (step * gens) / 2);
   const top = base - step * (gens + 0.5);
   items.push(path(`M ${axis} ${base} L ${axis} ${top}`, { stroke: P.gold, sw: 1, op: 0.3 }));
   // A lamp never grows past the pitch that carries it: an imported line twenty generations deep
@@ -654,7 +666,7 @@ function legacy(ctx, page, story) {
   if (roots) items.push(ctx.line(axis, top - 20, roots, 'hand', ctx.fit(roots, 'hand', 12, 190, 8), P.gold, { align: 'middle', width: 190, kind: 'caption' }));
 
   const words = noteCaption(page.copyKey, family, kin.featured, ctx.options) ?? copy?.line;
-  if (words) items.push(...handCard(ctx, words, mirrored ? 185 : 415, (top + base) / 2 - 46, 210));
+  if (words) items.push(...handCard(ctx, words, cardCx, (top + base) / 2 - 46, 210));
 
   items.push(...ctx.footer(P.silver));
   return ctx.page(copy?.title ?? 'One line of light', items, P.deep);
