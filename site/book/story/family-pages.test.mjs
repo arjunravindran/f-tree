@@ -229,6 +229,28 @@ test('a name nobody wrote down is a lamp, never an invented face', async () => {
   assert.equal(lamps['pc-lamp-unknown'] + lamps['pc-aala'], nameless, 'one lamp for each name not known, and no more');
 });
 
+test('the same fact never prints three times over one caption: "late" once, and only where nothing else says it', async () => {
+  // Raj Kumar's wife (unnamed, WIDOWED, no dates recorded): her name line ("Raj Kumar's late
+  // wife") is the only place that can say she has died, so it keeps "late" and the bare-word
+  // dates line "Late" - which would only repeat that same fact as an orphan word - is dropped
+  // (round 1 finding 10).
+  const { report } = await compose('story-unknown-names');
+  const mine = report.pages.filter((p) => MINE.includes(p.archetype));
+  const boxes = report.textBoxes.filter((b) => mine.some((p) => p.page === b.page));
+  // A wrapped name line is more than one text box ("Raj Kumar’s late" then "wife"), so the
+  // name-kind boxes are joined into one string in their drawn order before searching it.
+  const names = boxes.filter((b) => b.kind === 'name').map((b) => b.s).join(' ');
+
+  assert.match(names, /Raj Kumar.s late wife/, 'Raj Kumar\'s wife\'s name line dropped "late" although nothing else on the page says she has died');
+  assert.ok(!boxes.some((b) => b.kind === 'lifespan' && b.s === 'Late'), 'the orphan word "Late" still prints beside a name line that already says so');
+
+  // Shyam Lal's wife (unnamed, WIDOWED, full dates recorded): the dates line prints real years,
+  // so her name line drops "late" rather than saying the same thing a second way (finding 26).
+  assert.match(names, /Shyam Lal.s wife/, 'Shyam Lal\'s wife has no name line on the page');
+  assert.ok(!/Shyam Lal.s late wife/.test(names), 'Shyam Lal\'s wife\'s name line still says "late" although her dates print beside it');
+  assert.ok(boxes.some((b) => b.kind === 'lifespan' && b.s === '1909 – 1981'), 'her dates did not print in the approved spaced form');
+});
+
 test('a marigold string joins two people the record married, and nobody else', async () => {
   // The `steps` variant closes a page with the lotus divider rather than the tailpiece's own
   // short mala, so every `mala` left on the page is a marriage and nothing else.

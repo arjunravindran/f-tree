@@ -18,9 +18,9 @@
  * Shared within #257 only. Composer code: deterministic, no clock, no locale, no Math.random.
  */
 
-import { lifeYears } from '../../../family.js';
 import { avatarFor } from '../../avatars.js';
 import { kinCaption, nameOf, noteCaption, stillToBeFoundCaption } from '../../copy.js';
+import { lifeDates } from './dates.js';
 import { TYPE } from './paper.js';
 
 /** The story medallion's size range (design system, "People": 36-90 pt across). */
@@ -69,6 +69,55 @@ export function portrait(ctx, story, id, cx, cy, d) {
   return items;
 }
 
+/** The English word this file's `namedBy`-derived phrases carry for a deceased person's spouse. */
+const LATE_RE = /\blate\s+/i;
+
+/**
+ * The name line under a frame: the person's own name, or - for somebody the record never named -
+ * the relation they are named by, in the hand face. One rule, so measuring a caption and drawing
+ * it can never disagree about what it says.
+ *
+ * A relation phrase built from `namedBy` ("Raj Kumar's late wife") or `stillToBeFoundCaption`
+ * carries the English word "late" whenever the person it names them by is recorded as WIDOWED and
+ * departed - independently of whatever this same caption's own dates line or kin word says, which
+ * is how the same fact ends up printed three times (#257 round 2, findings 10 and 26). `late` is
+ * dropped from the displayed text once the dates line below is going to say so anyway with real
+ * information of its own (a year); where the dates line has nothing but the bare word "Late" to
+ * offer, this stays the one place that says it.
+ */
+function nameLine(ctx, story, id, width, showsYears) {
+  const p = ctx.family.byId.get(id);
+  const raw = nameOf(ctx.family, story.kin, id) ?? stillToBeFoundCaption(ctx.family, story.kin, id);
+  const late = !p.name && typeof raw === 'string' && LATE_RE.test(raw);
+  const text = late && showsYears ? raw.replace(LATE_RE, '') : raw;
+  const role = p.name ? 'strong' : 'hand';
+  return { text, role, size: text ? ctx.fit(text, role, TYPE.name, width, TYPE.nameMin) : TYPE.name, late };
+}
+
+/**
+ * Everything `caption` and `captionHeight` need to agree on: the name line (already resolved
+ * against the dates line, above), whether the dates line prints at all, and the kin word - left
+ * out wherever it would repeat what the name line already says, on its own or through `late`.
+ */
+function captionParts(ctx, story, id, width) {
+  const { kin } = story;
+  const family = ctx.family;
+  const p = family.byId.get(id);
+  const years = lifeDates(p);
+  // A bare "Late" (nothing but the word itself: no year survived) is dropped once the name line
+  // already carries "late" - otherwise the one fact prints as an orphan word and, a second time,
+  // as a whole line (finding 10). Any dates line with a real year stays: it is new information.
+  const first = nameLine(ctx, story, id, width, Boolean(years) && years !== 'Late');
+  const showsYears = Boolean(years) && !(years === 'Late' && first.late);
+  const featuredName = nameOf(family, kin, kin.featured);
+  const rawWord = kinCaption(kin, family, id, featuredName);
+  // Left out where the name line already ends in exactly this relation - which happens whenever
+  // `namedBy` (kin.js) named this person by the same relation `kinCaption` gives them here, not
+  // only when the name is missing outright.
+  const word = rawWord && !(first.text && first.text.endsWith(rawWord)) ? rawWord : null;
+  return { first, years: showsYears ? years : null, word };
+}
+
 /**
  * The words under one frame: their name, when they lived, and what they are to the featured
  * person. Somebody the record never named is named by their relation instead ("Shyam Lal's wife",
@@ -79,17 +128,14 @@ export function portrait(ctx, story, id, cx, cy, d) {
  * never print over each other however long a name is.
  */
 export function caption(ctx, story, id, { cx, top, width, nameLines = 0 }) {
-  const { kin } = story;
-  const family = ctx.family;
-  const p = family.byId.get(id);
+  const p = ctx.family.byId.get(id);
+  const { first, years, word } = captionParts(ctx, story, id, width);
   const items = [];
   let y = top;
-  const featuredName = nameOf(family, kin, kin.featured);
 
-  const { text: first, role, size } = nameLine(ctx, story, id, width);
-  if (first) {
+  if (first.text) {
     y += TYPE.name;
-    const broken = ctx.lines(cx, y, first, role, size, p.name ? ctx.P.ink : ctx.P.brass,
+    const broken = ctx.lines(cx, y, first.text, first.role, first.size, p.name ? ctx.P.ink : ctx.P.brass,
       { width, maxLines: 2, align: 'middle', lead: TYPE.name * 1.2, kind: 'name' });
     items.push(...broken.items);
     // A row reserves the same number of name lines for everybody on it, so the dates and the kin
@@ -97,15 +143,12 @@ export function caption(ctx, story, id, { cx, top, width, nameLines = 0 }) {
     y += (Math.max(nameLines, broken.count) - 1) * TYPE.name * 1.2;
   }
 
-  const years = lifeYears(p);
   if (years) {
     y += TYPE.dates * 1.35;
     items.push(ctx.line(cx, y, years, 'text', TYPE.dates, ctx.P.inkSoft, { align: 'middle', width, kind: 'lifespan' }));
   }
 
-  // The kin word, in the hand face in clay (design system, "Typography"). Left out where the
-  // name line already *is* the relation, which would print the same fact twice.
-  const word = nameOf(family, kin, id) || !first ? kinCaption(kin, family, id, featuredName) : null;
+  // The kin word, in the hand face in clay (design system, "Typography").
   if (word) {
     y += TYPE.kin * 1.4;
     items.push(ctx.line(cx, y, word, 'hand', ctx.fit(word, 'hand', TYPE.kin, width, 8), ctx.P.clay, { align: 'middle', width, kind: 'caption' }));
@@ -114,32 +157,19 @@ export function caption(ctx, story, id, { cx, top, width, nameLines = 0 }) {
   return { items, bottom: y + 4 };
 }
 
-/**
- * The name line under a frame: the person's own name, or - for somebody the record never named -
- * the relation they are named by, in the hand face. One rule, so measuring a caption and drawing
- * it can never disagree about what it says.
- */
-function nameLine(ctx, story, id, width) {
-  const p = ctx.family.byId.get(id);
-  const text = nameOf(ctx.family, story.kin, id) ?? stillToBeFoundCaption(ctx.family, story.kin, id);
-  const role = p.name ? 'strong' : 'hand';
-  return { text, role, size: text ? ctx.fit(text, role, TYPE.name, width, TYPE.nameMin) : TYPE.name };
-}
-
 /** How many lines `id`'s name takes at `width`: the row's tallest sets them all. */
 export function nameLineCount(ctx, story, id, width) {
-  const { text, role, size } = nameLine(ctx, story, id, width);
-  return text ? ctx.lines(0, 0, text, role, size, ctx.P.ink, { width, maxLines: 2, lead: TYPE.name * 1.2 }).count : 0;
+  const { first } = captionParts(ctx, story, id, width);
+  return first.text ? ctx.lines(0, 0, first.text, first.role, first.size, ctx.P.ink, { width, maxLines: 2, lead: TYPE.name * 1.2 }).count : 0;
 }
 
 /** How tall `caption` will be for `id` with `nameLines` reserved for the name. */
 export function captionHeight(ctx, story, id, width, nameLines) {
-  const p = ctx.family.byId.get(id);
-  const { text } = nameLine(ctx, story, id, width);
+  const { first, years, word } = captionParts(ctx, story, id, width);
   let h = 4;
-  if (text) h += TYPE.name + (Math.max(nameLines, 1) - 1) * TYPE.name * 1.2;
-  if (lifeYears(p)) h += TYPE.dates * 1.35;
-  if (nameOf(ctx.family, story.kin, id) || !text) h += TYPE.kin * 1.4;
+  if (first.text) h += TYPE.name + (Math.max(nameLines, 1) - 1) * TYPE.name * 1.2;
+  if (years) h += TYPE.dates * 1.35;
+  if (word) h += TYPE.kin * 1.4;
   return h;
 }
 
