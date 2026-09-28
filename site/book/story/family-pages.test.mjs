@@ -363,6 +363,26 @@ test('a family that knows only one side draws both houses, empty rather than cut
   assert.equal(sceneCrops(both.book.pages[twoSided.page - 1], 'pc-aangan').length, 0);
 });
 
+test('a lamp kept in a house\'s wall gets a note explaining it, when the family gave no note of its own', async () => {
+  // Round 1 finding 5: the aala reads as decoration without a sentence beside it, and a niche
+  // sits inside the scene's own busy art (no text may go there) while the household's caption
+  // stack that would otherwise explain it can be hundreds of points away.
+  const { book, report, family } = await compose('story-unknown-names', {
+    archetype: 'gathering',
+    rewrite: (page, story) => {
+      const people = [...story.kin.circles.grandparents];
+      return { archetype: 'courtyards', variant: 'facing', density: 'gathering', people, groups: [{ key: 'grandparents:', people }] };
+    },
+  });
+  const page = report.pages.find((p) => p.archetype === 'courtyards');
+  assert.ok(page, 'the rewrite did not produce a courtyards page');
+  assert.ok(page.people.some((id) => !family.byId.get(id).name), 'the fixture has no nameless grandparent for a niche to hold');
+  const drawn = book.pages[page.page - 1];
+  assert.ok(uses(drawn, 'pc-aala') > 0, 'the fixture no longer lights a niche on this page');
+  const noteText = report.textBoxes.find((b) => b.page === page.page && b.kind === 'caption' && /lamp is kept/i.test(b.s));
+  assert.ok(noteText, 'the lit niche has no explanation anywhere on the page');
+});
+
 test('both houses have niches, so the notation for a name not known does not depend on which side of the family somebody is on', async () => {
   // This fixture's one nameless grandparent, Shyam Lal's wife, is on the FATHER's side - the
   // house `courtyards` used to draw with no niches in it at all, so she got the plainer

@@ -352,7 +352,14 @@ function courtyards(ctx, page, story) {
     items.push(...household(ctx, story, page, house, { frames: house.frames, text: { ...house.text, y: wordsTop }, toran: house.toran }));
   }
 
-  const note = pageNote(ctx, page);
+  // A lamp kept in a house's wall is the notation, but it sits inside the scene's own busy art -
+  // no text may go there - while the household's own caption stack that would explain it can be
+  // several hundred points away in the text column, so a niche reads as decoration rather than as
+  // what it is (round 1 finding 5). Explaining it takes the note card, the one place on the page
+  // free of both the scene's busy art and a household's own words - a family note, when there is
+  // one, still takes it first.
+  const inWall = shown.reduce((n, h) => n + Math.min(h.ids.filter((id) => !ctx.family.byId.get(id).name).length, h.niches.length), 0);
+  const note = pageNote(ctx, page) ?? (inWall ? 'A lamp is kept for each of them, until someone remembers.' : null);
   const noteMid = by.note.x + by.note.w / 2;
   if (note) items.push(...noteCard(ctx, page, note, { cx: noteMid, top: by.note.y + 6, w: Math.min(by.note.w, 340) }).items);
   else items.push(...tailpiece(ctx, noteMid, by.note.y + 20));
