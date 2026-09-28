@@ -61,3 +61,22 @@ export function heroFor(person, ctx) {
   const stage = lifeStage(person, ctx);
   return `hero-${genderOf(person)}-${stage === 'youth' ? 'adult' : stage}`;
 }
+
+/**
+ * The cloth tint an adult or elder hero's kurta or drape takes, from the same stable hash
+ * `avatarFor`'s own variant comes from (round 2, finding 9) - `heroFor` has no `a`/`b` variant of
+ * its own to pick between (there is one hero drawing a gender and stage share, #253's own budget),
+ * so every one of them baked in the same fixed colour: every male elder in indigo, every female
+ * elder in peacock. `framedPerson` (`pages/parts/people.js`) draws this over the figure's own
+ * `back-shoulders` - the one part of the drawing a placement can retint on its own, at the same
+ * anchor and size as the whole figure - so no new asset is commissioned (#253) and the drawing
+ * itself never changes, only the paper it reads as cut from.
+ * `null` for a child: the smaller hero figures carry an internal scale a plain `back-shoulders`
+ * overlay cannot match (round 2's own scope, not a rule).
+ */
+const HERO_TINTS = Object.freeze(['indigo', 'peacock', 'clay', 'rani', 'saffron', 'leafDeep']);
+
+export function heroTint(person, ctx) {
+  if (lifeStage(person, ctx) === 'child') return null;
+  return HERO_TINTS[hash(`${person?.id ?? ''} hero-cloth`) % HERO_TINTS.length];
+}

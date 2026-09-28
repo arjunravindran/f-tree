@@ -18,11 +18,12 @@
  * Composer code: deterministic, no clock, no locale, no DOM, static relative imports only.
  */
 
-import { image } from '../../../format.js';
+import { image, rect } from '../../../format.js';
 import { lifeLine, lifeYears } from '../../../family.js';
 import { LIBRARY } from '../../../art/index.js';
-import { avatarFor, heroFor } from '../../avatars.js';
+import { avatarFor, heroFor, heroTint } from '../../avatars.js';
 import { nameOf, kinCaption } from '../../copy.js';
+import { glowDiscs } from './page.js';
 
 /**
  * About how many pixels a photograph printed `pt` points across is worth: roughly 170 to the inch,
@@ -56,6 +57,23 @@ export function frameOuter(id, x, y, w) {
 }
 
 /**
+ * The hero with no photograph, seen from behind at the anchor a hero figure always shares with
+ * `back-shoulders` (both `vb` and `anchor` come from the same 100x100 units, art/README.md) -
+ * placed once for the figure, and, adults and elders only, a second time as a tinted overlay of
+ * just its kurta or drape (round 2, finding 9): `heroFor` has no variant of its own to hash
+ * between, so without this every man of one life stage wore the identical indigo, and two women
+ * differed only by hair. `heroTint` returning `null` for a child leaves the drawing exactly as
+ * authored - a plain retint would land on the wrong scale there (`story/avatars.js`).
+ */
+function heroFigure(art, person, stage, opening) {
+  const box = { x: opening.x + opening.w / 2, y: opening.y + opening.h, anchor: 'bottom-center', h: opening.h * 0.74 };
+  const items = [art.place(heroFor(person, stage), box)];
+  const tint = heroTint(person, stage);
+  if (tint) items.push(art.place('back-shoulders', { ...box, tint }));
+  return items;
+}
+
+/**
  * One person inside a frame, at hero size.
  *
  *   `id`     the frame drawing: 'arch-jharokha' for a window, 'medallion*' for a round one
@@ -74,14 +92,33 @@ export function framedPerson(ctx, person, { id, outer, view = [], hero = false, 
   if (person?.photo && ctx.options.photos) {
     const px = photoPixels(Math.max(opening.w, opening.h));
     ctx.photos.set(person.id, Math.max(ctx.photos.get(person.id) ?? 0, px));
-    inner.push(image(person.id, opening.x, opening.y, opening.w, opening.h, 'rect'));
+    if (hero) {
+      // An arch is a window, not a photo frame: unlike medallion-carved, its own drawing has no
+      // mount to fall back on, so a photograph that cannot draw (svg.js's image case: "a
+      // photograph the archive has lost") used to leave a blank lit arch (round 2, finding 7).
+      // (a) Fall through to the same back view a photo-less hero gets, drawn first so the
+      // photograph, if it draws, covers it - never both at once, but never neither either.
+      // (b) Build the cream mat and the gold line over the clip edge by hand: the same mount
+      // medallion-carved's own drawing gives a photo, adapted to the arch's rectangular opening.
+      if (person?.name) inner.push(...heroFigure(art, person, stage, opening));
+      const mat = Math.min(opening.w, opening.h) * 0.035;
+      const ix = opening.x + mat, iy = opening.y + mat, iw = opening.w - mat * 2, ih = opening.h - mat * 2;
+      inner.push(
+        rect(opening.x, opening.y, opening.w, mat, { fill: ctx.P.card }),
+        rect(opening.x, opening.y + opening.h - mat, opening.w, mat, { fill: ctx.P.card }),
+        rect(opening.x, iy, mat, ih, { fill: ctx.P.card }),
+        rect(opening.x + opening.w - mat, iy, mat, ih, { fill: ctx.P.card }),
+      );
+      inner.push(image(person.id, ix, iy, iw, ih, 'rect'));
+      inner.push(rect(ix, iy, iw, ih, { stroke: ctx.P.gold, sw: 1.4 }));
+    } else {
+      inner.push(image(person.id, opening.x, opening.y, opening.w, opening.h, 'rect'));
+    }
   } else if (person?.name) {
     // No photograph: the figure the record chooses. At hero size that is the back view at a
     // window; inside a round frame it is the faceless bust, which fills the frame's own units.
-    const drawing = hero ? heroFor(person, stage) : avatarFor(person, stage);
-    inner.push(hero
-      ? art.place(drawing, { x: opening.x + opening.w / 2, y: opening.y + opening.h, anchor: 'bottom-center', h: opening.h * 0.74 })
-      : art.place(drawing, { x: opening.x, y: opening.y, anchor: 'top-left', w: opening.w }));
+    if (hero) inner.push(...heroFigure(art, person, stage, opening));
+    else inner.push(art.place(avatarFor(person, stage), { x: opening.x, y: opening.y, anchor: 'top-left', w: opening.w }));
   } else {
     // Name not known: the lamp kept behind the dashed brass perimeter, still lit.
     const d = Math.min(opening.w, opening.h) * 0.82;
@@ -100,15 +137,19 @@ export function framedPerson(ctx, person, { id, outer, view = [], hero = false, 
  * `mala-departed` is drawn in the round frames' units, anchored on the frame's centre, and hangs
  * about seven tenths of the opening below it (site/book/art/README.md). A round frame takes it at
  * its centre, as the README says. An arch is not round and its centre is the figure's own head, so
- * the arch hangs it from the sill instead: the same drawing, at the opening's width, with the
- * garland's foot just past the frame's - never over the person, and never past the frame.
+ * the arch hangs it from its own foot instead: the same drawing, at the opening's width, anchored
+ * on the frame's own bottom edge so the whole garland falls BELOW the frame - never on the person,
+ * and never inside the opening (round 2: the old anchor sat `MALA_DROP * opening.w` above this one,
+ * about 105 pt inside a hero-sized arch, which swagged the garland across the sitter's chest - the
+ * exact thing this notation may never do). A caller that stacks words under a departed hero has to
+ * give the garland's own drop the room it now takes (`nameStack`'s y in hero.js).
  */
-const MALA_SPAN = 1.2;   // the drawing's viewBox is 120 units across where its frame is 100
-const MALA_DROP = 0.7;   // and its foot is 70 units below the anchor
+export const MALA_SPAN = 1.2;   // the drawing's viewBox is 120 units across where its frame is 100
+export const MALA_DROP = 0.7;   // and its foot is 70 units below the anchor
 
 function mala(art, { outer, opening, round }) {
   const w = opening.w * MALA_SPAN;
-  const y = round ? outer.y + outer.h / 2 : outer.y + outer.h + 2 - MALA_DROP * opening.w;
+  const y = round ? outer.y + outer.h / 2 : outer.y + outer.h - 4;
   return art.place('mala-departed', { x: outer.x + outer.w / 2, y, w, departed: true });
 }
 
@@ -147,17 +188,34 @@ export function nameStack(ctx, story, person, { cx, y, width, featuredName, name
  * What joins two frames side by side: a marigold string for a marriage, and a diya between them
  * where one of the two has died - never a mauli thread (book-design-system.md, "Cultural care").
  * Nothing at all for two people the record does not marry to each other.
+ *
+ * `y` is the sill line (round 2, finding 18): the diya used to sit at `y + 10`, near head height
+ * with no glow and nothing under it, floating between the two frames. Standing it on the sill with
+ * its own zone-scale glow (`glowDiscs`, `pages/parts/page.js`) gives it a ground the way every
+ * other lamp in the book has one.
  */
 export function joinFrames(ctx, a, b, { cx, y, width }) {
   if (!a || !b || !ctx.family.spousesOf(a.id).some((s) => s.id === b.id)) return [];
-  if (a.deceased || b.deceased) return [ctx.art.place('diya', { x: cx, y: y + 10, w: 26 })];
+  if (a.deceased || b.deceased) {
+    return [glowDiscs(ctx.P, cx, y + 3, 20, ctx.P.flame), ctx.art.place('diya', { x: cx, y, w: 26 })];
+  }
   return [ctx.art.place('mala', { x: cx, y, w: width })];
 }
 
-/** The short "Ankit · 1990" line the opening prints over its title, in the book's own hand. */
+/**
+ * The short "Ankit · b. 1990" line the opening prints over its title, in the book's own hand.
+ *
+ * Round 2 (finding 22): `lifeYears` hands back a bare year whenever only one is known (a living
+ * person's birth year, or - despite the name - a departed one whose death year alone is on
+ * record), and a bare year with nothing round it reads as a death year on a page that otherwise
+ * only ever prints dates for the departed. `b.` is the one case that needs it: a departed person
+ * with both dates already reads as a lifespan ("1953–1981"), and `lifeYears`' own leading dash for
+ * a death-year-only record ("–1981") is unambiguous on its own.
+ */
 export const yearsCaption = (ctx, story, person) => {
   const name = nameOf(ctx.family, story.kin, person?.id);
   if (!name) return null;
   const years = person ? lifeYears(person) : '';
-  return years ? `${name} · ${years}` : name;
+  const label = /^\d+$/.test(years) ? `b. ${years}` : years;
+  return label ? `${name} · ${label}` : name;
 };
