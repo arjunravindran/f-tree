@@ -124,7 +124,10 @@ export function sanjhiBand(ctx, seed = 'sanjhi') {
  * lamp beside them, clear of the number's own column.
  */
 export function folio(ctx, ink) {
-  return [ctx.art.place('diya-small', { x: W - 78, y: H - 17, w: 11 }), ...ctx.footer(ink)];
+  // Round 2, finding 12: the lamp sits beside wherever `ctx.footer` (compose.js) put the page
+  // number - the outer foot, alternating with page parity at format 2 - never a fixed corner.
+  const numberRight = ctx.tpl.format !== 2 || ctx.pageNo % 2 === 1;
+  return [ctx.art.place('diya-small', { x: numberRight ? W - 78 : 78, y: H - 17, w: 11 }), ...ctx.footer(ink)];
 }
 
 /**

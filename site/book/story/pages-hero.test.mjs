@@ -17,14 +17,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { composeWithPages } from '../compose.js';
+import { composeBook, composeWithPages } from '../compose.js';
 import { validateBook, PAGE } from '../format.js';
 import { LIBRARY } from '../art/index.js';
 import { readFamily, byKey } from '../family.js';
 import { validateTemplate } from '../template.js';
 import { withStubs } from '../qa/stub-pages.mjs';
 import { STORY_TEMPLATE } from '../qa/story-template.mjs';
-import { BOOK_FIXTURES, NOW, loadFixture } from '../qa/book-fixtures.mjs';
+import { BOOK_FIXTURES, NOW, TEMPLATES, loadFixture } from '../qa/book-fixtures.mjs';
 import { INVARIANTS } from '../qa/invariants.mjs';
 import { kinOf } from './kin.js';
 import { planStory, VARIANTS } from './plan.js';
@@ -617,4 +617,25 @@ test('finding 22: yearsCaption marks a bare year "b." so it never reads as a dea
 
 test('finding 23: the parents chapter’s title is English; the kin words stay in hand under a name', () => {
   assert.doesNotMatch(STORY_TEMPLATE.copy.parents.title, /[ऀ-ॿ]/, 'the parents title still carries Devanagari in the display face');
+});
+
+test('finding 12: the folio sits at the outer foot, alternating by page parity at format 2 only', async () => {
+  const { report, book } = await compose('story-eldest');
+  assert.ok(book.pages.length >= 4, 'the fixture needs at least two interior pages to compare');
+  const numberOn = (pageNo) => {
+    const folio = texts(report, pageNo).find((b) => b.kind === 'folio' && /^\d+$/.test(b.s));
+    assert.ok(folio, `no page number on page ${pageNo}`);
+    return folio.x < PAGE.w / 2 ? 'left' : 'right';
+  };
+  assert.equal(numberOn(3), 'right', 'an odd (recto) page does not put its folio at the right');
+  assert.equal(numberOn(2), 'left', 'an even (verso) page does not mirror its folio to the left');
+
+  // Format 1 must keep its fixed corners - moving them would move Heirloom's goldens.
+  const doc = await loadFixture('story-eldest');
+  const heirloom = composeBook(doc, { now: NOW }, TEMPLATES.heirloom);
+  // The folio's own number, not any other digit a page prints: `ctx.footer` sets it at y = H - 22.
+  const folioNumber = (page) => page.items.find((it) => it.t === 'text' && /^\d+$/.test(it.s) && Math.abs(it.y - (PAGE.h - 22)) < 1);
+  const p2 = folioNumber(heirloom.pages[1]), p3 = folioNumber(heirloom.pages[2]);
+  assert.ok(p2 && p3, 'the format-1 book has no folio number on its interior pages to compare');
+  assert.equal(p2.x, p3.x, 'format 1 moved its folio - Heirloom’s goldens would move with it');
 });

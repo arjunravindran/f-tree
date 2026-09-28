@@ -576,7 +576,11 @@ function closing(ctx, page, story) {
     // underneath rather than floating beside it.
     const qr = sky.at('qr');
     const plate = Math.max(40, Math.min(92, qr.w, qr.h - 26));
-    const x = qr.x + (qr.w - plate) / 2, y = qr.y + Math.max(0, (qr.h - plate - 24) / 2);
+    const x = qr.x + (qr.w - plate) / 2;
+    // Round 2 (finding 12 fallout): the folio now alternates sides by page parity, so the credit
+    // can land under a QR zone that sits low on the page. Room for the plate, the caption under
+    // it and a clear footer row all have to fit above the folio, not just the plate alone.
+    const y = Math.min(qr.y + Math.max(0, (qr.h - plate - 24) / 2), H - plate - 46);
     items.push(rect(x + 1.7, y + 2.3, plate, plate, { fill: P.ink, op: 0.28 }));
     items.push(rect(x, y, plate, plate, { r: 8, fill: P.card }));
     items.push(rect(x, y, plate, plate, { r: 8, stroke: P.gold, sw: 1.4 }));
