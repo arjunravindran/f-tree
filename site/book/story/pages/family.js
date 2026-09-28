@@ -45,11 +45,21 @@ const WED = 0.42;
 /** Between two households on one row, and between one row and the next. */
 const CLUSTER_GAP = 20;
 const ROW_GAP = 16;
-/** How much smaller somebody a circle out from the story is drawn. */
-const SECONDARY = 0.72;
+/**
+ * How much smaller somebody a circle out from the story is drawn. 0.55, not the 0.72 this used to
+ * be: at 0.72 an aunt read as barely smaller than the parent she stood under (round 1 finding 18);
+ * the approved frames make the featured pair dramatically larger than everyone beside them.
+ */
+const SECONDARY = 0.55;
 /** The most air a page puts above a row when it has room to spare. */
 const SLACK = 34;
-/** The room a hung toran needs above a row, on the variant that draws households as doorways. */
+/**
+ * The room a hung toran needs above a row, on the variant that draws households as doorways: at
+ * `size: 15` its mango leaves hang about 25 pt below the cord (`mango-leaf`'s own viewBox), so the
+ * cord itself must clear the frame's own top by at least that much or the leaves droop into the
+ * medallions (#257 round 2, finding 17). `sizeRows` reserves this as headroom, and `drawRow` hangs
+ * the cord this far above the frame top, so the two always agree.
+ */
 const TORAN_ROOM = 30;
 
 const PAGE_MID = PAGE.w / 2;
@@ -138,10 +148,16 @@ function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
   let x = PAGE_MID - total / 2;
   clusters.forEach((ids, i) => {
     const { centres, width } = slots(ctx, ids, x, d);
-    const span = { x1: centres[0] - d / 2, x2: centres[centres.length - 1] + d / 2, y: cy + d * 0.5 };
-    if (variant === 'steps') behind.push(...step(ctx, span));
+    // The ground line passes under the frames, not through them: the drawing hangs to `d * HANG`
+    // (the mala included), so the line sits a few points past that rather than at the frame's own
+    // equator (`d * 0.5`), which used to cut every rim and mala in half (#257 round 2, finding 13).
+    const span = { x1: centres[0] - d / 2, x2: centres[centres.length - 1] + d / 2, y: cy + d * HANG + 4 };
+    // The ground line means "siblings share one ground line" - under a solo frame it is a
+    // meaningless shelf, so a cluster of one takes the step instead, whatever the row's own
+    // variant is (#257 round 2, finding 16).
+    if (variant === 'steps' || ids.length === 1) behind.push(...step(ctx, span));
     else behind.push(...groundLine(ctx, page, span, `${tag}-${i}`));
-    if (variant === 'doorways') behind.push(...doorway(ctx, page, { x1: span.x1, x2: span.x2, y: cy - d * RIM - 14 }, `${tag}-${i}`));
+    if (variant === 'doorways') behind.push(...doorway(ctx, page, { x1: span.x1, x2: span.x2, y: cy - d * RIM - TORAN_ROOM }, `${tag}-${i}`));
     for (let j = 0; j + 1 < ids.length; j++) {
       if (married(ctx, ids[j], ids[j + 1])) behind.push(...marriage(ctx, ids[j], ids[j + 1], { x1: centres[j], x2: centres[j + 1], cy, d }));
     }
@@ -308,11 +324,20 @@ function courtyards(ctx, page, story) {
   const placement = { x: 0, y: 0, w: PAGE.w, ...(mirrored ? { flip: 'x' } : {}) };
   const { all, by } = sceneZones(ctx, 'aangan', placement);
 
+  // The `aangan` scene only cuts niches into the right-hand house's wall, but an aala is a
+  // complete drawing (its own arch and lamp - "still to be found" hangs it on a plain night wall
+  // with no cutout under it at all), so the father's house gets the same two niches mirrored
+  // across the page's own centre rather than leaving an unnamed paternal grandparent with only
+  // the dashed lamp - the notation should not depend on which side of the family a person is on
+  // (#257 round 2, finding 6).
+  const mirrorZone = (z) => z && { ...z, x: PAGE.w - z.x - z.w };
+  const rightNiches = [by['aala-right-1'], by['aala-right-2']].filter(Boolean);
+
   // The father's side takes the house `household-left` stands under, whichever side of the page a
   // mirrored placement puts it on; everybody else takes the other house.
   const houses = [
-    { ids: page.people.filter((id) => story.kin.people.get(id)?.side === 'paternal'), frames: by['household-left'], text: by.left, toran: by['toran-left'], niches: [] },
-    { ids: page.people.filter((id) => story.kin.people.get(id)?.side !== 'paternal'), frames: by['household-right'], text: by.right, toran: by['toran-right'], niches: [by['aala-right-1'], by['aala-right-2']].filter(Boolean) },
+    { ids: page.people.filter((id) => story.kin.people.get(id)?.side === 'paternal'), frames: by['household-left'], text: by.left, toran: by['toran-left'], niches: rightNiches.map(mirrorZone) },
+    { ids: page.people.filter((id) => story.kin.people.get(id)?.side !== 'paternal'), frames: by['household-right'], text: by.right, toran: by['toran-right'], niches: rightNiches },
   ];
   const shown = houses.filter((h) => h.ids.length);
   const cut = shown.length === 1 ? cutHouse(houses[0].ids.length > 0, mirrored) : null;

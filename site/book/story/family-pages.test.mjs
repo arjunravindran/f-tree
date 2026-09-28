@@ -18,7 +18,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { composeWithPages } from '../compose.js';
-import { PAGE, validateBook } from '../format.js';
+import { PAGE, validateBook, pathPoints } from '../format.js';
 import { withStubs } from '../qa/stub-pages.mjs';
 import { STORY_TEMPLATE } from '../qa/story-template.mjs';
 import { loadFixture, NOW, STORYBOOK_MANIFEST } from '../qa/book-fixtures.mjs';
@@ -285,9 +285,12 @@ test('a family that knows only one side has the other house cut away', async () 
   assert.equal(sceneCrops(both.book.pages[twoSided.page - 1], 'pc-aangan').length, 0, 'a page that knows both sides cut a house away');
 });
 
-test('only the right-hand house has niches, so a lamp elsewhere goes in a frame', async () => {
-  // This fixture's grandparents include one the record never named. Drawn as a courtyards page,
-  // that lamp is an aala in the wall only if their house is the one with niches in it.
+test('both houses have niches, so the notation for a name not known does not depend on which side of the family somebody is on', async () => {
+  // This fixture's one nameless grandparent, Shyam Lal's wife, is on the FATHER's side - the
+  // house `courtyards` used to draw with no niches in it at all, so she got the plainer
+  // lamp-unknown medallion while an equivalent maternal grandparent would have got the aala in
+  // the wall (#257 round 2, finding 6). Mirroring the niches onto the father's house too means
+  // she gets the same notation a maternal grandparent would.
   const { book, report, family, kin } = await compose('story-unknown-names', {
     archetype: 'gathering',
     rewrite: (page, story) => {
@@ -298,10 +301,10 @@ test('only the right-hand house has niches, so a lamp elsewhere goes in a frame'
   const page = report.pages.find((p) => p.archetype === 'courtyards');
   const nameless = page.people.filter((id) => !family.byId.get(id).name);
   assert.ok(nameless.length > 0, 'the fixture has no nameless grandparent');
-  const inRightHouse = nameless.filter((id) => kin.people.get(id).side !== 'paternal');
+  assert.ok(nameless.every((id) => kin.people.get(id).side === 'paternal'), 'the fixture changed under this test');
   const drawn = book.pages[page.page - 1];
-  assert.equal(uses(drawn, 'pc-aala'), Math.min(inRightHouse.length, 2), 'a niche was lit for somebody whose house has none');
-  assert.equal(uses(drawn, 'pc-lamp-unknown'), nameless.length - Math.min(inRightHouse.length, 2), 'somebody whose name is not known got neither a niche nor a lamp');
+  assert.equal(uses(drawn, 'pc-aala'), Math.min(nameless.length, 2), 'the father\'s house still has no niche for a name not known');
+  assert.equal(uses(drawn, 'pc-lamp-unknown'), Math.max(0, nameless.length - 2), 'somebody past the father\'s two niches got neither a niche nor a lamp');
 });
 
 /* ------------------------------------------------------------------ the gathering's composition */
@@ -334,13 +337,58 @@ test('children stand below their parents, and siblings share one ground line', a
   }
 });
 
-test('an aunt is drawn smaller than the parent she stands under', async () => {
+/** Every path item in `items`, however deep inside a group it is nested. */
+function* paths(items) {
+  for (const it of items) {
+    if (it.t === 'path') yield it;
+    if (it.t === 'group') yield* paths(it.items);
+  }
+}
+
+test('the ground line passes under the frames, not through their rims and malas', async () => {
+  const { book, report } = await compose('story-devanagari');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.variant !== 'steps');
+  assert.ok(info, 'no gathering page in this fixture uses a ground line at all');
+  const zone = report.artZones.find((z) => z.page === info.page && z.kind === 'face');
+  assert.ok(zone, `page ${info.page} has no face zone to measure the ground line against`);
+  // `groundLine` (paper.js) is the one stroke on the page at this exact width and opacity.
+  const ground = [...paths(book.pages[info.page - 1].items)].find((it) => it.stroke && it.sw === 1.6 && it.op === 0.85);
+  assert.ok(ground, `page ${info.page} drew no ground line`);
+  const ys = pathPoints(ground.d).map(([, y]) => y);
+  const faceBottom = zone.y + zone.h;   // cy + d * HANG, where the drawing itself ends
+  for (const y of ys) assert.ok(y >= faceBottom - 1, `a ground line point at y=${y} rises to or above the frames' own bottom (${faceBottom})`);
+});
+
+test('a solo frame stands on the step, never a ground line meant for siblings sharing it', async () => {
+  const { book, report } = await compose('story-devanagari', {
+    archetype: 'gathering',
+    rewrite: (page, story) => {
+      const [solo] = story.kin.circles.children;   // f-kid: F's only child, on her own
+      assert.ok(solo, 'the fixture no longer has a solo child to test with');
+      return { archetype: 'gathering', variant: 'band', density: 'family', people: [solo], groups: [{ key: 'solo:', people: [solo] }] };
+    },
+  });
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 1 && p.variant === 'band');
+  assert.ok(info, 'the rewrite did not produce a one-person band-variant page');
+  const items = book.pages[info.page - 1].items;
+  const ground = [...paths(items)].some((it) => it.stroke && it.sw === 1.6 && it.op === 0.85);
+  assert.ok(!ground, 'a solo frame still got the shared ground line');
+  // `step` draws two flat rects (the plinth and its lighter tread), plus its ink shadow: three.
+  const stepRects = items.filter((it) => it.t === 'rect' && it.fill && it.h && it.h < 12);
+  assert.ok(stepRects.length >= 3, 'a solo frame got no step under it either');
+});
+
+test('an aunt is drawn dramatically smaller than the parent she stands under', async () => {
   const { report, kin } = await compose('story-leaf');
   const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.some((id) => kin.people.get(id).role === 'aunt-uncle'));
   assert.ok(info, 'the fixture no longer draws aunts and uncles on the parents page');
   const zones = report.artZones.filter((z) => z.page === info.page && z.kind === 'face').map((z) => z.w);
   const biggest = Math.max(...zones), smallest = Math.min(...zones);
-  assert.ok(smallest < biggest * 0.95, `every frame on the page is the same size (${biggest})`);
+  // SECONDARY is 0.55 (#257 round 2, finding 18): at the old 0.72 an aunt read as barely
+  // smaller than the parent she stood under. A generous band either side of 0.55 still catches
+  // that regression without pinning the exact ratio `fitRow`'s own clamping can shift a little.
+  const ratio = smallest / biggest;
+  assert.ok(ratio < 0.65, `an aunt is only ${ratio.toFixed(2)}x the parent's size - not dramatically smaller`);
 });
 
 test('a half-sibling group is drawn as its own household, not merged into one row', async () => {
