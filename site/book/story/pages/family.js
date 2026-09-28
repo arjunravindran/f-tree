@@ -36,7 +36,7 @@ import {
   SAFE, TYPE, doorway, folio, groundLine, handmadePaper,
   noteCard, noteHeight, sanjhiBand, step, tailpiece, titleBlock,
 } from './parts/paper.js';
-import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait } from './parts/people.js';
+import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait, rowStage } from './parts/people.js';
 
 /** A frame's slot is this much wider than its opening: the petal rim, plus air. */
 const PITCH = 1.34;
@@ -161,8 +161,11 @@ function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
     for (let j = 0; j + 1 < ids.length; j++) {
       if (married(ctx, ids[j], ids[j + 1])) behind.push(...marriage(ctx, ids[j], ids[j + 1], { x1: centres[j], x2: centres[j + 1], cy, d }));
     }
+    // One life stage for the whole cluster (finding 21): siblings a year or two either side of
+    // the elder cutoff used to read as two generations apart, each read at their own age alone.
+    const stage = rowStage(ctx, story, ids);
     ids.forEach((id, j) => {
-      front.push(...portrait(ctx, story, id, centres[j], cy, d));
+      front.push(...portrait(ctx, story, id, centres[j], cy, d, stage));
       captions.push(...caption(ctx, story, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6, nameLines }).items);
     });
     x += width + CLUSTER_GAP;
@@ -395,7 +398,8 @@ function household(ctx, story, page, house, { frames, text, toran }) {
     for (let j = 0; j + 1 < ids.length; j++) {
       if (married(ctx, ids[j], ids[j + 1])) items.push(...marriage(ctx, ids[j], ids[j + 1], { x1: x0 + centres[j], x2: x0 + centres[j + 1], cy, d }));
     }
-    ids.forEach((id, j) => items.push(...portrait(ctx, story, id, x0 + centres[j], cy, d)));
+    const stage = rowStage(ctx, story, ids);   // finding 21: one life stage for the whole row
+    ids.forEach((id, j) => items.push(...portrait(ctx, story, id, x0 + centres[j], cy, d, stage)));
     if (listed) continue;
     const capW = Math.min(pitch - 6, text.w / ids.length - 4);
     const nameLines = rowNameLines(ctx, story, ids, capW);

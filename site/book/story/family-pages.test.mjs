@@ -422,6 +422,26 @@ test('an aunt is drawn dramatically smaller than the parent she stands under', a
   assert.ok(ratio < 0.65, `an aunt is only ${ratio.toFixed(2)}x the parent's size - not dramatically smaller`);
 });
 
+test('a row of siblings straddling the elder cutoff reads as one life stage, not two', async () => {
+  // Satish Sharma (b. 1966, and so 60 against this book's 2026 year) through Kavita Sharma
+  // (b. 1972): read one at a time, the elder cutoff falls between siblings born six years apart,
+  // and the eldest got silver hair and spectacles while the rest stayed young (round 1 finding
+  // 21). A cluster of two or more now takes one stage for the whole row.
+  const people = ['p76', 'p78', 'p73', 'p79'];   // p75 carries a photo (medallion-carved, no avatar)
+  const { book, report, family } = await compose('story-large', {
+    archetype: 'gathering',
+    rewrite: () => ({ archetype: 'gathering', density: 'family', people, groups: [{ key: 'siblings:', people }] }),
+  });
+  for (const id of people) assert.ok(!family.byId.get(id).name.includes('?'), 'the fixture changed under this test');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === people.length);
+  assert.ok(info, 'the rewrite did not produce the expected gathering page');
+  const stages = [...allUses(book.pages[info.page - 1].items)]
+    .map((it) => /^pc-avatar-(?:female|male|person)-(child|youth|adult|elder)-[ab]$/.exec(it.ref)?.[1])
+    .filter(Boolean);
+  assert.equal(stages.length, people.length, `expected ${people.length} avatars, found ${stages.length}`);
+  assert.equal(new Set(stages).size, 1, `the row split across life stages: ${stages.join(', ')}`);
+});
+
 test('a half-sibling group is drawn as its own household, not merged into one row', async () => {
   const { report, plans } = await compose('story-half-siblings');
   const plan = plans.find((p) => p.archetype === 'gathering' && p.chapter === 'siblings');

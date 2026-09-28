@@ -18,7 +18,7 @@
  * Shared within #257 only. Composer code: deterministic, no clock, no locale, no Math.random.
  */
 
-import { avatarFor } from '../../avatars.js';
+import { avatarFor, lifeStage, STAGES } from '../../avatars.js';
 import { kinCaption, nameOf, noteCaption, stillToBeFoundCaption } from '../../copy.js';
 import { lifeDates } from './dates.js';
 import { TYPE } from './paper.js';
@@ -36,13 +36,42 @@ const stageOf = (ctx, story, id) => ({
   featuredBy: ctx.family.byId.get(story.kin.featured)?.by ?? null,
 });
 
+/** A birth year that reads as roughly the middle of each life stage, against the book's year. */
+const STAGE_AGE = Object.freeze({ child: 8, youth: 20, adult: 42, elder: 68 });
+
+/**
+ * One row's life stage, when it needs one: siblings a year or two apart on either side of the
+ * elder cutoff (60) used to read as two generations apart, because each frame's avatar was chosen
+ * from that one person's own birth year alone (round 1 finding 21). Rather than moving the cutoff
+ * - which would just move the same problem to the next pair of siblings a year either side of the
+ * new one - a row of two or more takes ONE stage: whichever stage most of the row's people are
+ * already at on their own (a tie favours the younger stage, so a row is never aged up by default).
+ * A row where everybody already agrees returns `null`, so an ordinary row's avatars are never
+ * touched.
+ */
+export function rowStage(ctx, story, ids) {
+  if (ids.length < 2) return null;
+  const counts = new Map();
+  for (const id of ids) {
+    const s = lifeStage(ctx.family.byId.get(id), stageOf(ctx, story, id));
+    counts.set(s, (counts.get(s) ?? 0) + 1);
+  }
+  if (counts.size < 2) return null;
+  let best = null, bestCount = -1;
+  for (const s of STAGES) {   // STAGES' own order, so a tie favours the younger stage
+    const c = counts.get(s) ?? 0;
+    if (c > bestCount) { best = s; bestCount = c; }
+  }
+  return best;
+}
+
 /**
  * One person's frame, centred on `(cx, cy)` at `d` points across the opening.
  *
  * The frame is a thin ring, so it takes the plain paper shadow scaled to its size rather than the
  * soft one, which shows as concentric rings on a ring (site/book/art/README.md, "Frames").
  */
-export function portrait(ctx, story, id, cx, cy, d) {
+export function portrait(ctx, story, id, cx, cy, d, forcedStage = null) {
   const p = ctx.family.byId.get(id);
   const box = { x: cx - d / 2, y: cy - d / 2, w: d, h: d };
   const k = Math.max(0.6, d / 76);
@@ -63,7 +92,12 @@ export function portrait(ctx, story, id, cx, cy, d) {
     items.push(ctx.art.frame('medallion-carved', box, ctx.portrait(p, cx, cy, d / 2, { ring: ctx.P.gold, unknownRing: ctx.P.brass }), { shadow }));
   } else {
     ctx.show(id);
-    items.push(ctx.art.frame('medallion-petals', box, [ctx.art.place(avatarFor(p, stageOf(ctx, story, id)), { x: cx, y: cy, w: d })], { shadow }));
+    // `forcedStage`, from `rowStage`: a row of two or more takes one life stage, so siblings a
+    // year either side of the elder cutoff never read as two generations apart (finding 21). A
+    // synthetic birth year picks the avatar at that stage without touching the record's own - the
+    // register, the numbers page and everything else still reads this person's true age.
+    const avatarPerson = forcedStage ? { ...p, by: ctx.now.year - STAGE_AGE[forcedStage], dy: null } : p;
+    items.push(ctx.art.frame('medallion-petals', box, [ctx.art.place(avatarFor(avatarPerson, stageOf(ctx, story, id)), { x: cx, y: cy, w: d })], { shadow }));
   }
   ctx.zone('face', { x: cx - d * RIM, y: cy - d * RIM, w: 2 * d * RIM, h: d * (RIM + HANG) });
   return items;
