@@ -94,27 +94,44 @@ function cameo(ctx, story, id, cx, cy) {
 }
 
 /**
- * Everyone in scope whose own name collides with somebody else's on the register: the same name
- * *and* the same page reference (or the same absence of one). Two such rows are a real breach of
- * the register's one job - a reader following either row's reference cannot tell which person they
- * found - so `personRow` carries more for anyone this set names (round 2, finding 4). Computed over
- * the whole family, not one page's rows, because the two rows sharing a name are not always on the
- * same register page.
+ * A qualifier for anyone in scope whose own name collides with somebody else's on the register:
+ * the same name, the same page reference (or the same absence of one) *and* the same printed
+ * dates - the three things a row actually shows, so two "Tara Sharma"s with different birth years
+ * are not touched when their own row already tells them apart. Two rows that collide on all three
+ * are a real breach of the register's one job - a reader following either row's reference cannot
+ * tell which person they found - so `personRow` carries the qualifier this returns for anyone it
+ * names (round 2, finding 4). Computed over the whole family, not one page's rows, because the two
+ * rows sharing a name are not always on the same register page.
+ *
+ * The qualifier is the kin word first, since it says who they are; where `kin.js` cannot join them
+ * to the featured person at all (an "elsewhere" row), the section they are listed under; and where
+ * even that is the same for two colliding people (two cousins on the same side, say), a plain count
+ * among themselves - the one thing guaranteed to differ, chosen only as the last resort it is.
  */
 export function duplicateRegisterNames(ctx, story) {
   const { family } = ctx;
   const { kin } = story;
+  const featuredName = nameOf(family, kin, kin.featured);
   const bySignature = new Map();
   for (const id of kin.people.keys()) {
     const p = family.byId.get(id);
     if (!p?.name) continue;
     const ref = story.plan.pagesOf.get(id)?.[0] ?? 'none';
-    const sig = `${p.name}|${ref}`;
+    const sig = `${p.name}|${ref}|${lifeDates(p)}`;
     bySignature.set(sig, [...(bySignature.get(sig) ?? []), id]);
   }
-  const ids = new Set();
-  for (const collides of bySignature.values()) if (collides.length > 1) for (const id of collides) ids.add(id);
-  return { ids, featuredName: nameOf(family, kin, kin.featured) };
+  const qualifiers = new Map();
+  for (const ids of bySignature.values()) {
+    if (ids.length < 2) continue;
+    const used = new Set();
+    ids.forEach((id, i) => {
+      let word = kinCaption(kin, family, id, featuredName) ?? SECTION_TITLES[kin.people.get(id)?.circle];
+      if (!word || used.has(word)) word = `${i + 1} of ${ids.length}`;
+      used.add(word);
+      qualifiers.set(id, word);
+    });
+  }
+  return qualifiers;
 }
 
 /**
@@ -130,9 +147,10 @@ export function duplicateRegisterNames(ctx, story) {
  * several pages cannot afford a bust per row against the 10 MB budget, and it is the picture that
  * goes, never a person.
  *
- * `disambiguate` (`duplicateRegisterNames`'s own return) carries a kin word alongside anyone whose
- * name and page reference are not enough to tell them from somebody else in the register - never
- * fewer rows, never a row silently dropped, just one more fact on the rows that need it.
+ * `disambiguate` (`duplicateRegisterNames`'s own return, an id -> qualifier map) carries a word
+ * alongside anyone whose name, dates and page reference are not enough to tell them from somebody
+ * else in the register - never fewer rows, never a row silently dropped, just one more fact on the
+ * rows that need it.
  */
 export function personRow(ctx, story, id, x, y, w, { portraits = true, disambiguate = null } = {}) {
   const { P, family } = ctx;
@@ -156,14 +174,12 @@ export function personRow(ctx, story, id, x, y, w, { portraits = true, disambigu
   }
 
   // Their own name, or the one the family calls them by; never "Unknown", never empty. A name
-  // that collides with another row's own name and page reference carries the kin word too, in
-  // the same line - the register never adds a second line a page's row-count did not plan for.
+  // that collides with another row's own name, dates and page reference carries its qualifier too,
+  // in the same line - the register never adds a second line a page's row-count did not plan for.
   const own = Boolean(p?.name);
   let name = nameOf(family, kin, id) ?? stillToBeFoundCaption(family, kin, id) ?? 'A name still to be found';
-  if (own && disambiguate?.ids.has(id)) {
-    const word = kinCaption(kin, family, id, disambiguate.featuredName);
-    if (word) name = `${name} (${word})`;
-  }
+  const qualifier = own ? disambiguate?.get(id) : null;
+  if (qualifier) name = `${name} (${qualifier})`;
   const room = Math.max(24, dateLeft - GAP - left);
   const size = ctx.fit(name, own ? 'strong' : 'hand', NAME_SIZE, room, 9);
   const nameW = Math.min(room, ctx.measure(name, own ? 'strong' : 'hand', size));

@@ -21,14 +21,14 @@ import { validateTemplate } from '../template.js';
 import { withStubs } from '../qa/stub-pages.mjs';
 import { STORY_TEMPLATE } from '../qa/story-template.mjs';
 import { BOOK_FIXTURES, NOW, loadFixture } from '../qa/book-fixtures.mjs';
-import { noLivingAge } from '../qa/invariants.mjs';
+import { noLivingAge, noTextInBusyArt } from '../qa/invariants.mjs';
 import { kinOf, CIRCLES } from './kin.js';
 import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { countInCircle, numberFact } from './copy.js';
 import { countWords } from '../blocks/words.js';
 import { FIGURES, figuresFor, generationsBehind } from './pages/lists.js';
-import { NAME_SIZE, ROW, SECTION_TITLES } from './pages/parts/register-rows.js';
+import { NAME_SIZE, ROW, SECTION_TITLES, duplicateRegisterNames, splitColumns } from './pages/parts/register-rows.js';
 import { SAFE, lifeDates } from './pages/parts/furniture.js';
 
 /** Every fixture the QA harness runs the book over, and the storybook's own among them. */
@@ -324,4 +324,133 @@ test('the dates a list column prints are years, and never a living person\'s ful
   assert.equal(lifeDates({ deceased: false, by: 1990 }), 'b. 1990');
   assert.equal(lifeDates({ deceased: false, by: null }), '');
   assert.equal(lifeDates(null), '');
+});
+
+/* ------------------------------------------------------------------ round 2: the design critic */
+
+/*
+ * `story-large` has three real "Swati Sharma"s (site/book/fixtures/story-large.json) - the fixture
+ * the design critic's round 1 found two of them sharing a page reference on the register.
+ */
+test('two register rows sharing a name, a page reference and the same dates are told apart on the register', async () => {
+  const { report } = await book('story-large');
+  const pages = new Set(pagesOfKind(report, 'register').map((p) => p.page));
+  // A register page is two columns, and both use the same set of `y` baselines, so a row is
+  // grouped by page and column first. Within a column, a row's name, dates and page reference do
+  // not share one exact `y` (the text and strong faces set their baseline a little differently at
+  // the same nominal row, by well under a point) - so rows are found by clustering: a new row
+  // starts whenever `y` jumps by more than a few points, far short of `ROW`'s 21 pt pitch.
+  const byColumn = new Map();
+  for (const b of report.textBoxes) {
+    if (!pages.has(b.page) || !['name', 'caption', 'lifespan'].includes(b.kind)) continue;
+    const key = `${b.page}:${b.x < PAGE.w / 2 ? 'l' : 'r'}`;
+    byColumn.set(key, [...(byColumn.get(key) ?? []), b]);
+  }
+  const rows = [];
+  for (const boxes of byColumn.values()) {
+    boxes.sort((a, b) => a.y - b.y);
+    let current = null;
+    for (const b of boxes) {
+      if (!current || b.y - current.y > 5) { current = { y: b.y }; rows.push(current); }
+      if (b.kind === 'name') current.name = b.s;
+      else if (b.kind === 'lifespan') current.dates = b.s;
+      else if (/^\d+$/.test(b.s)) current.ref = b.s;
+    }
+  }
+  // Grouped by what the row would say *without* the fix's own qualifier - the underlying identity
+  // two same-named, same-dated, same-referenced people share - and then, within a group of more
+  // than one, the *actual* printed name (qualifier included) has to be unique: the fix telling two
+  // such rows apart with two different words is a pass, not a second collision.
+  const groups = new Map();
+  for (const { name, ref, dates } of rows) {
+    if (!name) continue;
+    const bare = name.replace(/\s*\([^()]*\)$/, '');
+    const sig = `${bare}|${ref ?? 'none'}|${dates ?? ''}`;
+    groups.set(sig, [...(groups.get(sig) ?? []), name]);
+  }
+  for (const [sig, names] of groups) {
+    if (names.length < 2) continue;
+    assert.equal(new Set(names).size, names.length, `${names.length} rows print "${sig}" and only ${new Set(names).size} distinct name(s) - a reader cannot tell them apart`);
+  }
+});
+
+/*
+ * `duplicateRegisterNames`'s own last resort: two people `kin.js` cannot join to the featured
+ * person at all (so no kin word), in the same section (so the same fallback heading too), with the
+ * same name and no dates - the one case none of the fixtures happens to reach, where a plain count
+ * among themselves is the only thing left that is guaranteed to differ.
+ */
+test('two people with nothing else to tell them apart still get different qualifiers', () => {
+  const family = { byId: new Map([
+    ['a', { name: 'Sneha Sharma', by: null, dy: null, deceased: false }],
+    ['b', { name: 'Sneha Sharma', by: null, dy: null, deceased: false }],
+  ]) };
+  const kin = {
+    featured: 'f',
+    people: new Map([['a', { circle: 'branches' }], ['b', { circle: 'branches' }]]),
+    words: () => null, // kin.js could not join either of them to the featured person
+  };
+  const story = { kin, plan: { pagesOf: new Map() } };
+  const q = duplicateRegisterNames({ family }, story);
+  assert.equal(q.size, 2, 'both colliding rows should get a qualifier');
+  assert.notEqual(q.get('a'), q.get('b'), 'two colliding rows got the same qualifier');
+});
+
+test('a living person still to be found reads "not yet placed in the tree", never a remembrance date', async () => {
+  const { report, family } = await book('story-unknown-names');
+  const page = pagesOfKind(report, 'still-to-be-found')[0];
+  assert.ok(page, 'story-unknown-names was expected to have a still-to-be-found page');
+  const livingUnnamed = family.people.filter((p) => !p.name && !p.deceased);
+  assert.ok(livingUnnamed.length, 'story-unknown-names was expected to have a living, unnamed person');
+  const captions = linesOn(report, page.page, 'caption').map((b) => b.s);
+  assert.ok(captions.includes('not yet placed in the tree'), `the page's captions were ${JSON.stringify(captions)}`);
+  assert.ok(!captions.some((s) => /^b\.\s*\d{4}/.test(s)), 'a living person was given a birth-year caption beside a remembrance lamp');
+});
+
+test('still to be found never prints reading text over the art it marked busy', async () => {
+  for (const fixture of ['story-large', 'story-unknown-names']) {
+    const { report } = await book(fixture);
+    const pages = new Set(pagesOfKind(report, 'still-to-be-found').map((p) => p.page));
+    const only = { ...report, textBoxes: report.textBoxes.filter((b) => pages.has(b.page)) };
+    assert.deepEqual(noTextInBusyArt({ report: only }), [], `${fixture}: text sits over the rangoli or another busy zone`);
+  }
+});
+
+/*
+ * The exact shape the design critic's round 1 found on `story-large` page 19: a section of two
+ * ("Brothers and sisters") lands right on the middle, so the naive `Math.ceil(rows.length / 2)`
+ * break puts the heading and its first name at the foot of column one and the heading again,
+ * "continued", over the second name alone in column two - two headings for two people.
+ */
+test('a column break never leaves a section heading with fewer than two rows on either side', () => {
+  const rows = [
+    { heading: 'self' }, { id: 'a' },
+    { heading: 'parents' }, { id: 'b' }, { id: 'c' },
+    { heading: 'siblings' }, { id: 'd' }, { id: 'e' },
+    { heading: 'children' }, { id: 'f' }, { id: 'g' }, { id: 'h' },
+  ];
+  const [first, second] = splitColumns(rows);
+  assert.equal(first.length + second.length, rows.length, 'a row was dropped or duplicated by the split');
+  for (const column of [first, second]) {
+    column.forEach((row, i) => {
+      if (!row.heading) return;
+      const after = column.length - i - 1;
+      // A heading may legally be the very last row of a column (the whole section moves to the
+      // next column, `registerColumns`' own "continued" heading covers it) - only a heading with
+      // *some* rows after it, but fewer than two, is the orphan this rule refuses.
+      assert.ok(after === 0 || after >= 2, `a "${row.heading}" heading has only ${after} row(s) after it in its column`);
+    });
+  }
+});
+
+test('a two-person section is never split across the column break', () => {
+  // "Brothers and sisters" - one heading, two names - lands with `Math.ceil` right on the middle
+  // of this 6-row page, which used to leave one name each side of the break.
+  const rows = [
+    { heading: 'self' }, { id: 'a' }, { id: 'b' },
+    { heading: 'siblings' }, { id: 'c' }, { id: 'd' },
+  ];
+  const [first, second] = splitColumns(rows);
+  const has = (column, id) => column.some((r) => r.id === id);
+  assert.equal(has(first, 'c'), has(first, 'd'), '"siblings" was split with one name on each side of the break');
 });
