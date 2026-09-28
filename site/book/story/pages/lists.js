@@ -429,7 +429,7 @@ function register(ctx, page, story) {
  * be named reads "not yet placed in the tree" - the approved frame's own words - instead of an
  * age-shaped year that would read as somebody's death is being marked beside them.
  */
-function lostName(ctx, story, id, featuredName) {
+export function lostName(ctx, story, id, featuredName) {
   const { family } = ctx;
   const { kin } = story;
   const p = family.byId.get(id);

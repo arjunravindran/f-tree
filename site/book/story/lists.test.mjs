@@ -27,8 +27,8 @@ import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { countInCircle, numberFact } from './copy.js';
 import { countWords } from '../blocks/words.js';
-import { FIGURES, figuresFor, generationsBehind } from './pages/lists.js';
-import { NAME_SIZE, ROW, SECTION_TITLES, duplicateRegisterNames, splitColumns } from './pages/parts/register-rows.js';
+import { FIGURES, figuresFor, generationsBehind, lostName } from './pages/lists.js';
+import { NAME_SIZE, ROW, SECTION_TITLES, duplicateRegisterNames, personRow, splitColumns } from './pages/parts/register-rows.js';
 import { SAFE, lifeDates } from './pages/parts/furniture.js';
 
 /** Every fixture the QA harness runs the book over, and the storybook's own among them. */
@@ -396,6 +396,61 @@ test('two people with nothing else to tell them apart still get different qualif
   assert.notEqual(q.get('a'), q.get('b'), 'two colliding rows got the same qualifier');
 });
 
+/*
+ * `duplicateRegisterNames` computing a qualifier is only half the fix - `personRow` has to print
+ * it. This drives `personRow` itself (a minimal stand-in for `ctx`, recording what `ctx.line`
+ * was asked to draw) so a regression in *that* half - the map computed right, never read - fails
+ * here even on a family with no real collision to reach through the full compose pipeline.
+ */
+test('personRow prints the qualifier a colliding name was given', () => {
+  const family = { byId: new Map([
+    ['a', { name: 'Sneha Sharma', by: null, dy: null, deceased: false }],
+    ['b', { name: 'Sneha Sharma', by: null, dy: null, deceased: false }],
+  ]) };
+  const kin = {
+    featured: 'f',
+    people: new Map([['a', { circle: 'branches' }], ['b', { circle: 'branches' }]]),
+    words: () => null,
+  };
+  const story = { kin, plan: { pagesOf: new Map() } };
+  const disambiguate = duplicateRegisterNames({ family }, story);
+  const drawn = [];
+  const ctx = {
+    P: { ink: '#000', brass: '#000', clay: '#000', inkSoft: '#000' },
+    family,
+    show() {},
+    fit: (s, role, size) => size,
+    measure: (s) => s.length * 5,
+    line(x, y, s, role, size, fill, opts) { const item = { s, kind: opts?.kind }; drawn.push(item); return item; },
+  };
+  personRow(ctx, story, 'a', 0, 0, 200, { portraits: false, disambiguate });
+  const name = drawn.find((d) => d.kind === 'name');
+  assert.ok(name, 'personRow drew no name line');
+  assert.match(name.s, /^Sneha Sharma \(.+\)$/, `"${name.s}" carries no qualifier`);
+});
+
+test('a name already said to be "late" does not repeat it as a bare "Late" caption', () => {
+  const ctx = {
+    family: { byId: new Map([
+      ['w', { name: null, deceased: true, by: null, dy: null }],
+      ['husband', { name: 'Raj Kumar', deceased: true, by: 1930, dy: 1990 }],
+    ]) },
+  };
+  const story = {
+    kin: {
+      featured: 'husband',
+      people: new Map([
+        ['w', { namedBy: { id: 'husband', word: 'late wife' } }],
+        ['husband', { namedBy: null }],
+      ]),
+      words: () => null,
+    },
+  };
+  const { name, under } = lostName(ctx, story, 'w', 'Raj Kumar');
+  assert.equal(name, 'Raj Kumar’s late wife');
+  assert.equal(under, '', `"${under}" repeats "late" as a bare date caption`);
+});
+
 test('a living person still to be found reads "not yet placed in the tree", never a remembrance date', async () => {
   const { report, family } = await book('story-unknown-names');
   const page = pagesOfKind(report, 'still-to-be-found')[0];
@@ -444,13 +499,19 @@ test('a column break never leaves a section heading with fewer than two rows on 
 });
 
 test('a two-person section is never split across the column break', () => {
-  // "Brothers and sisters" - one heading, two names - lands with `Math.ceil` right on the middle
-  // of this 6-row page, which used to leave one name each side of the break.
+  // 9 rows, with "siblings" (one heading, two names, "c" and "d") placed so the naive
+  // `Math.ceil(9 / 2) = 5` lands right inside it: `rows[4]` is "c", not a heading, so the old
+  // "back up off a bare heading" rule never fires, and the break used to fall between "c" and
+  // "d" - one name at the foot of column one, the other under a lone "continued" heading in
+  // column two. This is `story-large` page 19's own shape, reproduced exactly.
   const rows = [
     { heading: 'self' }, { id: 'a' }, { id: 'b' },
     { heading: 'siblings' }, { id: 'c' }, { id: 'd' },
+    { heading: 'children' }, { id: 'f' }, { id: 'g' },
   ];
+  assert.equal(Math.ceil(rows.length / 2), 5, 'the reproduction drifted off the naive break point');
   const [first, second] = splitColumns(rows);
+  assert.equal(first.length + second.length, rows.length, 'a row was dropped or duplicated by the split');
   const has = (column, id) => column.some((r) => r.id === id);
   assert.equal(has(first, 'c'), has(first, 'd'), '"siblings" was split with one name on each side of the break');
 });
