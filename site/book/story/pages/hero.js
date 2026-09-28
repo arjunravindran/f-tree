@@ -162,7 +162,7 @@ const GHAT_FIGURES = Object.freeze([
  * on the drape without a new asset (round 2, finding 5's "a border stripe on the cloth").
  */
 function shoulderStripe(P, cx, footY, h) {
-  const w = h * 0.44, y = footY - h * 0.74;
+  const w = h * 0.5, y = footY - h * 0.56;
   const d = new PathData().M(cx - w / 2, y).Q(cx, y + h * 0.05, cx + w / 2, y);
   return path(String(d), { stroke: P.gold, sw: 1.1, op: 0.45 });
 }
