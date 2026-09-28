@@ -229,11 +229,16 @@ function birthOrderPhrase(featured, siblings) {
 
 /**
  * The Opening chapter's composed sentence: "Ankit was born in 1995, the eldest of three children
- * of Rajesh and Sunita. This is the family behind Ankit." Every clause is optional but the
- * featured person's own name, which `resolveFeatured` (or `namedBy`, `nameOf`) always supplies -
- * a missing birth year drops the year clause, a missing or absent-parent record drops "of Rajesh
- * and Sunita", and with neither parent named the birth-order fragment is dropped too, since
- * "the eldest of three children" with nobody to be a child of reads as a fact about nobody.
+ * of Rajesh and Sunita. The rest of this book carries the story onward." Every clause is optional
+ * but the featured person's own name, which `resolveFeatured` (or `namedBy`, `nameOf`) always
+ * supplies - a missing birth year drops the year clause, a missing or absent-parent record drops
+ * "of Rajesh and Sunita", and with neither parent named the birth-order fragment is dropped too,
+ * since "the eldest of three children" with nobody to be a child of reads as a fact about nobody.
+ *
+ * Round 2 (finding 21): the closing clause used to repeat the featured person's own name a second
+ * time ("This is the family behind Ankit."), doubling up with the opening page's own title
+ * ("This is Ankit's story"). A forward-looking close that never says the name again reads as one
+ * thought rather than the same fact stated twice.
  */
 export function openingLine(family, kin) {
   const featured = family.byId.get(kin.featured);
@@ -261,7 +266,7 @@ export function openingLine(family, kin) {
   else if (ofParents) sentence = `${featuredName} is ${ofParents}.`;
   else sentence = `${featuredName}.`;
 
-  return `${sentence} This is the family behind ${featuredName}.`;
+  return `${sentence} The rest of this book carries the story onward.`;
 }
 
 /**

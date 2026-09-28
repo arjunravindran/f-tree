@@ -47,7 +47,10 @@ export const STORY_TEMPLATE = Object.freeze({
   cover: {
     greeting: 'शुभ दीपावली',
     subtitle: '{from-family}',
-    line: { one: 'One lamp, and the family behind it', other: 'One lamp for each of us' },
+    // Round 2, finding 20: the count is the cover's entire emotional payload, and "One lamp for
+    // each of us" said it as a slogan rather than a number. `{Count-words}` is the same form
+    // `templates/diwali.json`'s format-1 cover already carries.
+    line: { one: 'One lamp, and the family behind it', other: '{Count-words} lamps, one for each of us.' },
   },
   story: {
     chapters: [
@@ -56,10 +59,18 @@ export const STORY_TEMPLATE = Object.freeze({
     ],
   },
   copy: {
-    opening: { title: 'This is {featured}', line: 'This is the family behind {featured-first}.' },
+    // Round 2, finding 21: 'This is {featured}' as a title, over a body that itself ends "This is
+    // the family behind {featured}", doubled the name three times on one page. The approved
+    // opening frame's own title is "This is {featured}'s story"; the line is `openingHero`'s own
+    // fallback for the rare case `copy.js`'s `openingLine` has nothing composed to say.
+    opening: { title: "This is {featured}'s story", line: 'Everything this family remembers starts here.' },
     roots: { title: 'Where it begins', line: { one: 'The earliest name this family remembers.', other: 'The earliest names this family remembers.' } },
     courtyards: { title: 'Two courtyards', line: 'The houses {featured-first} comes from.' },
-    parents: { title: 'माँ and पिताजी', line: 'The two who began this house, and the family they grew up in.' },
+    // Round 2, finding 23: Devanagari kin words joined by an English "and" in the display face
+    // read as neither language; the captions under the two portraits already say "mother" and
+    // "father" in English (`kinCaption`), and the kin words themselves belong in `hand` under a
+    // name, not in a chapter's own title.
+    parents: { title: 'Mother and father', line: 'The two who began this house, and the family they grew up in.' },
     siblings: { title: 'Growing up together', line: { one: 'The one who shared the house with {featured-first}.', other: 'The ones who shared the house with {featured-first}.' } },
     spouses: { title: 'A new family joins', line: 'A second family, joined to this one.' },
     children: { title: 'The next lamps', line: { one: 'The lamp lit after {featured-first}.', other: 'The lamps lit after {featured-first}.' } },
@@ -68,6 +79,9 @@ export const STORY_TEMPLATE = Object.freeze({
     register: { title: 'Everyone', line: { one: '{n} person, and where to find them.', other: 'All {n} of us, and where to find each one.' } },
     'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{n} lamps are lit for names nobody has written down yet.' } },
     legacy: { title: 'One line of light', line: 'One lamp for every generation behind {featured-first}.' },
-    closing: { title: 'शुभ दीपावली', line: 'Add them, with a name, a year or a photograph, and next year\u2019s book will have them.' },
+    // Round 2, finding 19: the closing used to repeat the cover's own greeting and its
+    // "from the X family" line word for word, with no `hand` face anywhere on the page. Its own
+    // farewell, distinct from the cover's arrival greeting, closes the book instead.
+    closing: { title: 'Until next Diwali', line: 'Add them, with a name, a year or a photograph, and next year\u2019s book will have them.' },
   },
 });
