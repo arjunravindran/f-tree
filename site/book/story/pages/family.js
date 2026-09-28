@@ -30,10 +30,10 @@
  * Composer code: deterministic, static relative imports, no clock, no locale, no DOM, no random.
  */
 
-import { group, PAGE } from '../../format.js';
+import { PAGE } from '../../format.js';
 import { chapterCopy, kinCaption, nameOf, rootsLine, stillToBeFoundCaption } from '../copy.js';
 import {
-  SAFE, TYPE, clipRect, doorway, folio, groundLine, handmadePaper,
+  SAFE, TYPE, doorway, folio, groundLine, handmadePaper,
   noteCard, noteHeight, sanjhiBand, step, tailpiece, titleBlock,
 } from './parts/paper.js';
 import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait } from './parts/people.js';
@@ -299,24 +299,19 @@ function nameRun(ctx, story, id, { x, y, width }) {
 /* ------------------------------------------------------------------ the two courtyards */
 
 /**
- * Where each house stands on the `aangan`, for the page that cuts the unused one out: from the top
- * of the page down to the courtyard floor, and out past the page's edge, so the cut follows the
- * floor's own line rather than leaving a rectangle drawn in the sky.
- */
-const FLOOR = 379;
-const HOUSE = Object.freeze({
-  left: { x: -10, y: -10, w: PAGE.w / 2 + 10, h: FLOOR + 10 },
-  right: { x: PAGE.w / 2, y: -10, w: PAGE.w / 2 + 10, h: FLOOR + 10 },
-});
-
-/**
  * The courtyards chapter: the grandparents as two households, the father's house on one side and
- * the mother's on the other, under torans, with the lamps in the right-hand house's wall lit for
- * anybody in that household whose name was never written down.
+ * the mother's on the other, under torans, with the lamps in the wall lit for anybody in that
+ * household whose name was never written down.
  *
- * The scene always draws both houses. A family that knows only one side has the other house cut
- * out of the paper - the sky, the ground and the tulsi between them all stay - and stands its one
- * household in the middle of the courtyard rather than off to one side.
+ * The scene always draws both houses, whole. A family that knows only one side draws nobody under
+ * the other - the design critic's own choice between "mirror the surviving house to the page
+ * centre" and "keep both houses and mark the unknown side as the empty one" (#257 round 2,
+ * finding 4): cutting a hole in the scene left a stray rectangle of the wrong shade where the
+ * house's own sky, floor and windows had been (the scene is one drawing, not layers this page can
+ * pick apart), a stray edge where the cut crossed the floor's plank lines, and the ladi string
+ * light that spans both roofs stopped dead over nothing. An empty house - its toran unhung, no
+ * lamp in its wall, nobody standing at its door - reads as "not yet known" on its own, the way an
+ * empty chair does at a table, without any of that.
  */
 function courtyards(ctx, page, story) {
   ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
@@ -340,11 +335,9 @@ function courtyards(ctx, page, story) {
     { ids: page.people.filter((id) => story.kin.people.get(id)?.side !== 'paternal'), frames: by['household-right'], text: by.right, toran: by['toran-right'], niches: rightNiches },
   ];
   const shown = houses.filter((h) => h.ids.length);
-  const cut = shown.length === 1 ? cutHouse(houses[0].ids.length > 0, mirrored) : null;
 
-  const scene = ctx.art.place('aangan', placement);
-  const items = [cut ? group([scene], { clip: cut.clip }) : scene];
-  reportScene(ctx, all, cut ? (z) => (inside(z, cut.hole) ? null : z) : null);
+  const items = [ctx.art.place('aangan', placement)];
+  reportScene(ctx, all);
 
   const copy = words(ctx, page, story.kin);
   items.push(...titleBlock(ctx, page, copy, by.title).items);
@@ -353,11 +346,7 @@ function courtyards(ctx, page, story) {
   // courtyards drawn side by side read as one row rather than two that slipped.
   const wordsTop = Math.max(by.left.y, by.right.y);
   for (const house of shown) {
-    items.push(...household(ctx, story, page, house, {
-      frames: cut ? union(houses[0].frames, houses[1].frames) : house.frames,
-      text: { ...(cut ? union(houses[0].text, houses[1].text) : house.text), y: wordsTop },
-      toran: house.toran,
-    }));
+    items.push(...household(ctx, story, page, house, { frames: house.frames, text: { ...house.text, y: wordsTop }, toran: house.toran }));
   }
 
   const note = pageNote(ctx, page);
@@ -368,25 +357,6 @@ function courtyards(ctx, page, story) {
   return ctx.page(page.chapter, items, ctx.P.paper);
 }
 
-/** Two zone boxes joined into one, for a page standing a single household in the middle. */
-const union = (a, b) => ({
-  x: Math.min(a.x, b.x), y: Math.min(a.y, b.y),
-  w: Math.max(a.x + a.w, b.x + b.w) - Math.min(a.x, b.x), h: Math.max(a.y + a.h, b.y + b.h) - Math.min(a.y, b.y),
-});
-
-const inside = (box, hole) => box.x >= hole.x && box.y >= hole.y && box.x + box.w <= hole.x + hole.w && box.y + box.h <= hole.y + hole.h;
-
-/**
- * The clip that cuts the unused house out of the `aangan`: the whole page, with a hole punched
- * where that house stands. Two rings in one path, wound opposite ways, which format 2's nonzero
- * rule leaves as a hole - so the sky, the ground and the tulsi in the middle are still drawn.
- */
-function cutHouse(keepPaternal, mirrored) {
-  const hole = { ...(keepPaternal === mirrored ? HOUSE.left : HOUSE.right) };
-  const outer = clipRect(0, 0, PAGE.w, PAGE.h);
-  const inner = clipRect(hole.x + hole.w, hole.y, -hole.w, hole.h);   // wound the other way: a hole
-  return { clip: `${outer}${inner}`, hole };
-}
 
 /** One household: its toran, its frames under its own house, and its words below them. */
 function household(ctx, story, page, house, { frames, text, toran }) {

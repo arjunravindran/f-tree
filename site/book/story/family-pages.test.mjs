@@ -59,18 +59,16 @@ async function compose(fixture, { rewrite, archetype, ...options } = {}) {
 /** The page numbers an archetype drew. */
 const pagesOf = (report, archetype) => report.pages.filter((p) => p.archetype === archetype).map((p) => p.page);
 
-/** How many times a page draws the symbol `ref`, `use`s inside groups included. */
-function uses(page, ref) {
-  let n = 0;
-  const walk = (items) => {
-    for (const it of items) {
-      if (it.t === 'use' && it.ref === ref) n++;
-      if (it.t === 'group') walk(it.items);
-    }
-  };
-  walk(page.items);
-  return n;
+/** Every `use` item on a page, however deep inside a group it is nested. */
+function* allUses(items) {
+  for (const it of items) {
+    if (it.t === 'use') yield it;
+    if (it.t === 'group') yield* allUses(it.items);
+  }
 }
+
+/** How many times a page draws the symbol `ref`, `use`s inside groups included. */
+const uses = (page, ref) => [...allUses(page.items)].filter((it) => it.ref === ref).length;
 
 /** The clips a page puts a whole scene behind: how a page crops one. A frame's opening is not one. */
 function sceneCrops(page, ref) {
@@ -266,23 +264,34 @@ test('kin captions are the reviewed Hindi words when the reader asked for them',
 
 /* ------------------------------------------------------------------ the two courtyards */
 
-test('a family that knows only one side has the other house cut away', async () => {
+test('a family that knows only one side draws both houses, empty rather than cut away', async () => {
+  // Round 1 finding 4: cutting a hole out of the scene left a rectangle of bare paper where that
+  // house's own sky and windows had been (the scene is one drawing, not layers this page can pick
+  // apart), a stray edge where the cut crossed the floor's plank lines, and the ladi light that
+  // spans both roofs stopping dead over nothing. The design critic's own fix, taken here: keep
+  // both houses whole, and draw nobody under the one nobody is known for.
   const one = await compose('story-half-siblings');   // one grandparent, on the father's side
   const page = one.report.pages.find((p) => p.archetype === 'courtyards');
   assert.ok(page, 'the fixture no longer plans a courtyards page');
   assert.equal(page.people.length, 1);
-  assert.equal(sceneCrops(one.book.pages[page.page - 1], 'pc-aangan').length, 1, 'the unused house was not cut out of the scene');
+  const drawnPage = one.book.pages[page.page - 1];
+  assert.equal(sceneCrops(drawnPage, 'pc-aangan').length, 0, 'the scene was cut, which is exactly what round 1 flagged');
+  assert.equal(uses(drawnPage, 'pc-aangan'), 1, 'the scene itself is not drawn whole');
 
-  // The cut-away half's own art is not reported as covering the page any more, because it is gone.
-  const zones = one.report.artZones.filter((z) => z.page === page.page);
-  assert.ok(zones.length, 'the page reported no art zones at all');
-  assert.ok(!zones.some((z) => z.x > 297 && z.y < 300 && z.kind === 'busy'), 'the page still claims the house it cut away');
+  // Nobody stands under the house whose side is not known: exactly one portrait frame draws on
+  // the page, not a second, invented one for the other house. (The scene itself still reports
+  // both houses' walls as busy `face` zones, whether or not anybody stands there - that is the
+  // architecture, not a portrait, and is correct either way.) A frame casts a shadow - a second
+  // `use` of the same symbol, tinted ink - so only the ones with no fill of their own are counted.
+  const frameRefs = new Set(['pc-medallion-carved', 'pc-medallion-petals', 'pc-lamp-unknown']);
+  const frames = [...allUses(drawnPage.items)].filter((it) => !it.fill && frameRefs.has(it.ref)).length;
+  assert.equal(frames, page.people.length, 'a portrait was drawn for a house with nobody under it');
 
-  // Both sides known: both houses stand, and nothing is cut.
+  // Both sides known: both houses stand, exactly as they would with only one known.
   const both = await compose('story-large');
   const twoSided = both.report.pages.find((p) => p.archetype === 'courtyards');
   assert.equal(twoSided.people.length, 4);
-  assert.equal(sceneCrops(both.book.pages[twoSided.page - 1], 'pc-aangan').length, 0, 'a page that knows both sides cut a house away');
+  assert.equal(sceneCrops(both.book.pages[twoSided.page - 1], 'pc-aangan').length, 0);
 });
 
 test('both houses have niches, so the notation for a name not known does not depend on which side of the family somebody is on', async () => {

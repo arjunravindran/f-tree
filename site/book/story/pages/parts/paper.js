@@ -49,13 +49,17 @@ function blob(cx, cy, r, n, rand, squash = 1) {
  */
 export function handmadePaper(ctx, page) {
   const rand = seeded(pageSeed(ctx, page, 'paper'));
-  const items = [rect(0, 0, PAGE.w, PAGE.h, { fill: ctx.P.paper })];
+  const clouds = [];
   for (let i = 0; i < 7; i++) {
     const cx = 40 + rand() * (PAGE.w - 80);
     const cy = 60 + rand() * (PAGE.h - 120);
-    items.push(path(blob(cx, cy, 90 + rand() * 70, 7, rand, 0.62), { fill: ctx.P.paperDeep, op: 0.26 }));
+    clouds.push(path(blob(cx, cy, 90 + rand() * 70, 7, rand, 0.62), { fill: ctx.P.paperDeep }));
   }
-  return items;
+  // The seven clouds are one group at one opacity, not seven independently-opaque layers: drawn
+  // separately at 0.26 each they compound wherever two overlap (to about 0.45) and show as
+  // hard-edged lenses, very visible on an otherwise empty page (#257 round 2, finding 20). #256
+  // makes the identical change in its own parts/page.js at the same 0.18, so the two agree.
+  return [rect(0, 0, PAGE.w, PAGE.h, { fill: ctx.P.paper }), group(clouds, { op: 0.18 })];
 }
 
 /**
