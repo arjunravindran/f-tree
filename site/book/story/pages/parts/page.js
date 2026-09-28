@@ -11,7 +11,7 @@
  * imports only.
  */
 
-import { PAGE, rect, path, group, PathData } from '../../../format.js';
+import { PAGE, rect, path, circle, group, PathData } from '../../../format.js';
 import { seeded } from '../../../art/seed.js';
 
 const { w: W, h: H } = PAGE;
@@ -53,15 +53,20 @@ export const midX = (box) => box.x + box.w / 2;
  * Handmade paper: the flat day ground and seven large, faint clouds of fibre
  * (book-design-system.md, "Paper and depth"). No speck grain - thousands of tiny marks bloat the
  * PDF - and the seed is the family's own, so one family's paper is always the same paper.
+ *
+ * Round 2: the seven clouds used to carry their own opacity each, so wherever two overlapped the
+ * PDF blended them twice - about 0.22 became about 0.39, with a hard seam at the overlap's own
+ * edge. Drawing them opaque inside one group and setting the group's opacity instead composites
+ * the whole cloud as one flat layer first, so the book pays for one blend, not one per overlap.
  */
 export function paperGround(ctx, seed) {
   const rand = seeded(`${seed} paper`);
   const items = [];
   for (let i = 0; i < 7; i++) {
     const cx = rand() * W, cy = rand() * H;
-    items.push(path(blob(cx, cy, 90 + rand() * 160, 60 + rand() * 120, rand), { fill: ctx.P.paperDeep, op: 0.22 }));
+    items.push(path(blob(cx, cy, 90 + rand() * 160, 60 + rand() * 120, rand), { fill: ctx.P.paperDeep }));
   }
-  return group(items);
+  return group(items, { op: 0.18 });
 }
 
 /**
@@ -93,10 +98,21 @@ function blob(cx, cy, rx, ry, rand, n = 9) {
  */
 export const BAND_TILES = 18;
 
-export function sanjhiBand(ctx) {
+/**
+ * The band's colour, one paper cut like the approved frames vary theirs (round 2, finding 11): the
+ * source tile is one flat `clay` cut, so a silhouette `tint` recolours the whole tile for free -
+ * no second tile, no extra bytes. `seed` is the page's own (its chapter, never the page number,
+ * art/README.md rule 6), so the same chapter always gets the same colour and an unrelated edit
+ * elsewhere never reshuffles it.
+ */
+const BAND_TINTS = Object.freeze(['clay', 'peacock', 'rani', 'wash']);
+export const bandTint = (seed) => BAND_TINTS[Math.floor(seeded(`${seed} band`)() * BAND_TINTS.length)];
+
+export function sanjhiBand(ctx, seed = 'sanjhi') {
+  const tint = bandTint(seed);
   const w = W / BAND_TILES;
   const items = [];
-  for (let i = 0; i < BAND_TILES; i++) items.push(ctx.art.place('band-sanjhi', { x: i * w, y: 0, anchor: 'top-left', w }));
+  for (let i = 0; i < BAND_TILES; i++) items.push(ctx.art.place('band-sanjhi', { x: i * w, y: 0, anchor: 'top-left', w, tint }));
   const box = ctx.art.box('band-sanjhi', { x: 0, y: 0, anchor: 'top-left', w });
   ctx.zone('busy', { x: 0, y: 0, w: W, h: box.h });
   return group(items);
@@ -133,14 +149,49 @@ export function titleBlock(ctx, { title, line, cx, y, width, titleSize = 32, tit
 }
 
 /**
- * The tailpiece a page that ends early closes with: a lit diya over a short marigold string
- * (book-design-system.md, "Page furniture"). Ornament, on a page that counts nobody.
+ * The tailpiece a page that ends early closes with: ornament, on a page that counts nobody
+ * (book-design-system.md, "Page furniture"). Round 2 (finding 11): two pages in a row used to
+ * close with the exact same garland at the exact same x, which the density rule's variety clause
+ * forbids ("no two consecutive pages share both a composition and an art placement"). Three forms,
+ * all from the existing motif vocabulary, picked by a seeded hash of the page's own chapter - never
+ * the page number, so an unrelated edit elsewhere never reshuffles which one a chapter gets.
  */
-export function tailpiece(ctx, cx, y) {
+const TAILPIECE_FORMS = Object.freeze(['garland', 'lotus', 'sprig']);
+
+export function tailpiece(ctx, cx, y, seed = 'tailpiece') {
+  const form = TAILPIECE_FORMS[Math.floor(seeded(`${seed} tailpiece`)() * TAILPIECE_FORMS.length)];
+  if (form === 'lotus') {
+    return [
+      ctx.art.place('divider-lotus', { x: cx, y, w: 132 }),
+      ctx.art.place('diya', { x: cx, y: y + 20, w: 24 }),
+    ];
+  }
+  if (form === 'sprig') {
+    return [
+      ctx.art.place('peepal', { x: cx - 30, y, s: 1.05, flip: 'x' }),
+      ctx.art.place('diya', { x: cx, y: y + 2, w: 26 }),
+      ctx.art.place('peepal', { x: cx + 30, y, s: 1.05 }),
+    ];
+  }
   return [
     ctx.art.place('mala', { x: cx, y, w: 150 }),
     ctx.art.place('diya', { x: cx, y: y + 2, w: 26 }),
   ];
+}
+
+/**
+ * Lamplight as the design system asks for it: stacked translucent discs, plain alpha, never a
+ * radial gradient (book-design-system.md, "Light" - a PDF draws a gradient with transparent stops
+ * as a soft mask, which costs far more than three flat circles). Round 2: a `glowDiscs` cluster at
+ * ZONE scale, for the warmth a per-lamp glow can no longer carry once a family is too large for
+ * every lamp to keep its own (findings 6, 18).
+ */
+export function glowDiscs(P, cx, cy, r, colour = P.flame) {
+  return group([
+    circle(cx, cy, r, { fill: colour, op: 0.1 }),
+    circle(cx, cy, r * 0.6, { fill: colour, op: 0.16 }),
+    circle(cx, cy, r * 0.3, { fill: colour, op: 0.22 }),
+  ]);
 }
 
 /**
