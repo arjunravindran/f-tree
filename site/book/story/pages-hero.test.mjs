@@ -476,7 +476,15 @@ test('finding 5: the ghat figures read as separate people, not a row of bollards
   const figureUses = flatItems(book.pages[0].items).filter((it) => it.t === 'use' && it.ref?.startsWith('pc-hero-') && it.fill);
   assert.equal(figureUses.length, 4, 'the ghat still has four figures');
   const tints = new Set(figureUses.map((it) => it.fill));
-  assert.ok(tints.size >= 3, `only ${tints.size} distinct tint(s) among the ghat figures`);
+  // `haze`, `deep`, `glow` and `night` are four distinct token NAMES but four near-identical dark
+  // violets (book-design-system.md's own palette table lists them together) - checking the resolved
+  // hexes stay clear of the two round 2 dropped (`haze`, `night`) is what actually distinguishes
+  // the fix from the bug; a bare count of distinct strings would pass on the old four just as well.
+  assert.ok(tints.size <= 3, `${tints.size} distinct tints - four is what the bug looked like`);
+  assert.ok(!tints.has(PAPERCUT_PALETTE.haze) && !tints.has(PAPERCUT_PALETTE.night), 'still using one of the two near-duplicate tones');
+  // A gold shoulder stripe on every figure (the finding's other ask).
+  const stripes = flatItems(book.pages[0].items).filter((it) => it.t === 'path' && it.stroke === PAPERCUT_PALETTE.gold && it.op === 0.45);
+  assert.equal(stripes.length, 4, 'not every ghat figure has a cloth border stripe');
 });
 
 test('finding 6: the cover keeps a warm heart even when only the near lamps carry their own glow', async () => {
