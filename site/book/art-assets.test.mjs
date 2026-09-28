@@ -99,6 +99,30 @@ test('the departed\'s mala hangs beneath its own frame, never over the portrait 
   }
 });
 
+/**
+ * The petal rim is a group portrait's frame; the mala is the departed's notation. Ankit's rule
+ * that does not bend: garlanding a living person's photograph reads as a death omen, so the two
+ * must never be mistaken for one another, even at thumbnail size (#257 round 2, findings 1-2).
+ * `medallion-petals` is checked here to be built from gold rays, sharing no colour with the round
+ * marigold beads `mala`/`mala-departed` are strung from.
+ */
+test('the group medallion is a gold sunburst, never coloured or shaped like the departed\'s mala', () => {
+  const petals = symbols['medallion-petals'];
+  // `gold` is the frame trim's own colour everywhere (every round frame strokes its opening with
+  // it), so it is not what would make the rim readable as a garland - `marigold` and `saffron`
+  // are: they are the mala's and the marigold motif's own cut-paper hues, and nothing else in the
+  // library borrows them (docs/book-design-system.md, "Palette").
+  const gardenTones = new Set(['marigold', 'saffron']);
+  const petalColours = new Set([...walk(petals.items)].flatMap((it) => [it.fill, it.stroke]).filter(Boolean));
+  for (const c of petalColours) assert.ok(!gardenTones.has(c), `medallion-petals paints with ${c}, the mala's own hue`);
+
+  // The mala is strung from round beads (a dashed stroke standing in for a row of them); the
+  // rim's petals are drawn shapes (filled paths), never a dashed string.
+  const petalShapes = [...walk(petals.items)].filter((it) => it.t === 'path' && it.fill && it.fill !== 'card');
+  assert.ok(petalShapes.length > 0, 'medallion-petals has no filled petal shapes to compare');
+  assert.ok(petalShapes.every((it) => !it.dash), 'a petal is drawn as a dashed string, the mala\'s own construction');
+});
+
 test('a medallion with its bust, a departed mala, a lamp kept and a hero at a window paint as one book', () => {
   const P = Object.fromEntries(PAPERCUT_PALETTE_KEYS.map((k) => [k, '#808080']));
   const defs = {};

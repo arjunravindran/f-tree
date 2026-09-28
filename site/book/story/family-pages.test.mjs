@@ -196,6 +196,29 @@ test('a mala hangs on the frame of everybody who has died, and on nobody else', 
   }
 });
 
+/**
+ * Somebody both unnamed and departed must read as unnamed first: the dashed `lamp-unknown` rim is
+ * the app's one notation for "name not known", and a mala drawn on top of it hides that notation
+ * (#257 round 2, finding 3). `people.js`'s `portrait` must draw the mala first and the lamp over
+ * it, never the other way round. A page of exactly one such person, on its own, so nobody else's
+ * mala or lamp can be mistaken for this one's.
+ */
+test('the name-not-known lamp draws over a departed person\'s mala, never under it', async () => {
+  const people = ['son-wife'];   // Raj Kumar's wife: unnamed, and the record says she has died
+  const { book, report, family } = await compose('story-unknown-names', {
+    archetype: 'gathering',
+    rewrite: () => ({ archetype: 'gathering', density: 'family', people, groups: [{ key: 'solo:', people }] }),
+  });
+  assert.ok(!family.byId.get('son-wife').name && family.byId.get('son-wife').deceased, 'the fixture changed under this test');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 1);
+  assert.ok(info, 'the rewrite did not produce a one-person gathering page');
+  const items = book.pages[info.page - 1].items;
+  const malaIndex = items.findIndex((it) => it.t === 'use' && it.ref === 'pc-mala-departed');
+  const lampIndex = items.findIndex((it) => it.t === 'use' && it.ref === 'pc-lamp-unknown');
+  assert.ok(malaIndex >= 0 && lampIndex >= 0, 'expected both a mala and a lamp-unknown on the page');
+  assert.ok(malaIndex < lampIndex, 'the mala was drawn over the lamp-unknown rim, not under it');
+});
+
 test('a name nobody wrote down is a lamp, never an invented face', async () => {
   const { book, report, family } = await compose('story-unknown-names');
   const lamps = { 'pc-lamp-unknown': 0, 'pc-aala': 0 };

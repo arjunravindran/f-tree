@@ -168,7 +168,9 @@ book.symbols = art.symbols();                  // exactly what was used, or unde
     arch window (`back-*` cuts). A hero is never a front bust. There is no youth hero: `heroFor`
     draws a youth as an adult, since from behind at a window the two are the same figure.
 - **Frames** (`frames/`): `arch-jharokha` (heroes), `medallion` (story, 36-90 pt), `medallion-petals`
-  (groups: a ring of petals, never a string of flowers), `medallion-carved` (a photograph's mount),
+  (groups: a gold sunburst of spaced, pointed rays - a visibly different shape and colour from
+  `mala`/`mala-departed`'s round marigold beads, so it is never mistaken for a garland, even at
+  thumbnail size), `medallion-carved` (a photograph's mount),
   `cameo` (the register, 22 pt). The round frames share their units: the opening is the circle of
   radius 50 about (50, 50), and each strokes it with a solid line over the clip edge. A round frame
   is a thin ring, so frame it with the plain paper shadow scaled to its size (`shadow: { dx, dy }`),

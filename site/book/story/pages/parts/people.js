@@ -48,6 +48,12 @@ export function portrait(ctx, story, id, cx, cy, d) {
   const k = Math.max(0.6, d / 76);
   const shadow = { dx: 1.7 * k, dy: 2.3 * k };
   const items = [];
+  // The mala, when it applies, goes down first: it hangs *behind* the frame it is tied to (the
+  // approved frames tuck its ends under the ring's edge), and the dashed lamp-unknown rim - the
+  // app's own notation for a name not known - must never be hidden under it (#257 round 2,
+  // finding 3). Pushing it before the frame is what makes both true regardless of which frame
+  // this person gets.
+  if (p.deceased) items.push(ctx.art.place('mala-departed', { x: cx, y: cy, s: d / 100, departed: true }));
   if (!p.name) {
     // Name not known: the dashed brass perimeter with a lamp inside, which is the notation at
     // medallion size. The person is named by their relation in the caption below.
@@ -59,7 +65,6 @@ export function portrait(ctx, story, id, cx, cy, d) {
     ctx.show(id);
     items.push(ctx.art.frame('medallion-petals', box, [ctx.art.place(avatarFor(p, stageOf(ctx, story, id)), { x: cx, y: cy, w: d })], { shadow }));
   }
-  if (p.deceased) items.push(ctx.art.place('mala-departed', { x: cx, y: cy, s: d / 100, departed: true }));
   ctx.zone('face', { x: cx - d * RIM, y: cy - d * RIM, w: 2 * d * RIM, h: d * (RIM + HANG) });
   return items;
 }
