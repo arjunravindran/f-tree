@@ -31,13 +31,20 @@ import { planStory, VARIANTS } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { openingLine } from './copy.js';
 import { PAGES, lampRows, MIN_LAMP } from './pages/hero.js';
-import { SAFE } from './pages/parts/page.js';
+import { SAFE, bandTint, paperGround, tailpiece } from './pages/parts/page.js';
+import { MALA_DROP, joinFrames, yearsCaption } from './pages/parts/people.js';
+import { heroTint } from './avatars.js';
+import { countWords } from '../blocks/words.js';
+import { PAPERCUT_PALETTE } from '../qa/story-template.mjs';
 
 const FIXTURES = Object.keys(BOOK_FIXTURES);
 const MINE = Object.keys(PAGES);
 const YEAR = Number(NOW.slice(0, 4));
-/** Every lamp drawing a page may light a person with. */
-const LAMPS = ['pc-diya', 'pc-diya-small', 'pc-diya-unknown', 'pc-lamp-unknown'];
+/**
+ * Every lamp drawing a page may light a person with. Round 2 (finding 4) adds `diya-floating`, the
+ * leaf-boat variant the cover's near rows now use instead of a lamp planted on nothing.
+ */
+const LAMPS = ['pc-diya', 'pc-diya-small', 'pc-diya-unknown', 'pc-lamp-unknown', 'pc-diya-floating'];
 
 const compose = async (name, options = {}, pages = withStubs()) => {
   const doc = await loadFixture(name);
@@ -51,6 +58,16 @@ const compose = async (name, options = {}, pages = withStubs()) => {
 /** Which pages of a composed book these five archetypes drew. */
 const heroPages = (report) => report.pages.filter((p) => MINE.includes(p.archetype));
 const pageOf = (report, archetype) => report.pages.find((p) => p.archetype === archetype);
+
+/** Every item on a page, with every group walked - for round 2's tests, which check raw shapes
+ * (a circle, a stroked rect) that a `use` doesn't reach. */
+function flatItems(items, out = []) {
+  for (const it of items ?? []) {
+    out.push(it);
+    if (it.t === 'group') flatItems(it.items, out);
+  }
+  return out;
+}
 
 /** Every `use` on a page, with every group walked: what the page actually placed. */
 function uses(items, out = []) {
@@ -340,18 +357,33 @@ test('a note appears beside a portrait only when the reader asked for one', asyn
 
 /* ------------------------------------------------------------------ the closing */
 
-test('the closing carries the greeting, the call to action, the QR code and the credit', async () => {
+test('the closing carries its own farewell, the call to action, the QR code and the credit', async () => {
   const { report, book } = await compose('story-eldest');
   const page = pageOf(report, 'closing');
   assert.equal(page.page, book.pages.length, 'the closing is the last page');
   const words = said(report, page.page);
-  assert.ok(words.includes(STORY_TEMPLATE.cover.greeting), 'no greeting');
+  // Round 2, finding 19: the closing used to reprint the cover's own greeting word for word ("the
+  // last page says what the first said"). Its farewell is the template's own, and distinct.
+  assert.ok(words.includes(STORY_TEMPLATE.copy.closing.title), 'no farewell');
+  assert.notEqual(STORY_TEMPLATE.copy.closing.title, STORY_TEMPLATE.cover.greeting, 'the farewell repeats the cover\'s own greeting');
+  assert.ok(!words.includes(STORY_TEMPLATE.cover.greeting), 'the closing still says what the cover said');
   assert.match(words, /Is someone missing\?/);
   assert.match(words, /Scan to get f-tree/);
   assert.match(words, /Made with f-tree/);
   // The code itself: one long path of dark modules, drawn where the scene keeps room for it.
   const qr = book.pages[page.page - 1].items.filter((it) => it.t === 'path' && it.d.length > 2000);
   assert.equal(qr.length, 1, 'the QR code is not on the page');
+});
+
+test('the closing sets its farewell and invitation in the book\'s own hand, not a report\'s', async () => {
+  // Round 2, finding 15: the invitation used to be set in `text`, the driest voice the book has,
+  // and the page carried no `hand` face at all.
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'closing');
+  assert.ok(texts(report, page.page).length, 'the closing has no text at all');
+  const farewell = book.pages[page.page - 1].items.find((it) => it.t === 'text' && it.s === STORY_TEMPLATE.copy.closing.title);
+  assert.ok(farewell, 'the farewell is not on the page');
+  assert.equal(farewell.font, 'hand', 'the farewell is not set in the book\'s own hand');
 });
 
 test('nothing on the closing page is drawn over the QR code', async () => {
@@ -385,4 +417,196 @@ test('every hero archetype draws both of the variants plan.js lists for it', asy
       assert.ok(texts(report, page.page).every((b) => b.kind), `${archetype}/${variant}: a line with no kind`);
     }
   }
+});
+
+/* ------------------------------------------------------------------ round 2 design critique */
+
+test('finding 1: the mala hangs below the arch frame, never across the sitter’s chest', async () => {
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'portrait-hero');
+  assert.equal(page.variant, 'arch', 'precondition: the fixture’s portrait hero is an arch');
+  const face = report.artZones.find((z) => z.page === page.page && z.kind === 'face');
+  assert.ok(face, 'no face zone recorded');
+  // whereUsed's bbox is the mala's whole viewBox, which reaches well above its own anchor (empty
+  // canvas the source never draws in) - not a useful proxy here. The anchor point itself
+  // (the drawing's own (50, 50), art/README.md) is where the fix actually moved.
+  let anchorY = null;
+  (function walk(list) {
+    for (const it of list ?? []) {
+      if (it.t === 'group') walk(it.items);
+      if (it.t === 'use' && it.ref === 'pc-mala-departed') {
+        const [a, b, c, d, e, f] = it.tf ?? [1, 0, 0, 1, 0, 0];
+        anchorY = b * 50 + d * 50 + f;
+      }
+    }
+  }(book.pages[page.page - 1].items));
+  assert.ok(anchorY !== null, 'no mala on the departed parent’s frame');
+  assert.ok(anchorY >= face.y + face.h - 1, `the mala’s own anchor sits inside the face zone (anchor.y=${anchorY}, face foot=${face.y + face.h})`);
+});
+
+test('finding 2: the opening arch is built into a haveli facade, not floating on bare paper', async () => {
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'opening-hero');
+  const refs = uses(book.pages[page.page - 1].items);
+  assert.ok(refs.includes('pc-peepal'), 'no peepal vine in the facade’s corners');
+  assert.ok(refs.filter((r) => r === 'pc-diya-small').length >= 2, 'no diyas along the parapet or in its niches');
+});
+
+test('finding 3: the arch view is a scene - a skyline and a river - not a gradient and a stray flame', async () => {
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'opening-hero');
+  const all = flatItems(book.pages[page.page - 1].items);
+  assert.ok(all.some((it) => it.t === 'rect' && it.fill === PAPERCUT_PALETTE.wash), 'no wash river band in the view');
+  assert.ok(all.some((it) => it.t === 'path' && it.fill === PAPERCUT_PALETTE.stone), 'no skyline silhouette in the view');
+});
+
+test('finding 4: lamp rows tilt and interleave, and the near rows light the leaf-boat lamp', () => {
+  const box = { x: 240, y: 514, w: 345, h: 216 };
+  const rows = lampRows(96, box);
+  assert.ok(rows.some((r) => r.y1 !== r.y2), 'every row is still a flat, ruled line');
+  assert.ok(rows.some((r) => r.boat), 'no row lights the leaf-boat variant');
+  for (const r of rows) {
+    assert.ok(r.y1 >= box.y - 1e-6 && r.y1 <= box.y + box.h + 1e-6, `a tilted row's near end (${r.y1}) runs outside the lamps zone`);
+    assert.ok(r.y2 >= box.y - 1e-6 && r.y2 <= box.y + box.h + 1e-6, `a tilted row's far end (${r.y2}) runs outside the lamps zone`);
+  }
+});
+
+test('finding 5: the ghat figures read as separate people, not a row of bollards', async () => {
+  const { book } = await compose('story-eldest');
+  const figureUses = flatItems(book.pages[0].items).filter((it) => it.t === 'use' && it.ref?.startsWith('pc-hero-') && it.fill);
+  assert.equal(figureUses.length, 4, 'the ghat still has four figures');
+  const tints = new Set(figureUses.map((it) => it.fill));
+  assert.ok(tints.size >= 3, `only ${tints.size} distinct tint(s) among the ghat figures`);
+});
+
+test('finding 6: the cover keeps a warm heart even when only the near lamps carry their own glow', async () => {
+  const { book } = await compose('story-large');
+  const glows = flatItems(book.pages[0].items)
+    .filter((it) => it.t === 'circle' && it.op !== undefined && (it.fill === PAPERCUT_PALETTE.flame || it.fill === PAPERCUT_PALETTE.gold));
+  assert.ok(glows.length >= 6, 'no zone-scale glow laid over the lamps');
+});
+
+test('finding 7: a photograph that cannot draw in an arch still shows the hero, mounted, never a blank lit window', async () => {
+  const { report, book, family } = await compose('sample', { photos: true });
+  const page = pageOf(report, 'opening-hero');
+  const person = family.byId.get(page.people[0]);
+  assert.ok(person?.photo, 'precondition: the opening’s subject has a photograph on record');
+  const items = book.pages[page.page - 1].items;
+  const refs = uses(items);
+  assert.ok(refs.some((r) => r.startsWith('pc-hero-')), 'no fallback figure drawn under the photograph');
+  const all = flatItems(items);
+  assert.ok(all.some((it) => it.t === 'image'), 'no photograph placed');
+  assert.ok(all.some((it) => it.t === 'rect' && it.stroke === PAPERCUT_PALETTE.gold), 'no gold line mounting the photograph');
+  assert.ok(all.some((it) => it.t === 'rect' && it.fill === PAPERCUT_PALETTE.card), 'no cream mat around the photograph');
+});
+
+test('finding 8: the closing’s QR code is mounted - a mat, a gold hairline, a caption underneath', async () => {
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'closing');
+  const items = book.pages[page.page - 1].items;
+  const mat = items.find((it) => it.t === 'rect' && it.r !== undefined);
+  assert.ok(mat, 'no mounting mat for the QR code');
+  assert.ok(items.some((it) => it.t === 'rect' && it.stroke === PAPERCUT_PALETTE.gold), 'no gold hairline around the QR code');
+  assert.ok(items.some((it) => it.t === 'rect' && it.fill === PAPERCUT_PALETTE.ink), 'no paper shadow under the QR plate');
+  const caption = texts(report, page.page).find((b) => b.s === 'Scan to get f-tree');
+  assert.ok(caption, 'no caption');
+  assert.ok(caption.y > mat.y + mat.h, 'the caption floats beside the plate rather than sitting under it');
+});
+
+test('finding 9: heroTint varies an adult or elder hero’s cloth by a stable hash of the id', () => {
+  const stage = { year: 2026 };
+  const elders = Array.from({ length: 8 }, (_, i) => ({ id: `p${i}`, by: 1950 }));
+  const tints = elders.map((p) => heroTint(p, stage));
+  assert.ok(tints.every(Boolean), 'an adult or elder got no tint at all');
+  assert.equal(heroTint(elders[0], stage), heroTint(elders[0], stage), 'the same id gets a different tint on a second look');
+  assert.ok(new Set(tints).size >= 2, 'every elder still wears the identical kurta');
+  assert.equal(heroTint({ id: 'child', by: 2020 }, stage), null, 'a child hero - whose figure a plain overlay cannot line up with - still gets retinted');
+});
+
+test('finding 11: the Sanjhi band’s colour varies by chapter, and the tailpiece takes more than one form', () => {
+  const tints = new Set(['opening', 'parents', 'siblings', 'spouses', 'children', 'courtyards'].map((c) => bandTint(`Test Family ${c}`)));
+  assert.ok(tints.size >= 2, 'every chapter still gets the same band colour');
+
+  const fakeArt = { place: (id) => ({ t: 'use', ref: `pc-${id}` }) };
+  const forms = new Set();
+  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) {
+    forms.add(tailpiece({ art: fakeArt }, 100, 200, seed).map((it) => it.ref).join(','));
+  }
+  assert.ok(forms.size >= 2, 'the tailpiece still closes every page with the same two shapes at the same spot');
+});
+
+test('finding 13: the handmade paper’s clouds composite as one layer, not one blend per overlap', () => {
+  const g = paperGround({ P: PAPERCUT_PALETTE }, 'Test Family');
+  assert.equal(g.t, 'group');
+  assert.equal(g.op, 0.18, 'the clouds no longer carry one shared opacity');
+  assert.ok(g.items.every((it) => it.op === undefined), 'a cloud still carries its own opacity, which compounds where two overlap');
+});
+
+test('finding 14: a two-person portrait hero draws its two arches as a pair, not a mirror of itself', async () => {
+  const { family } = await compose('story-eldest');
+  const two = family.people.filter((p) => p.name).slice(0, 2).map((p) => p.id);
+  const pages = insteadOf('gathering', 'portrait-hero', { variant: 'arch', density: 'hero', people: two });
+  const { book, report } = await compose('story-eldest', {}, pages);
+  const page = pageOf(report, 'portrait-hero');
+  const mirrored = book.pages[page.page - 1].items.some((it) => it.t === 'group' && it.tf && it.tf[0] === -1);
+  assert.ok(mirrored, 'neither arch is mirrored - the pair still reads as a copy and a paste');
+});
+
+test('finding 16: the sill diyas have a darker halo to sit against, not pale flame on a pale wall', async () => {
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'opening-hero');
+  const halo = book.pages[page.page - 1].items.some((it) => it.t === 'circle' && it.fill === PAPERCUT_PALETTE.clay && it.op !== undefined);
+  assert.ok(halo, 'no clay halo behind the sill lamps');
+});
+
+test('finding 17: the opening carries a kin medallion row, the reader’s first sight of the family', async () => {
+  const { report, book } = await compose('story-eldest');
+  const page = pageOf(report, 'opening-hero');
+  const medallions = uses(book.pages[page.page - 1].items).filter((r) => r === 'pc-medallion').length;
+  assert.ok(medallions >= 1, 'no kin medallions on the opening');
+});
+
+test('finding 18: the diya between a bereaved couple stands on the sill, with its own glow', () => {
+  const fakeCtx = {
+    P: PAPERCUT_PALETTE,
+    art: { place: (id, o) => ({ t: 'use', ref: `pc-${id}`, x: o.x, y: o.y }) },
+    family: { spousesOf: () => [{ id: 'b' }] },
+  };
+  const items = joinFrames(fakeCtx, { id: 'a', deceased: true }, { id: 'b', deceased: false }, { cx: 100, y: 300, width: 80 });
+  const diya = items.find((it) => it.t === 'use' && it.ref === 'pc-diya');
+  assert.ok(diya, 'no diya between the bereaved couple');
+  assert.equal(diya.y, 300, 'the diya does not stand on the sill line it was given');
+  assert.ok(items.length > 1, 'no glow behind the diya');
+});
+
+test('finding 20: the cover line carries the count in words, and {Count-words} is legal at format 2', async () => {
+  assert.doesNotThrow(() => validateTemplate(STORY_TEMPLATE), '{Count-words} is not a legal format-2 placeholder');
+  const { report, kin } = await compose('story-eldest');
+  const words = said(report, 1);
+  const n = kin.people.size;
+  if (n !== 1) assert.ok(words.includes(`${countWords(n, true)} lamps, one for each of us.`), words);
+});
+
+test('finding 21: the opening title says whose story it is, and the body never repeats the name a second time', async () => {
+  const { report, family, kin } = await compose('story-eldest');
+  const page = pageOf(report, 'opening-hero');
+  const name = family.byId.get(kin.featured)?.name;
+  const title = texts(report, page.page).find((b) => b.kind === 'title');
+  assert.equal(title?.s, `This is ${name}'s story`, `the title does not say whose story this is: ${title?.s}`);
+  // The body opens with the subject's own name, as any sentence about them would - the bug was
+  // its OWN ending saying "This is the family behind {name}" a second time.
+  const body = texts(report, page.page).filter((b) => b.kind === 'body').map((b) => b.s).join(' ');
+  assert.equal((body.match(new RegExp(name, 'g')) ?? []).length, 1, `the body says ${name} more than once: ${body}`);
+});
+
+test('finding 22: yearsCaption marks a bare year "b." so it never reads as a death year', async () => {
+  const { family, kin } = await compose('story-eldest');
+  const living = family.people.find((p) => p.name && !p.deceased && p.by);
+  assert.ok(living, 'precondition: a living named person with a birth year');
+  const caption = yearsCaption({ family, options: {} }, { kin }, living);
+  assert.ok(caption.includes(`b. ${living.by}`), caption);
+});
+
+test('finding 23: the parents chapter’s title is English; the kin words stay in hand under a name', () => {
+  assert.doesNotMatch(STORY_TEMPLATE.copy.parents.title, /[ऀ-ॿ]/, 'the parents title still carries Devanagari in the display face');
 });
