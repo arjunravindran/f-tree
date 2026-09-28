@@ -209,9 +209,13 @@ export function captionHeight(ctx, story, id, width, nameLines) {
 
 /**
  * Whether `a` and `b` are married, from the record's own spouse edges. A direct neighbour lookup,
- * never `relate()`: the composer may not walk the whole graph once per pair of frames.
+ * never `relate()`: the composer may not walk the whole graph once per pair of frames. A divorced
+ * edge is excluded: `marriage` below draws a mala for anyone this says are married, and a former
+ * spouse is exactly the one relation on the page a marigold string must not imply (round 1 finding
+ * 25 draws F beside every spouse in turn, former included, so this is the one place that decides
+ * whether the pair gets a string between them).
  */
-export const married = (ctx, a, b) => ctx.family.graph.spouses(a).some((s) => s.id === b);
+export const married = (ctx, a, b) => ctx.family.graph.spouses(a).some((s) => s.id === b && s.subtype !== 'DIVORCED');
 
 /**
  * The marigold string that says two frames are one marriage, draped over the pair. Where one of

@@ -429,6 +429,19 @@ const isOuter = (story, id) => OUTER_CIRCLES.has(story.kin.people.get(id)?.circl
  * therefore always stand below their parents, and an aunt below and smaller than her brother.
  */
 function rowsOf(story, page) {
+  // The spouses chapter is one page-plan group (plan.js groups by circle and branch, and every
+  // spouse shares both), which the ordinary reading turns into siblings on one shared ground
+  // line - the exact device the design system reserves for siblings. Two or more former, late and
+  // current wives read as unrelated women rather than as F's own marriages, and F (never a member
+  // of his own 'spouses' circle) is not even on the page to connect them to (round 1 finding 25).
+  // A page that is nothing but the spouses circle draws F paired with each of them instead: no
+  // shared ground line, each marriage its own pair with its own marigold string or diya, F's own
+  // frame repeated once per marriage rather than invented once and left unconnected.
+  if (page.chapter === 'spouses' && page.chapters.length === 1 && page.people.length
+    && page.people.every((id) => story.kin.people.get(id)?.circle === 'spouses')) {
+    const F = story.kin.featured;
+    return [{ clusters: page.people.map((id) => [F, id]), outer: false }];
+  }
   const gen = (id) => story.kin.people.get(id)?.gen ?? 0;
   const gens = [...new Set(page.people.map(gen))].sort((a, b) => a - b);
   const rows = [];

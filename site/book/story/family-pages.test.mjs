@@ -276,17 +276,39 @@ test('the same fact never prints three times over one caption: "late" once, and 
   assert.ok(boxes.some((b) => b.kind === 'lifespan' && b.s === '1909 – 1981'), 'her dates did not print in the approved spaced form');
 });
 
+test('three spouses stand in three pairs with F, not shoulder to shoulder on one shared ground line', async () => {
+  // Round 1 finding 25: a former wife, a late wife and the current wife stood shoulder to
+  // shoulder at equal size on one shared ground line - the device the design system reserves for
+  // siblings - and F himself was not even on the page, so nothing connected any of them to
+  // anything. Each of the three now stands paired with F on her own ground line.
+  const { book, report } = await compose('story-three-spouses');
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 3);
+  assert.ok(info, 'the fixture no longer has its spouses page');
+  const ground = [...paths(book.pages[info.page - 1].items)].filter((it) => it.stroke && it.sw === 1.6 && it.op === 0.85);
+  assert.ok(ground.length === 0 || new Set(ground.map((it) => it.d)).size > 1,
+    'the three still share one ground line');
+  // F stands on the page three times over - once beside each wife - not once, unconnected.
+  const frameRefs = new Set(['pc-medallion-carved', 'pc-medallion-petals', 'pc-lamp-unknown']);
+  const frames = [...allUses(book.pages[info.page - 1].items)].filter((it) => !it.fill && frameRefs.has(it.ref)).length;
+  assert.equal(frames, 6, `expected F paired with each of the three wives (6 frames), found ${frames}`);
+});
+
 test('a marigold string joins two people the record married, and nobody else', async () => {
   // The `steps` variant closes a page with the lotus divider rather than the tailpiece's own
   // short mala, so every `mala` left on the page is a marriage and nothing else.
   const steps = { rewrite: () => ({ variant: 'steps' }), archetype: 'gathering' };
 
-  // F's three spouses are married to F, never to each other: a page of the three must draw none.
-  const { book, report } = await compose('story-three-spouses', steps);
+  // F's three spouses are married to F, never to each other (round 1 finding 25): the current
+  // wife gets a mala to F, the late one a diya, and the former one - divorced - neither, but none
+  // of the three gets anything joining her to either of the other two.
+  const { book, report, kin } = await compose('story-three-spouses', steps);
   const spouses = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 3);
   assert.ok(spouses, 'the three-spouses fixture no longer has its spouses page');
   const page3 = book.pages[spouses.page - 1];
-  assert.equal(uses(page3, 'pc-mala') + uses(page3, 'pc-diya'), 0, 'two people who never married were joined on the page');
+  const roles = new Map(spouses.people.map((id) => [id, kin.people.get(id).role]));
+  assert.deepEqual(new Set(roles.values()), new Set(['current', 'former', 'late']), 'the fixture changed under this test');
+  assert.equal(uses(page3, 'pc-mala'), 1, 'not exactly one string, to the current wife');
+  assert.equal(uses(page3, 'pc-diya'), 1, 'not exactly one diya, to the late wife');
 
   // The parents of a family that did marry are joined by one.
   const parents = await compose('story-devanagari', steps);
