@@ -40,18 +40,20 @@ const MAX_PASSES = 5;
  * Deliberately conservative: it normalises *form*, never content. "Raj Kumar" and "R. Kumar" stay
  * different, because guessing they are the same is how a merge quietly destroys somebody's data.
  *
- * `NFD` then stripping combining marks is the same normalisation the Kotlin does with
- * `java.text.Normalizer`; the `\p{L}\p{N}` classes need the `u` flag in JavaScript to mean what
- * they mean in Java.
+ * `NFD` then stripping the Latin combining accents (U+0300 to U+036F) is the same normalisation the
+ * Kotlin does with `java.text.Normalizer`. Every other mark is kept as part of the word, because in
+ * scripts such as Devanagari the vowel signs are marks and are the difference between names:
+ * stripping them made "\u0930\u093e\u092e" and "\u0930\u093e\u092e\u093e" the same key (#113). The
+ * `\p{L}\p{N}\p{M}` classes need the `u` flag in JavaScript to mean what they mean in Java.
  */
 export function nameKey(name) {
   const trimmed = String(name ?? '').trim();
   if (!trimmed) return null;
   const key = trimmed
     .normalize('NFD')
-    .replace(/\p{Mn}+/gu, '')
+    .replace(/[\u0300-\u036f]+/gu, '')
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
     .trim();
   return key || null;
 }
