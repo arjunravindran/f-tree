@@ -44,8 +44,8 @@ class BookCatalogTest {
     @Test
     fun `the template format it gates on is the one the staged composer reads`() {
         val js = File(repoRoot, "site/book/template.js").readText()
-        val format = Regex("export const TEMPLATE_FORMAT = (\\d+);").find(js)?.groupValues?.get(1)?.toInt()
-        assertEquals(format, BookCatalog.TEMPLATE_FORMAT)
+        val format = Regex("export const MAX_TEMPLATE_FORMAT = (\\d+);").find(js)?.groupValues?.get(1)?.toInt()
+        assertEquals(format, BookCatalog.MAX_TEMPLATE_FORMAT)
     }
 
     @Test

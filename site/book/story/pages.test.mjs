@@ -68,7 +68,7 @@ test('a storybook page nobody has drawn yet is refused by name, not printed empt
   const doc = await loadFixture('story-eldest');
   const { plan, archetypes } = await plannedArchetypes('story-eldest');
   assert.throws(() => composeBook(doc, { now: NOW }, STORY_TEMPLATE), (e) => {
-    assert.match(e.message, /"diwali-story" is a format-2 storybook template/);
+    assert.match(e.message, /"diwali" is a format-2 storybook template/);
     assert.ok(e.message.includes(`its ${plan.pages.length} pages are planned`), e.message);
     // Every archetype this book needs and nobody has built is named, and nothing else is.
     for (const a of archetypes) {
@@ -96,7 +96,7 @@ test('coverOnly draws the cover alone', async () => {
 test('the shared storybook template is a valid format-2 template', () => {
   const t = validateTemplate(STORY_TEMPLATE);
   assert.equal(t.format, 2);
-  assert.equal(t.id, 'diwali-story');
+  assert.equal(t.id, 'diwali');
   assert.equal(t.art, 'papercut');
   assert.deepEqual(Object.keys(t.palette).sort(), [...PAPERCUT_PALETTE_KEYS].sort());
   assert.equal(t.fonts.hand, HAND_FONT_KEY, 'the hand role is Kalam, and only the hand role is');

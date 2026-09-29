@@ -1,12 +1,11 @@
 /*
  * The storybook template every wave-3 test composes against.
  *
- * The real template now ships as `templates/diwali-story.json`: a file in `templates/` must be in
- * the catalogue (`catalog.test.mjs`), and a catalogue entry at format 2 must be drawable
- * (`invariants.test.mjs`), so the template arrived with the last archetype (#258), not before it.
- * It is listed at format 2 while the app reads format 1 (`template.js`'s `TEMPLATE_FORMAT`), which
- * is what keeps it hidden from the picker without a flag of its own - `catalog.js`'s `available`
- * drops an entry newer than this app draws. #259 is the swap that shows it.
+ * The real template ships as `templates/diwali.json`: since #259 the storybook *is* Diwali. It
+ * arrived with the last archetype (#258) as a hidden `diwali-story` row - listed at format 2 while
+ * the app read format 1, which `catalog.js`'s `available` skips - and #259 raised
+ * `MAX_TEMPLATE_FORMAT` to 2 and moved it onto Diwali's own catalogue entry, keeping that entry's
+ * festival windows. The old format-1 Diwali is gone; Heirloom is untouched and still format 1.
  *
  * This file stays the authored copy, because JSON cannot carry the reasons: every line below was
  * argued over in a design-critic round, and the notes are the record of what was tried and why it
@@ -43,8 +42,8 @@ export const PAPERCUT_PALETTE = Object.freeze({
  */
 export const STORY_TEMPLATE = Object.freeze({
   format: 2,
-  id: 'diwali-story',
-  name: 'Diwali, the storybook',
+  id: 'diwali',
+  name: 'Diwali',
   fileSuffix: 'Diwali Book',
   art: 'papercut',
   fonts: { display: 'book_display', text: 'book_text', strong: 'book_strong', hand: 'book_hand' },

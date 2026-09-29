@@ -19,8 +19,21 @@
 
 export const TEMPLATE_FORMAT = 1;
 
-/** The storybook's template format (#243). Hidden from the catalogue until #244 reads it by default. */
-const FORMAT_PAPERCUT = 2;
+/** The storybook's template format (#243): a second schema, not an extension of format 1. */
+export const FORMAT_PAPERCUT = 2;
+
+/**
+ * The highest template format this app can draw, which is what the catalogue filters on
+ * (`catalog.js`'s `available`) - not the same question as `TEMPLATE_FORMAT`, which is format 1's
+ * own schema version and is what `validateTemplate` holds a format-1 template to.
+ *
+ * The two were one constant until #259, and that was only safe while the app drew format 1 alone.
+ * Raising `TEMPLATE_FORMAT` to offer the storybook would have made `validateTemplate` reject every
+ * format-1 template, Heirloom included, because it checks `t.format !== TEMPLATE_FORMAT`. They are
+ * different questions and now have different names. `BookCatalog.MAX_TEMPLATE_FORMAT` mirrors this
+ * one, and `BookCatalogTest` reads this line out of this file to hold the two together.
+ */
+export const MAX_TEMPLATE_FORMAT = 2;
 
 export const BLOCKS = ['cover', 'tree', 'numbers', 'generations', 'find', 'closing'];
 

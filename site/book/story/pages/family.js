@@ -261,7 +261,7 @@ function banyan(ctx, page, story) {
   // left unnamed by a zone that did not take them.
   items.push(...rootNames(ctx, story, copy.line, by.story, sides));
   items.push(...folio(ctx));
-  return ctx.page(page.chapter, items, ctx.P.paper);
+  return ctx.page(copy?.title || page.chapter, items, ctx.P.paper);
 }
 
 /**
@@ -330,6 +330,9 @@ function nameRun(ctx, story, id, { x, y, width }) {
  * lamp in its wall, nobody standing at its door - reads as "not yet known" on its own, the way an
  * empty chair does at a table, without any of that.
  */
+/* A page is labelled with its chapter's own title, as every other archetype labels itself; the
+ * chapter id is only the fallback for a template that names no copy for it (#259 found all three
+ * of these labelling pages "courtyards", "parents", "children" in Diwali's own goldens). */
 function courtyards(ctx, page, story) {
   ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
   const mirrored = page.variant === 'mirrored';
@@ -378,7 +381,7 @@ function courtyards(ctx, page, story) {
   if (note) items.push(...noteCard(ctx, page, note, { cx: noteMid, top: by.note.y + 6, w: Math.min(by.note.w, 340) }).items);
   else items.push(...tailpiece(ctx, noteMid, by.note.y + 20));
   items.push(...folio(ctx));
-  return ctx.page(page.chapter, items, ctx.P.paper);
+  return ctx.page(copy?.title || page.chapter, items, ctx.P.paper);
 }
 
 
@@ -553,7 +556,7 @@ function gathering(ctx, page, story) {
   if (note) items.push(...noteCard(ctx, page, note, { cx: PAGE_MID, top: SAFE.bottom - noteH + 24, w: 330 }).items);
   else items.push(...closer(ctx, story, page, rows));
   items.push(...folio(ctx));
-  return ctx.page(page.chapter, items, ctx.P.paper);
+  return ctx.page(copy?.title || page.chapter, items, ctx.P.paper);
 }
 
 /** Archetype id -> draw(ctx, page, story). #257: banyan, courtyards, gathering. */

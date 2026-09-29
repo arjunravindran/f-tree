@@ -20,8 +20,8 @@ const papercutPalette = Object.fromEntries(PAPERCUT_PALETTE_KEYS.map((k, i) => [
 function papercutTemplate(overrides = {}) {
   return {
     format: 2,
-    id: 'diwali-story',
-    name: 'Diwali, the storybook',
+    id: 'diwali',
+    name: 'Diwali',
     fileSuffix: 'Book',
     art: 'papercut',
     fonts: { display: 'book_display', text: 'book_text', strong: 'book_strong', hand: HAND_FONT_KEY },
@@ -39,7 +39,7 @@ function papercutTemplate(overrides = {}) {
 test('a well-formed format-2 template validates, and freezes what it returns', () => {
   const t = validateTemplate(papercutTemplate());
   assert.equal(t.format, 2);
-  assert.equal(t.id, 'diwali-story');
+  assert.equal(t.id, 'diwali');
   assert.equal(t.art, 'papercut');
   assert.deepEqual(Object.keys(t.fonts).sort(), ['display', 'hand', 'strong', 'text']);
   assert.equal(t.fonts.hand, HAND_FONT_KEY);

@@ -304,10 +304,28 @@ A template is a JSON document (`site/book/templates/`) that chooses:
 does not know, markup in the copy, a newer `format`. Templates ship inside the release today. The
 same rules are what make an on-demand download (#214) safe to add later.
 
-| template | look |
+| template | format | look |
+|---|---|---|
+| `heirloom` | 1 | Night sky: the family as a constellation, eldest at the centre, each generation an orbit further out |
+| `diwali` | 2 | The Aangan storybook: cut-paper courtyards, a lane of havelis and lamplight, told around one featured person, with a register at the back. *शुभ दीपावली* |
+
+A template's `format` is the schema it is written in, and the two are different shapes rather than
+one extending the other (#243). Format 1 is the block list Heirloom uses; format 2 is the
+storybook's - a paper-cut palette, four font roles instead of three, and a chapter list the story
+planner turns into pages. `validateTemplate` reads `format` before any other key, so a template
+written for a format this app cannot draw fails on that alone.
+
+Two constants decide what is offered, and they are deliberately not the same one:
+
+| constant | what it answers |
 |---|---|
-| `heirloom` | Night sky: the family as a constellation, eldest at the centre, each generation an orbit further out |
-| `diwali` | The same sky with every person a lamp, a rangoli ring, hanging lanterns, *शुभ दीपावली* |
+| `TEMPLATE_FORMAT` (1) | Format 1's own schema version - what `validateTemplate` holds a format-1 template to |
+| `MAX_TEMPLATE_FORMAT` (2) | The highest format this app can draw - what `catalog.js`'s `available` filters the catalogue on, mirrored by `BookCatalog.MAX_TEMPLATE_FORMAT` |
+
+That split is what let the storybook ship hidden while it was being built: it sat in the catalogue
+as a format-2 row that every shell skipped, because `MAX_TEMPLATE_FORMAT` was still 1. #259 raised
+it to 2, and the same row became Diwali. Raising `TEMPLATE_FORMAT` instead would have made
+`validateTemplate` reject Heirloom.
 
 ### The catalogue
 
@@ -316,7 +334,7 @@ file is `templates/<id>.json`), `name`, the template `format` it needs, the `tie
 switch matches on, and optional `featured` windows, one per year, both days included:
 
 ```json
-{ "id": "diwali", "name": "Diwali", "format": 1, "tier": "free",
+{ "id": "diwali", "name": "Diwali", "format": 2, "tier": "free",
   "featured": { "2026": ["2026-10-18", "2026-11-15"], "2027": ["2027-10-08", "2027-11-05"] } }
 ```
 
@@ -354,7 +372,11 @@ has a season. No screen changes.
 
 ## Pages
 
-| block | what it is |
+The blocks below are format 1's fixed page order, which is Heirloom's. A format-2 template has no
+block list at all: it names chapters, and the story planner (`story/plan.js`) decides how many
+pages each one takes for the family in hand. Those chapters are listed under "Story planner" below.
+
+| block (format 1) | what it is |
 |---|---|
 | `cover` | The chat thumbnail: the family's name, the constellation, one sentence. Legible at 150 px wide |
 | `tree` | Everyone joined to the family, from the viewer's layout. With less than about 44 pt between people, names would fall under 6 pt, so the page becomes a night silhouette and the names move to the generation pages |

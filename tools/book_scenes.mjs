@@ -800,25 +800,20 @@ function remembranceNight() {
 
 /**
  * The closing night: seen from a rooftop, the town's roofs below and the whole sky above, full of
- * lanterns going up and a few bursts of fireworks. There is no moon: Diwali falls on the new moon.
- * Open sky and a terrace, so it never reads as the cover's river or the remembrance wall.
+ * lanterns going up. There is no moon: Diwali falls on the new moon. Open sky and a terrace, so it
+ * never reads as the cover's river or the remembrance wall.
+ *
+ * No fireworks (Ankit's decision 12). They were four rings of dashed dots, and at page size they
+ * read as diagrams rather than light - the kandils rising off the roofs and the sky's own gradient
+ * are what carry this page.
  */
 function closingSky() {
-  const sc = new Scene('closing-sky', 'The closing night from a rooftop: the town\'s roofs, a terrace with its jaali parapet, and a sky of rising lanterns and fireworks. No moon: Diwali is the new moon.');
+  const sc = new Scene('closing-sky', 'The closing night from a rooftop: the town\'s roofs, a terrace with its jaali parapet, and a sky of rising lanterns. No moon: Diwali is the new moon.');
   const roofs = 640, terrace = 716;
   const title = { x: 70, y: 110, w: W - 140, h: 110 }, missing = { x: 80, y: 250, w: W - 160, h: 120 };
   sc.layer('sky', () => {
     sc.rect(0, 0, W, roofs + 20, { fill: sc.lin(0, 0, 0, roofs, [[0, 'deep'], [0.45, 'night'], [0.8, 'indigo'], [1, 'dusk']]) });
     stars(sc, 'closing', { x: 0, y: 20, w: W, h: 420 }, 170, { avoid: { x: title.x, y: title.y, w: title.w, h: missing.y + missing.h - title.y } });
-    // fireworks: rings of dots, one dashed circle each, no glow
-    const burst = (cx, cy, r, colours) => colours.forEach((c, k) => {
-      const rr = r * (1 - k * 0.3), m = Math.round((2 * Math.PI * rr) / (5 + k));
-      sc.circle(cx, cy, rr, { stroke: c, sw: 2.6 - k * 0.6, cap: 'round', dash: [0.01, (2 * Math.PI * rr) / m - 0.01] });
-    });
-    burst(470, 430, 38, ['gold', 'rani', 'flame']);
-    burst(112, 448, 30, ['peacock', 'gold', 'flame']);
-    burst(540, 70, 24, ['rani', 'flame']);
-    burst(50, 60, 20, ['gold', 'flame']);
   });
 
   sc.layer('lanterns', () => {

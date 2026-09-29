@@ -24,7 +24,7 @@ import { DENSITY_CAPS, pageBounds } from './qa/invariants.mjs';
 /** A format-2 template listing `chapters`, valid by template.js's own rules. */
 function storyTemplate(chapters = CHAPTERS) {
   return validateTemplate({
-    format: 2, id: 'diwali-story', name: 'Diwali, the storybook', fileSuffix: 'Book', art: 'papercut',
+    format: 2, id: 'diwali', name: 'Diwali', fileSuffix: 'Book', art: 'papercut',
     fonts: { display: 'book_display', text: 'book_text', strong: 'book_strong', hand: HAND_FONT_KEY },
     palette: Object.fromEntries(PAPERCUT_PALETTE_KEYS.map((k) => [k, '#112233'])),
     cover: { greeting: 'शुभ दीपावली', subtitle: 'from the {family} family', line: 'One lamp for each of us' },
@@ -70,7 +70,7 @@ test('chapter ids are the catalogue schema\'s: the required four, all valid ids,
 test('a chapter the planner does not know is refused by name, not skipped', () => {
   const t = storyTemplate([...REQUIRED_CHAPTERS, 'fireworks']);
   const family = readFamily(withSiblings(1), { now: NOW });
-  assert.throws(() => planStory(kinOf(family, 'f'), t, family), /does not know the chapter "fireworks" in template "diwali-story"/);
+  assert.throws(() => planStory(kinOf(family, 'f'), t, family), /does not know the chapter "fireworks" in template "diwali"/);
 });
 
 test('a chapter the template leaves out gets no page', () => {
@@ -384,7 +384,7 @@ test('compose.js routes a format-2 template through the planner and now draws it
   // holes in it.
   const noLane = Object.fromEntries(Object.entries(PAGES_FOR_TEST).filter(([a]) => a !== 'lane'));
   assert.throws(() => composeWithPages(doc, { now: NOW, featured: 'f' }, TEMPLATE, noLane),
-    /"diwali-story" is a format-2 storybook template: its 25 pages are planned, but the archetype "?lane"? is not built yet/);
+    /"diwali" is a format-2 storybook template: its 25 pages are planned, but the archetype "?lane"? is not built yet/);
   // The planner, not a blanket refusal, is what runs: a chapter it does not know fails there.
   assert.throws(() => composeBook(doc, { now: NOW }, storyTemplate([...CHAPTERS, 'fireworks'])), /does not know the chapter "fireworks"/);
 });
