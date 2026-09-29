@@ -135,6 +135,23 @@ class BookPdfTest {
         )
 
         assertTrue("$tag under the chat-app budget: ${file.length()}", file.length() < 10_000_000)
+
+        /*
+         * #245: the size the book screen quotes, held against what PdfDocument really wrote.
+         *
+         * `BookEstimate`'s coefficients are `site/book/compose.js`'s, and those were fitted on
+         * Chromium's PDF writer; that they also cover this one was assumed rather than measured,
+         * which is what compose.js's comment on ART_PDF means by "#246 and #259 must measure it
+         * there too". This is that measurement. The estimate is deliberately built to err toward
+         * "too big", so writing MORE than it allowed is the failure, not writing less.
+         */
+        val estimate = BookEstimate.bytes(book)
+        android.util.Log.i("BookPdfTest", "$tag: estimated $estimate bytes, wrote ${file.length()}")
+        assertTrue(
+            "$tag: PdfDocument wrote ${file.length()} bytes, above the $estimate the estimate allowed - " +
+                "raise BookEstimate.ART_PDF and site/book/compose.js's ART_PDF together, so the shells keep agreeing",
+            file.length() <= estimate,
+        )
         val bytes = file.readBytes().toString(Charsets.ISO_8859_1)
         assertTrue("$tag fonts embedded as TrueType", "/FontFile2" in bytes)
         assertTrue("$tag no Type3 outlines", "/Type3" !in bytes)

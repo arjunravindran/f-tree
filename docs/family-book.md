@@ -272,10 +272,27 @@ fails if a constant drops below them.
 - **Paper shadows are the cost to watch.** Every shadow is a translucent shape, and the frames
   draw about a thousand of them a page.
 
-**Android.** `PdfDocument` cannot draw format 2 until #246, so everything above is Chromium's
-PDF. #246, and #259 on the finished Diwali book, must measure Android's PDF of the same pages
-(`tools/book_pdf_size.mjs` writes the Books it prints), and raise `ART_PDF` if Android writes
-more. The estimate is only as high as its highest painter.
+**Android,** measured 2026-09-29 on a moto g05 (Android 15). The estimate is only as high as its
+highest painter, and everything above is Chromium's PDF, so `PdfDocument` had to be measured too
+before `ART_PDF` could be trusted on this shell. It writes *less* than Chromium on every book
+tried, so the coefficients cover both and were not raised:
+
+| book | pages | estimate | `PdfDocument` wrote | allowed / wrote |
+|---|---|---|---|---|
+| the shipped storybook, format 2 | 9 | 2.42 MB | 876 KB | 2.76 |
+| the conformance book, format 2 (Chromium's tightest case, 1.40) | 4 | 629 KB | 56 KB | 11.2 |
+| `heirloom`, format 1 | 7 | 783 KB | 139 KB | 5.62 |
+
+This is not a one-off reading: `BookPdfTest` and `BookFormat2PdfTest` make the same comparison on
+every book they write, and fail if one ever comes out above what the estimate allowed. A shell
+that starts writing more than the other is then a test failure rather than a number nobody
+checks.
+
+**One estimate, two shells.** `BookEstimate.kt` is the Kotlin twin of `estimateBytes`, `artStats`
+and `artTerm`, carrying the same `ART_PDF`. `BookEstimateTest` runs the real `compose.js` in node
+over the same books and demands the same five counts before the same total, so a drift names the
+term that moved. Before #245 this half had no art term at all, and quoted a storybook at 2.5 to
+6.8 times less than it weighs.
 
 ## Fonts
 

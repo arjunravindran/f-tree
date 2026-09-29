@@ -53,6 +53,21 @@ class BookFormat2PdfTest {
         file.outputStream().use { printer.writePdf(book, photos, it) }
 
         assertTrue("under the chat-app budget: ${file.length()}", file.length() < 10_000_000)
+
+        /*
+         * #245, the tight case. `BookEstimate`'s coefficients are `site/book/compose.js`'s, fitted
+         * on Chromium's PDF writer, and this is the book Chromium left the least room on: page 3
+         * printed at 1.40 times its art term, against 1.7 and up for every style frame. If the two
+         * writers disagree enough to matter, they disagree here first. The estimate is built to err
+         * toward "too big", so writing MORE than it allowed is the failure.
+         */
+        val estimate = BookEstimate.bytes(book)
+        android.util.Log.i("BookFormat2PdfTest", "conformance: estimated $estimate bytes, wrote ${file.length()}")
+        assertTrue(
+            "PdfDocument wrote ${file.length()} bytes, above the $estimate the estimate allowed - " +
+                "raise BookEstimate.ART_PDF and site/book/compose.js's ART_PDF together, so the shells keep agreeing",
+            file.length() <= estimate,
+        )
         val bytes = file.readBytes().toString(Charsets.ISO_8859_1)
         assertTrue("fonts embedded as TrueType", "/FontFile2" in bytes)
         assertTrue("no Type3 outlines", "/Type3" !in bytes)
