@@ -284,8 +284,9 @@ export function siblingLabel(sibling, half) {
 }
 
 /**
- * Current, former or late, by the app's own rule (`spouseLabel`): DIVORCED is former, and WIDOWED
- * is late only for the partner who actually died - the edge is symmetric and cannot say which.
+ * Current, former or late: the app's one rule for whether a marriage ended. DIVORCED is former,
+ * and WIDOWED is late only for the partner who actually died - the edge is symmetric and cannot
+ * say which. `spouseLabel` here and `kin.js`'s circles both answer from this, so they cannot drift.
  */
 export function spouseStatus(spouse, subtype) {
   if (subtype === 'DIVORCED') return 'former';

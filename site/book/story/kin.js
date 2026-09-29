@@ -113,12 +113,12 @@
  */
 
 import { relate, branchFrom, parentLabel, spouseLabel, spouseStatus, childLabel, siblingLabel } from '../../playground/model.js';
-
-// Re-exported: the book's tests and medallions read the rule from here, but it lives in model.js.
-export { spouseStatus };
 import { hindiFor } from '../../playground/kinship-hindi.js';
 import { hindiWord } from '../../playground/kinship-hi.js';
 import { sortKey, byKey } from '../family.js';
+
+// Re-exported: the book's tests and medallions read the rule from here, but it lives in model.js.
+export { spouseStatus };
 
 /** The circles, in claim order: an earlier circle's claim always beats a later one's. */
 export const CIRCLES = Object.freeze([
