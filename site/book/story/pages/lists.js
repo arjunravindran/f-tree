@@ -111,19 +111,49 @@ function laneSlots(ctx, story, groupCount) {
  * file clips with (`laneClip`); a negative `w` winds it the other way. */
 const rectPath = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
 
-/** The `haveli-lane` scene's own vertical span for a house's roof-to-doorstep silhouette, read off
- * its authored SVG (`art/src/papercut/scenes/haveli-lane.svg`): the "roofs" zone's own top edge
- * down to the "doorstep" zones' own bottom edge. */
-const HOUSE_ROOF_Y = 280;
+/** The sky wash's own bottom edge (`lane`, below): the `haveli-lane` scene's shared "roofs" zone's
+ * own top edge, `art/src/papercut/scenes/haveli-lane.svg`, plus a little of the room it reserves.
+ * That zone belongs to the town's own skyline behind the houses, not to any one house's roofline -
+ * round 3 found it standing in for one anyway (`houseHole`, below). */
+const SKY_WASH_DEPTH = 296;
+
+/** The `haveli-lane` scene's own doorstep zones' bottom edge, read off its authored SVG - a house's
+ * own hole or wash still reaches this far down (round 3, part 2 tightens it to the doorstep zone's
+ * own *top* edge instead, so the otla and the street beneath a house survive its own cut). */
 const HOUSE_STEP_Y = 594;
 const HOUSE_HOLE_PAD = 8;
 
-/** The hole a blank house slot punches in the lane scene: its plate, board and doorstep zones'
- * combined width, padded a little, the full roof-to-doorstep height. */
+/** Each of the lane's four houses' own wall height - `tools/book_scenes.mjs`'s `haveliLane`'s own
+ * `houses` array (`h`), the only place the lane's staggered rooflines are recorded, because the
+ * scene draws a real uneven skyline rather than four identical boxes. Keyed by the house number a
+ * `plate-N`/`house-N`/`doorstep-N` zone's own name carries, never by page slot, so a mirrored lane
+ * still washes and cuts the house it means to (`houseNumber`, below).
+ *
+ * Round 3: a single shared top (280, this array's tallest house's own roof minus its own pad) stood
+ * in for every house's own box. The tallest house it was measured from wore it correctly; the other
+ * three carried a box reaching well above their own roof - a hard-edged panel standing over the
+ * house against the sky, and, because it was the same height on every house regardless of page, a
+ * flat line cut across what should be an uneven skyline.
+ */
+const HOUSE_WALL_HEIGHT = { 1: 236, 2: 262, 3: 244, 4: 272 };
+
+/** The house number a lane zone's own name carries (`plate-3` -> 3), never the page slot it was
+ * sorted into - a mirrored lane reorders `plates`/`boards`/`doorsteps` left to right, but a zone's
+ * own name always names the same one of the scene's four authored houses. */
+function houseNumber(zoneName) {
+  const n = Number(String(zoneName).split('-').pop());
+  if (!HOUSE_WALL_HEIGHT[n]) throw new Error(`lane: "${zoneName}" doesn't name one of the lane's four houses`);
+  return n;
+}
+
+/** The hole a blank house slot punches in the lane scene, or the box its wash tints (`lane`,
+ * below): this one house's plate, board and doorstep zones' combined width, padded a little, from a
+ * little above that particular house's own roofline down to the doorstep zones' own bottom edge. */
 function houseHole(plate, board, doorstep) {
   const x0 = Math.min(plate.x, board.x, doorstep.x) - HOUSE_HOLE_PAD;
   const x1 = Math.max(plate.x + plate.w, board.x + board.w, doorstep.x + doorstep.w) + HOUSE_HOLE_PAD;
-  return { x: x0, y: HOUSE_ROOF_Y, w: x1 - x0, h: HOUSE_STEP_Y - HOUSE_ROOF_Y };
+  const y0 = doorstep.y - HOUSE_WALL_HEIGHT[houseNumber(board.name)] - HOUSE_HOLE_PAD;
+  return { x: x0, y: y0, w: x1 - x0, h: HOUSE_STEP_Y - y0 };
 }
 
 /**
@@ -191,7 +221,7 @@ function lane(ctx, page, story) {
     : s.items[0];
   // The sky wash (round 2, finding 12): a translucent tint over the scene's own upper third, so a
   // family with several lane pages does not see the identical amber sky on every one of them.
-  const skyWash = rect(0, 0, PAGE.w, HOUSE_ROOF_Y + 16, { fill: P[laneTint(ctx, story, page, 'sky')], op: 0.2 });
+  const skyWash = rect(0, 0, PAGE.w, SKY_WASH_DEPTH, { fill: P[laneTint(ctx, story, page, 'sky')], op: 0.2 });
   const items = [scenePic, skyWash, ...titleBlock(ctx, page, copy, s.zone('title'), { ink: P.ink, soft: P.inkSoft })];
 
   const featuredName = nameOf(family, kin, kin.featured);

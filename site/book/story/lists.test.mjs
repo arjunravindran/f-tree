@@ -14,6 +14,8 @@ import assert from 'node:assert/strict';
 
 import { composeWithPages } from '../compose.js';
 import { PAGE } from '../format.js';
+import { createArt } from '../art/draw.js';
+import { LIBRARY } from '../art/index.js';
 import { measure } from '../text.js';
 import { METRICS } from '../metrics/index.js';
 import { readFamily } from '../family.js';
@@ -270,6 +272,52 @@ test('a full lane page tints its own four houses with more than one colour', asy
   const houseFills = b.pages[full.pageNo - 1].items.filter((it) => it.t === 'rect' && it.op === 0.18).map((it) => it.fill);
   assert.equal(houseFills.length, DENSITY.houses, `expected a tint for each of ${DENSITY.houses} houses, found ${houseFills.length}`);
   assert.ok(new Set(houseFills).size > 1, 'every house on the page was tinted the same colour');
+});
+
+/**
+ * The `haveli-lane` scene's own named zones, fetched straight from the art library rather than
+ * through `lists.js`'s own fix - a ground truth its geometry can be checked against. `zones()`
+ * never reads the palette, so a bare `{ P: {} }` context is enough to ask for them.
+ */
+function laneZones(mirrored) {
+  const art = createArt({ P: {} }, LIBRARY);
+  const placement = { x: 0, y: 0, w: PAGE.w, anchor: 'top-left', ...(mirrored ? { flip: 'x' } : {}) };
+  return new Map(art.zones('haveli-lane', placement).map((z) => [z.name, z]));
+}
+
+/**
+ * The lane's own four houses' wall heights below the scene's own ground line - `tools/
+ * book_scenes.mjs`'s `haveliLane`, its own `houses` array's own `h` - read here independently of
+ * `pages/lists.js`'s `houseHole`, as the ground truth the tests below check it against.
+ */
+const LANE_HOUSE_WALL_HEIGHT = { 1: 236, 2: 262, 3: 244, 4: 272 };
+
+/*
+ * Round 3: the per-house wash (`houseHole`, `pages/lists.js`) used one shared top for all four
+ * houses - the scene's own shared "roofs" zone, which belongs to the town's skyline behind the
+ * houses, not to any one of them - so it stood well above the three shorter houses' own roofs, a
+ * hard-edged panel over the house against the sky, and the same height on every page regardless of
+ * which house actually stood there, cutting a flat line across what should be an uneven skyline.
+ * This checks the wash actually drawn against the scene's own authored geometry above, not against
+ * `houseHole`'s own numbers.
+ */
+test('a lane house\'s own wash follows that house\'s own roof', async () => {
+  const { book: b, plan } = await book('story-large');
+  const lanePages = plan.pages.filter((p) => p.archetype === 'lane' && p.groups.length === DENSITY.houses);
+  assert.ok(lanePages.length, 'story-large was expected to have a full lane page');
+  for (const page of lanePages) {
+    const zones = laneZones(page.variant === 'lane-mirrored');
+    const washes = b.pages[page.pageNo - 1].items.filter((it) => it.t === 'rect' && it.op === 0.18);
+    assert.equal(washes.length, DENSITY.houses, `page ${page.pageNo}: expected ${DENSITY.houses} house washes, found ${washes.length}`);
+    for (let n = 1; n <= DENSITY.houses; n++) {
+      const doorstep = zones.get(`doorstep-${n}`);
+      const centre = doorstep.x + doorstep.w / 2;
+      const wash = washes.find((r) => r.x <= centre && centre <= r.x + r.w);
+      assert.ok(wash, `page ${page.pageNo}: no wash rect stands over house ${n}'s own doorstep`);
+      const expectedTop = doorstep.y - LANE_HOUSE_WALL_HEIGHT[n] - 8;
+      assert.ok(Math.abs(wash.y - expectedTop) <= 1, `page ${page.pageNo}, house ${n}: the wash starts at y ${wash.y}, expected close to its own roof at ${expectedTop}`);
+    }
+  }
 });
 
 /* ------------------------------------------------------------------ still to be found */
