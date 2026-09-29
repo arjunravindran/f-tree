@@ -252,13 +252,13 @@ test('a lane page at the cap draws all four houses and all their names', async (
  * Round 2, finding 12: `story-large` runs eight consecutive lane pages (p10-p17), and before this
  * fix every one of them washed the identical amber sky over the identical four house colours, with
  * only the mirror telling one page from the next. The wash is the first `rect` laid directly over
- * the scene at `op: 0.12` (sky) or `op: 0.1` (a house); a reverted fix leaves neither behind.
+ * the scene at `op: 0.2` (sky) or `op: 0.18` (a house); a reverted fix leaves neither behind.
  */
 test('lane pages do not all wash their sky the same colour', async () => {
   const { book: b, plan } = await book('story-large');
   const lanePages = plan.pages.filter((p) => p.archetype === 'lane');
   assert.ok(lanePages.length >= 4, 'story-large was expected to have several lane pages');
-  const skyFills = lanePages.map((p) => b.pages[p.pageNo - 1].items.find((it) => it.t === 'rect' && it.op === 0.12)?.fill);
+  const skyFills = lanePages.map((p) => b.pages[p.pageNo - 1].items.find((it) => it.t === 'rect' && it.op === 0.2)?.fill);
   assert.ok(skyFills.every(Boolean), `every lane page was expected to wash its own sky: ${JSON.stringify(skyFills)}`);
   assert.ok(new Set(skyFills).size > 1, `every lane page washed its sky the same colour (${skyFills[0]})`);
 });
@@ -267,7 +267,7 @@ test('a full lane page tints its own four houses with more than one colour', asy
   const { book: b, plan } = await book('story-large');
   const full = plan.pages.find((p) => p.archetype === 'lane' && p.groups.length === DENSITY.houses);
   assert.ok(full, 'story-large was expected to fill a lane page');
-  const houseFills = b.pages[full.pageNo - 1].items.filter((it) => it.t === 'rect' && it.op === 0.1).map((it) => it.fill);
+  const houseFills = b.pages[full.pageNo - 1].items.filter((it) => it.t === 'rect' && it.op === 0.18).map((it) => it.fill);
   assert.equal(houseFills.length, DENSITY.houses, `expected a tint for each of ${DENSITY.houses} houses, found ${houseFills.length}`);
   assert.ok(new Set(houseFills).size > 1, 'every house on the page was tinted the same colour');
 });

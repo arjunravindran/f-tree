@@ -191,7 +191,7 @@ function lane(ctx, page, story) {
     : s.items[0];
   // The sky wash (round 2, finding 12): a translucent tint over the scene's own upper third, so a
   // family with several lane pages does not see the identical amber sky on every one of them.
-  const skyWash = rect(0, 0, PAGE.w, HOUSE_ROOF_Y + 16, { fill: P[laneTint(ctx, story, page, 'sky')], op: 0.12 });
+  const skyWash = rect(0, 0, PAGE.w, HOUSE_ROOF_Y + 16, { fill: P[laneTint(ctx, story, page, 'sky')], op: 0.2 });
   const items = [scenePic, skyWash, ...titleBlock(ctx, page, copy, s.zone('title'), { ink: P.ink, soft: P.inkSoft })];
 
   const featuredName = nameOf(family, kin, kin.featured);
@@ -206,7 +206,7 @@ function lane(ctx, page, story) {
     // all draw the same tint - and so a family whose lane runs several pages sees a different
     // house-to-colour pairing from one page to the next.
     const hole = houseHole(plate, board, doorsteps[slot]);
-    items.push(rect(hole.x, hole.y, hole.w, hole.h, { fill: P[laneTint(ctx, story, page, `house-${slot}`)], op: 0.1 }));
+    items.push(rect(hole.x, hole.y, hole.w, hole.h, { fill: P[laneTint(ctx, story, page, `house-${slot}`)], op: 0.18 }));
     const name = houseName(family, house.people, taken);
     if (name) {
       taken.add(name);
