@@ -162,10 +162,6 @@ function laneSlots(ctx, story, groupCount) {
   return { slots, blankSlots };
 }
 
-/** An absolute rectangle path, `M L L L Z`, wound from `(x, y)` by `(w, h)` - the one shape this
- * file clips with (`laneClip`); a negative `w` winds it the other way. */
-const rectPath = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
-
 /** The sky wash's own bottom edge (`lane`, below): the `haveli-lane` scene's shared "roofs" zone's
  * own top edge, `art/src/papercut/scenes/haveli-lane.svg`, plus a little of the room it reserves.
  * That zone belongs to the town's own skyline behind the houses, not to any one house's roofline -
@@ -219,18 +215,6 @@ function houseHole(plate, board, doorstep) {
 }
 
 /**
- * One or more house-shaped holes punched through the whole lane scene: the page wound one way,
- * each hole wound the other, so format 2's nonzero fill rule leaves them empty rather than filled -
- * the sky, the street and the other houses all stay (round 2, finding 7, the same group-clip
- * technique #257's `cutHouse` uses on the courtyards scene). A blank house used to keep its full
- * furnished front and hang a marigold string over its empty nameboard - the book's own mourning
- * notation, over a house nobody has died in.
- */
-function laneClip(holes) {
-  return rectPath(0, 0, PAGE.w, PAGE.h) + holes.map((h) => rectPath(h.x + h.w, h.y, -h.w, h.h)).join('');
-}
-
-/**
  * A few accent tints the lane may wash across its sky and its houses - existing palette tokens,
  * never a new colour of their own. Chosen from the family's own seed together with which branches
  * actually stand on *this* page (its `groups`' own keys), never the page number
@@ -260,8 +244,9 @@ function laneTint(ctx, story, page, what) {
  * A few things the scene cannot decide for itself. A house's own dates go under its own names only
  * while that house has room for two lines a person - or wherever two of its own people share a
  * name - never suppressed for the whole page by one crowded house elsewhere on it (finding 9). And
- * the scene always draws `DENSITY.houses` houses, so a page with fewer cuts the unused ones out of
- * the paper instead of dressing them up with nothing behind the door (finding 7, finding 8).
+ * the scene always draws `DENSITY.houses` houses, so a page with fewer leaves the unused ones
+ * standing and undressed rather than garlanding a vacancy (finding 7) - which of them is left
+ * empty is still chosen rather than always the last (finding 8).
  */
 function lane(ctx, page, story) {
   const { P, family } = ctx;
@@ -278,9 +263,21 @@ function lane(ctx, page, story) {
   const doorsteps = s.across('doorstep', DENSITY.houses);
   const { slots, blankSlots } = laneSlots(ctx, story, page.groups.length);
 
-  const scenePic = blankSlots.length
-    ? group([s.items[0]], { clip: laneClip(blankSlots.map((i) => houseHole(plates[i], boards[i], doorsteps[i]))) })
-    : s.items[0];
+  // The scene is drawn whole, and a slot with no branch behind it is simply left undressed: no
+  // name on its plate, no kin word, nobody at its door, and none of the wash its neighbours carry.
+  //
+  // Round 2's finding 7 was right that a marigold string over a blank nameboard reads as the
+  // book's own mourning notation over a house nobody has died in, and that garland is gone. Its
+  // remedy - punch the unused house out of the paper - cited #257's `courtyards` as the technique,
+  // but #257 had already tried that and rejected it for this exact reason: the scene is one
+  // drawing, not layers a page can pick apart, so a hole through it takes that house's own sky and
+  // skyline with it and leaves a stray rectangle of the wrong shade (see `courtyards` in
+  // `family.js`). Round 3 saw the same thing here and called it a rendering fault; stopping the cut
+  // at the doorstep saved the street but left the panel standing against the sky.
+  //
+  // So the lane does what the courtyards do. An empty house - its plate blank, its door unattended
+  // - reads as "not yet known" on its own, the way an empty chair does at a table.
+  const scenePic = s.items[0];
   // The sky wash (round 2, finding 12): a translucent tint over the scene's own upper third, so a
   // family with several lane pages does not see the identical amber sky on every one of them.
   const skyWash = rect(0, 0, PAGE.w, SKY_WASH_DEPTH, { fill: P[laneTint(ctx, story, page, 'sky')], op: 0.2 });

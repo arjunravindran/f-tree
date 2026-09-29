@@ -367,33 +367,44 @@ test('a house holding two of the same name still dates them', async () => {
 });
 
 /*
- * Round 3, part 2: the empty-house cut (`houseHole`, `laneClip`) reached the doorstep zone's own
- * padded bottom, so punching out an unused house on `story-large`'s p10 (slot 3) took the street
- * and the otla in front of it down with it, leaving a bare panel from well above the roofline to
- * well below the doorstep. Round 1's own promise for the reference technique (#257's `cutHouse`, on
- * the `courtyards` scene) was that the sky, the street and the skyline survive a house's own cut -
- * this checks the hole actually punched stops at the house itself, against the scene's own authored
- * geometry, not against `houseHole`'s own numbers.
+ * Round 3, part 2, and its resolution.
+ *
+ * Round 2's finding 7 removed the marigold string a blank nameboard used to carry - that garland
+ * over a house nobody has died in was the real breach and it stays gone. Its remedy, punching the
+ * unused house out of the paper, cited #257's `courtyards` as the technique; but #257 had tried a
+ * hole in that scene and rejected it, because a scene is one drawing rather than layers a page can
+ * pick apart, so a hole takes the house's own sky and skyline with it and leaves a rectangle of the
+ * wrong shade behind. Round 3 found exactly that here. Stopping the cut at the doorstep saved the
+ * street and the otla, and the panel still stood against the sky.
+ *
+ * So the lane does what the courtyards do: the scene is drawn whole, and the empty slot is simply
+ * left undressed. This holds it to that - nothing on a lane page is clipped, however few branches
+ * the page has - because the render is the only thing that ever caught this, twice.
  */
-test('the empty-house cut leaves the street and the skyline behind, taking only the house', async () => {
+test('a lane page with an empty house draws its scene whole, cutting nothing out of it', async () => {
   const { book: b, plan } = await book('story-large');
-  const short = plan.pages.find((p) => p.archetype === 'lane' && p.groups.length < DENSITY.houses);
-  assert.ok(short, 'story-large was expected to have a lane page with an empty house');
-  const zones = laneZones(short.variant === 'lane-mirrored');
-  const page = b.pages[short.pageNo - 1];
-  const clipped = page.items.find((it) => it.t === 'group' && it.clip);
-  assert.ok(clipped, `page ${short.pageNo}: expected the scene picture to be clipped for its empty house`);
-  const points = pathPoints(clipped.clip);
-  assert.ok(points, `page ${short.pageNo}: the clip path did not parse`);
-  const hole = points.slice(4); // the page's own outer ring is always the clip's first four points
-  const holeMinX = Math.min(...hole.map(([x]) => x)), holeMaxX = Math.max(...hole.map(([x]) => x));
-  const holeBottom = Math.max(...hole.map(([, y]) => y));
-  // Which of the lane's four houses this is, and, independent of the fix, exactly where its own
-  // doorstep - and beneath it, the street - begins.
-  const [, emptyDoorstep] = [...zones.entries()]
-    .find(([name, z]) => name.startsWith('doorstep-') && z.x + z.w / 2 >= holeMinX && z.x + z.w / 2 <= holeMaxX) ?? [];
-  assert.ok(emptyDoorstep, `page ${short.pageNo}: could not tell which of the lane's houses the cut removed`);
-  assert.equal(holeBottom, emptyDoorstep.y, `page ${short.pageNo}: the cut reaches y ${holeBottom}, past its own doorstep's top edge at ${emptyDoorstep.y} - it took the otla and the street with the house`);
+  const short = plan.pages.filter((p) => p.archetype === 'lane' && p.groups.length < DENSITY.houses);
+  assert.ok(short.length, 'story-large was expected to have a lane page with an empty house');
+  for (const page of short) {
+    const items = b.pages[page.pageNo - 1].items;
+    assert.equal(items.filter((it) => it.t === 'group' && it.clip).length, 0,
+      `page ${page.pageNo}: the lane clipped its scene, which takes that house's own sky and skyline with it`);
+  }
+});
+
+/*
+ * The other half of finding 7: an undressed house must stay undressed. Nothing may name it, and
+ * above all nothing may hang a garland over it - the notation this book keeps for the departed.
+ */
+test('an empty house carries no name and no garland', async () => {
+  const { book: b, report, plan } = await book('story-large');
+  for (const page of plan.pages.filter((p) => p.archetype === 'lane' && p.groups.length < DENSITY.houses)) {
+    const drawn = page.groups.length;
+    const plates = linesOn(report, page.pageNo, 'name').filter((t) => t.y < 500);
+    assert.ok(plates.length <= drawn, `page ${page.pageNo}: ${plates.length} door plates for ${drawn} houses`);
+    assert.equal(usesOn(b.pages[page.pageNo - 1], ['mala', 'mala-departed']), 0,
+      `page ${page.pageNo}: a garland hangs on the lane, which is the book's own mourning notation`);
+  }
 });
 
 /* ------------------------------------------------------------------ still to be found */
