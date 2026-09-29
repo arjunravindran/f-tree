@@ -8,6 +8,7 @@ import com.vibethroughcode.ftree.data.KinshipPreferences
 import com.vibethroughcode.ftree.data.PhotoStore
 import com.vibethroughcode.ftree.book.BookPrinter
 import com.vibethroughcode.ftree.book.BookTemplates
+import com.vibethroughcode.ftree.book.TemplateDownloader
 import com.vibethroughcode.ftree.entitlement.EntitlementSource
 import com.vibethroughcode.ftree.entitlement.FreeForEveryone
 import com.vibethroughcode.ftree.entitlement.Policy
@@ -84,7 +85,29 @@ class AppContainer(context: Context) {
 
     /** The family book's fonts, photographs and PDF writer (#200). The composer is per screen. */
     val bookPrinter: BookPrinter by lazy { BookPrinter(context.applicationContext, photoStore) }
-    val bookTemplates: BookTemplates by lazy { BookTemplates(context.applicationContext) }
+    val bookTemplates: BookTemplates by lazy { BookTemplates(context.applicationContext, templateDownloader) }
+
+    /**
+     * Downloaded book templates (#214), wired to the updater's one network client rather than a
+     * second one: `UpdateClient` stays the only code in the app that opens a connection.
+     */
+    val templateDownloader: TemplateDownloader by lazy {
+        val client = UpdateClient()
+        TemplateDownloader(
+            directory = File(context.applicationContext.filesDir, "templates"),
+            enabled = { updatePreferences.enabled.value && updatePreferences.templates.value },
+            seq = object : TemplateDownloader.SeqStore {
+                override var value: Long
+                    get() = updatePreferences.templatesSeq
+                    set(v) { updatePreferences.templatesSeq = v }
+            },
+            publicKey = BuildConfig.TEMPLATE_PUBLIC_KEY,
+            // The beta channel chooses the release here for the same reason it does for an update: a
+            // reader on the beta channel is looking at the beta's catalogue.
+            fetch = { client.fetchLatestRelease(includePreReleases = updatePreferences.betaChannel.value) },
+            transfer = { url, destination, bytes -> client.download(url, destination, bytes) {} },
+        )
+    }
 
     /**
      * Built lazily like everything else, which also means the updater's objects do not exist at

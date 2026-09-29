@@ -44,19 +44,6 @@ class ApkGuard(private val context: Context) {
         }
     }
 
-    fun sha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
     @Suppress("DEPRECATION")
     private fun signingFlags(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES
@@ -88,4 +75,24 @@ class ApkGuard(private val context: Context) {
                 .digest(signature.toByteArray())
                 .joinToString("") { "%02x".format(it) }
         }.toSet()
+
+    companion object {
+        /**
+         * The one file hash in the app, kept here because this is where hashing a downloaded file
+         * already lived. Static because a downloaded book template is checked the same way (#214)
+         * and that check has no use for a [Context] - which also lets it be unit-tested on the JVM.
+         */
+        fun sha256(file: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            return digest.digest().joinToString("") { "%02x".format(it) }
+        }
+    }
 }

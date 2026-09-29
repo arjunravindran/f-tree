@@ -98,6 +98,16 @@ android {
             "UPDATE_RELEASES_URL",
             "\"https://api.github.com/repos/thisisankit27/f-tree/releases?per_page=20\"",
         )
+        /*
+         * The one key that says which book templates this app will accept from that same place
+         * (#214): the public half of the P-256 keypair whose private half signs `templates.json`.
+         *
+         * Empty here on purpose. A build with no key pinned offers no template download at all - the
+         * switch does not appear and `TemplateDownloader.configured()` is false - so the feature is
+         * dormant until whoever cuts releases pins their own key, and there is no placeholder key in
+         * the repository for anybody to mistake for a real one. See docs/family-book.md.
+         */
+        buildConfigField("String", "TEMPLATE_PUBLIC_KEY", "\"\"")
         buildConfigField(
             "String",
             "RELEASES_PAGE_URL",

@@ -319,8 +319,8 @@ A template is a JSON document (`site/book/templates/`) that chooses:
 
 `template.js` refuses anything else: an unknown key, a colour that isn't `#rrggbb`, a block it
 does not know, markup in the copy, a newer `format`. Templates ship inside the release today. The
-same rules are what would make an on-demand download safe to add later, if it is ever added - see
-[If templates ever arrive by download](#if-templates-ever-arrive-by-download-214).
+same rules are what make a downloaded template safe to draw - see
+[Templates that arrive by download](#templates-that-arrive-by-download-214).
 
 | template | format | look |
 |---|---|---|
@@ -372,99 +372,92 @@ switch matches on, and optional `featured` windows, one per year, both days incl
 To add a template: add its file, add one entry here, and add a case to `catalog-cases.json` if it
 has a season. No screen changes.
 
-### If templates ever arrive by download (#214)
+### Templates that arrive by download (#214)
 
-Templates ship inside the release, and that is the standing decision. This section is the design for
-*if* that stops being enough - the catalogue grows until shipping every template in every release is
-wasteful, or a festival template has to arrive faster than a release can. Neither is true with two
-templates. It is written down now because the shape of the download decides how templates are read,
-and templates are already read that way.
+Every release still carries its own templates, and those need nothing. A release may *also* publish a
+signed catalogue of templates a reader can fetch without waiting for an app update. It is off until
+switched on, it downloads nothing on its own, and a build that pins no key does not offer it at all.
 
-**What the updater already provides.** One file owns the network, and that is what makes "nothing
-else leaves the device" checkable by reading rather than by trusting:
+**Two steps, and the second one is always a tap.**
 
-| piece | file | what it gives |
-|---|---|---|
-| The only network code | `update/UpdateClient.kt` | HTTPS only - `open()` refuses a URL that is not `https://` and a connection that is not an `HttpsURLConnection`, because `HttpURLConnection` will not follow https to http but will not say it refused either. Two endpoints, both from `BuildConfig`. Downloads to `<name>.part` and renames at the end, so a truncated file can never be handed on. Cancellable. |
-| Verification | `update/ApkGuard.kt` | SHA-256 of the file against an expected value, package name, and the signing certificates against the installed app's - failing closed when a certificate cannot be read |
-| The expected hash | `update/Release.kt` | GitHub's asset `digest`, as `sha256:<hex>`, nullable on older releases |
-| The opt-in | `update/UpdatePreferences.kt` | Nothing is checked, let alone fetched, until the reader turns it on |
+```
+opt-in  ->  check the catalogue  ->  verify the signature  ->  templates appear as available
+        ->  the reader taps one  ->  that template is fetched  ->  hash checked  ->  stored
+        ->  drawn offline from then on
 
-**The digest is not the trust anchor, and this is the whole design.** `Release.kt` takes the hash out
-of the same API response that points at the file, from the same server that serves it. That catches
-corruption and truncation; it cannot catch substitution. What actually protects the tree is
-`ApkGuard`'s certificate check: an APK signed by another key cannot update this one, and installing
-it would mean uninstalling first, which takes the family with it. A JSON template has no Android
-signature, so it inherits none of that and has to bring its own anchor.
+a downloaded copy  ->  the reader removes it  ->  still in the catalogue  ->  offered again
+```
 
-So #214's own wording - "a hash pinned in the app release for every downloadable template" - cannot
-be built as written: a template worth downloading is one published *after* the release that wants it,
-and its hash cannot be in that release. What ships in the release is a **public key**; what travels
-with the templates is a **signed manifest**.
+A check fetches `templates.json` and its signature, and **nothing else** - never a template, however
+small. A template's own file is fetched only by `TemplateDownloader.download`, which the picker calls
+when the reader chooses that tile. `TemplateDownloadTest` asserts both halves of that against the log
+of what the network was asked for, because it is the sentence in Settings that has to stay true.
 
-**The proposal.**
+**One signature, and only one.** The trust is a single ECDSA P-256 signature over the catalogue's
+exact bytes, against one public key pinned in the build (`TEMPLATE_PUBLIC_KEY`). The catalogue is the
+trusted mapping from a template's id to the SHA-256 its file must have; a template is never signed,
+carries no key, and is never checked against a second one. So there is one signature check
+(`TemplateManifest`) and one hash check per file (`ApkGuard.sha256`), and no third mechanism to keep
+in step. ECDSA rather than Ed25519 only because `java.security` learned Ed25519 at API 33 and this app
+supports 26.
 
-- **The same endpoint.** Templates are release assets of this repo, fetched through the existing
-  `UpdateClient.download`. `UPDATE_RELEASE_URL` and `UPDATE_RELEASES_URL` stay the app's whole
-  network surface; no second client, no second destination, and nothing about the family is ever sent
-  - a request carries a user agent, and an `Accept` header when it is asking GitHub for JSON, and
-  nothing else.
-- **A signed manifest.** `templates.json` lists each offered template's `id`, `format`, byte size and
-  SHA-256, plus its own format version and a monotonic `seq`. It is signed with Ed25519; the public
-  half is a build config constant beside the endpoints, and the private half never leaves the
-  maintainer's machine.
-- **Verify in this order, and refuse rather than continue:** signature over the manifest bytes ->
-  `seq` not older than the newest manifest already verified -> the file's SHA-256 against the
-  manifest entry (`ApkGuard.sha256` already does this; no second digest helper) -> `validateTemplate`
-  as the last gate. Nothing is parsed as a template before all four pass, and a file that fails is
-  deleted, not cached.
-- **Fail closed**, in `ApkGuard`'s idiom: an unreadable key, an unparseable manifest, a missing
-  signature and an absent entry are all refusal. There is no best-effort path.
-- **Opt-in, and separately.** Template download is its own switch, not a rider on "Check for
-  updates". A reader who wants neither keeps an app that makes no requests at all.
+**The catalogue is a catalogue.** `templates.json` is `catalog.json` with a `seq` at the root and
+`sha256`/`bytes` on each entry, so `BookCatalog` reads it unchanged - it reads `format` and
+`templates` and ignores every other key. Which means the listing rules, seasons included, and the
+`MAX_TEMPLATE_FORMAT` filter that keeps a template this app cannot draw out of the picker, are the
+shipped catalogue's rules rather than a second set written for downloads.
 
-**Revocation, which #214 does not mention and which decides whether this is worth doing.** A signed
-list is a list, so withdrawal is expressible: the app offers only ids present in the newest manifest
-it has verified, and a cached template is re-checked against that manifest before use, so removing an
-entry withdraws the template on the next check instead of never. A `seq` that goes backwards is
-refused, so an old manifest cannot be replayed to bring a withdrawn template back. Key compromise has
-no in-band answer - the key lives in the release, so rotating it *is* an app update. That is an
-accepted limit, stated rather than papered over, and it is the same limit the updater already has.
+**What is refused, and when.** In this order, and the first failure ends it:
 
-**Declarative only, as a property and not a consequence.** A template is JSON over a closed
-vocabulary: it names a palette, font roles from the embedded files, blocks or chapters the composer
-already draws, and copy with known placeholders. It cannot reference anything outside itself and
-carries nothing executable. The download path must go through the *same* `validateTemplate` as a
-shipped template, with no relaxation and no key the shipped path does not also accept. A downloaded
-template that would need a new key needs a new app.
+| check | refuses |
+|---|---|
+| signature over the exact bytes | a different key, no signature, or bytes changed after signing |
+| `seq` strictly greater than the highest ever verified | a replay of an older catalogue, including one that is genuinely signed |
+| `BookCatalog.read` | a catalogue format this app does not read, or an entry with no hash to check its file against |
+| `MAX_TEMPLATE_FORMAT` | a template written for a format this app cannot draw - never listed, never fetched |
+| SHA-256 against the entry | a tampered or substituted file, which is deleted rather than kept |
+| `validateTemplate` at render time | everything it already refuses, unchanged: the download path adds no key and relaxes nothing |
 
-**Format refusal at verification, not only in the picker.** `MAX_TEMPLATE_FORMAT` already answers
-"can this app draw it", separately from `TEMPLATE_FORMAT`, and `catalog.js`'s `available` filters the
-list on it. A downloaded template must be refused when its `format` exceeds `MAX_TEMPLATE_FORMAT` -
-refused at verification, so it is never written into the cache as usable - rather than merely left
-out of the picker. The manifest's own format version is refused the same way `CATALOG_FORMAT` is.
+The high-water `seq` lives in `UpdatePreferences.templatesSeq` and is the one preference there that
+switching off does **not** clear: it is anti-rollback state, not a remembered result, and clearing it
+would let a withdrawn catalogue be replayed by toggling the switch. Removing a downloaded template
+does not touch it either.
 
-**Compatibility.** Releases that predate this carry no key and no manifest, and keep working
-unchanged: an absent manifest means there is nothing to download, not an error. Templates already in
-the release are never re-verified against a manifest - they are the release. So the change is
-additive in both directions, and an install that never turns the switch on behaves exactly as today.
+**Nothing on disk is trusted for being on disk.** The stored catalogue's signature is verified again
+every time it is read, and its `seq` must still be at least the mark, so an older real catalogue
+swapped in behind the app is refused. Each cached template is re-hashed against the catalogue on every
+read. A copy that no longer matches is offered as a download instead of drawn.
 
-**The privacy text, drafted.** `settings_permissions_body` (`app/src/main/res/values/strings.xml`)
-today says the internet permission is for asking GitHub about releases. It would become, in the same
-change that introduces the behaviour and not before:
+**Revocation is a list.** Whatever the newest verified catalogue no longer vouches for is deleted at
+the next check - an entry that is gone, and an entry whose hash changed, which is how a corrected
+template replaces a copy already downloaded. Key compromise has no in-band answer: the key ships in
+the release, so rotating it is an app update. That is an accepted limit, and the same one the updater
+has.
 
-> Two are for the updater: internet access to ask GitHub about releases - the same access that
-> fetches a book template, from the same place, only when you ask for one - and permission to install
-> an update. […] Nothing about your family goes with either request, and nothing leaves the device
-> except when you deliberately send it, to a device you can see, on a network you are already on,
-> with no account and nothing in between.
+**What the reader sees.** One switch in Settings under *Updates*, gated on it and shown only when the
+build pins a key, and one line of result under it. In the book screen the picker gains three tile
+states beside the ones it had: *Download* on a template that is offered but not here, a spinner while
+it arrives, and *Couldn't verify* when it is refused. *Remove copy* appears under a downloaded
+template while it is the chosen one - that frees the space and returns the tile to *Download*.
+Turning the switch off stops the network; it does not take a downloaded book away.
 
-**What the implementation would have to prove.** Each of these is a test, not a description: a
-tampered file is refused; a valid signature over a *substituted* file is refused; a manifest with a
-rolled-back `seq` is refused; a manifest whose own version is newer is refused; a template whose
-`format` exceeds `MAX_TEMPLATE_FORMAT` is refused at verification and not only unlisted; a withdrawn
-id is refused from cache; a template carrying an unknown key is refused by the same validator that
-refuses a shipped one; and the network surface still greps down to the two `BuildConfig` endpoints.
+**Publishing one.** The private key never enters the repository, and no placeholder key does either -
+with `TEMPLATE_PUBLIC_KEY` empty the feature is dormant and the switch is absent.
+
+```sh
+# Once. Keep this file offline; it is the only thing that can vouch for a template.
+openssl ecparam -name prime256v1 -genkey -noout -out templates-key.pem
+openssl ec -in templates-key.pem -pubout -outform DER | base64 -w0   # -> TEMPLATE_PUBLIC_KEY
+
+# Per release: a catalogue with each entry's hash and size, a seq higher than the last published
+# one, then the detached signature over its exact bytes.
+sha256sum holi.json                       # -> the entry's "sha256"
+openssl dgst -sha256 -sign templates-key.pem templates.json | base64 -w0 > templates.json.sig
+```
+
+Attach `templates.json`, `templates.json.sig` and each `<id>.json` to the release. They are assets of
+the releases the updater already reads, which is why templates added no endpoint: `NetworkSurfaceTest`
+holds the app to the two it had, and to `UpdateClient` being the only file that opens a connection.
 
 ## What the composer promises
 
