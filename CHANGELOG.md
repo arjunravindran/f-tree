@@ -10,6 +10,34 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+**Double-clicking a tree opens that tree on desktop (#190).**
+
+- **The file you opened is the file you get.** Opening a `.ftree` from the file manager, or running
+  `f-tree-desktop path/to/tree.ftree`, used to start the app on the last tree you had open and
+  ignore the one you asked for; only macOS ever passed it on. It now opens the one you asked for,
+  and opening a second tree while the app is running uses the window you already have instead of
+  starting another copy. Unsaved changes are still asked about first.
+
+**Hindi names that differ by a vowel sign are no longer treated as one name (#113).**
+
+- **Import could offer to merge two different people.** When you import a file, f-tree compares
+  names to decide who is already in your tree, and it ignored Devanagari vowel signs while doing so,
+  so राम (Ram) and रामा (Rama), or कुमार and कमार, looked identical. With a shared relative that
+  was enough to merge them without being asked. Vowel signs now count as part of the name, on
+  Android and on the desktop, and accents on Latin letters are still ignored as before.
+- **This changes which people an import offers to merge, and it is stricter.** Two names that
+  differed only in a vowel sign used to be matched and now are not. The failure mode moves from
+  "two different people merged" to "a merge not offered"; the second is a tidy-up you can do by
+  hand, the first cannot be undone. Nothing already in your tree changes.
+
+**Renaming this device reaches the room straight away (#192).**
+
+- **The name on the wire is the name you just typed.** Renaming this device while a Nearby screen
+  was open kept announcing the old name until the screen was closed and opened again, because the
+  beacon was built once when it started. It is now built afresh on every beat, so the other device
+  sees the new name within a couple of seconds, and the "appears as" line on the screen agrees with
+  what is being broadcast.
+
 **A device on another version of f-tree is shown, not hidden (#191).**
 
 - **"I can't see it" now says why.** Nearby dropped any device announcing a version of the sharing

@@ -375,6 +375,7 @@ fun FTreeApp(
             val listening by nearbyViewModel.listening.collectAsStateWithLifecycle()
             val preparing by nearbyViewModel.preparing.collectAsStateWithLifecycle()
             val pairing by nearbyViewModel.pairing.collectAsStateWithLifecycle()
+            val nearbyDeviceName by nearbyViewModel.deviceName.collectAsStateWithLifecycle()
             Dialog(
                 onDismissRequest = nearbyViewModel::close,
                 properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -384,7 +385,7 @@ fun FTreeApp(
                     state = nearbyState,
                     peers = peers,
                     listening = listening,
-                    deviceName = nearbyViewModel.deviceName,
+                    deviceName = nearbyDeviceName,
                     preparing = preparing,
                     onSend = nearbyViewModel::send,
                     onSendTo = nearbyViewModel::sendTo,

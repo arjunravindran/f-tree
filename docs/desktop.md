@@ -479,6 +479,17 @@ FTREE_SMOKE=/path/to/tree.ftree FTREE_SMOKE_BOOK=1 \
   FTREE_SMOKE_BOOK_SAVE_TO=/tmp/book-smoke.pdf npm run smoke
 ```
 
+`FTREE_SMOKE_ARGV` is the exception in that it is a path, not a switch, and the same path must
+also be the launch's trailing argument -- it checks that a tree named on the command line (what a
+double-click in the file manager runs, #190) is the tree opened at start, rather than the last one
+remembered in `session.json`. It must name a different tree from `FTREE_SMOKE`, which the harness
+opens itself later and which would otherwise hide a failure:
+
+```sh
+FTREE_SMOKE=/path/to/a.ftree FTREE_SMOKE_ARGV=/path/to/b.ftree \
+  npx electron . --no-sandbox /path/to/b.ftree
+```
+
 CI runs this beside every other feature section — see `.github/workflows/desktop.yml` for the full
 set of `FTREE_SMOKE_*` variables it sets, once against the source tree and once against the packaged
 app.

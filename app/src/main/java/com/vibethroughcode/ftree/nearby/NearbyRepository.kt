@@ -178,16 +178,20 @@ class NearbyRepository(
             publishBrowsing()
         }
 
-        transport.startAnnouncing(
+        // The fingerprint is derived once -- it is a hash of a key that does not change while this
+        // device is visible -- but the name is read on every tick, so a rename reaches the room
+        // without the screen being closed and opened again (#192).
+        val fingerprint = Handshake.beaconFingerprint(identity.deviceId.bytes, public)
+        transport.startAnnouncing {
             Beacon.announce(
                 platform = NearbyPlatform.ANDROID,
                 flags = NearbyProtocol.SUPPORTED_FLAGS,
                 tcpPort = port,
                 deviceId = identity.deviceId,
-                keyFingerprint = Handshake.beaconFingerprint(identity.deviceId.bytes, public),
+                keyFingerprint = fingerprint,
                 displayName = identity.displayName,
-            ),
-        )
+            )
+        }
         transport.query()
 
         sweeper = scope.launch(Dispatchers.Default) {
