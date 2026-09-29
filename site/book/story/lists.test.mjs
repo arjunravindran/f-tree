@@ -655,6 +655,54 @@ test('still to be found never prints reading text over the art it marked busy', 
 });
 
 /*
+ * The other half of that promise, and the one #245 was actually missing.
+ *
+ * `noTextInBusyArt` compares text against the zones the art *declares*, so it is only as honest as
+ * those zones are. The violation #245 cites - the folio credit printing over the rangoli's petals
+ * on `story-large` p24 - was invisible to it for exactly that reason: the check was written and
+ * passing, and the zone it checked against did not cover what the page drew. A test that only asks
+ * "does any text sit in a declared zone" can never catch that; it has to be asked the other way
+ * round, against the geometry the painter is actually handed.
+ *
+ * So this measures the rangoli as drawn - every path point and circle, through the group's own
+ * transform - and holds the declared zone to containing it. Shrink the zone and this fails, where
+ * the invariant above would still pass.
+ */
+test('the rangoli declares a busy zone that covers what it actually draws', async () => {
+  for (const fixture of ['story-large', 'story-unknown-names']) {
+    const { book: b, report } = await book(fixture);
+    const page = pagesOfKind(report, 'still-to-be-found')[0];
+    assert.ok(page, `${fixture} was expected to have a still-to-be-found page`);
+    const items = b.pages[page.page - 1].items;
+    const g = items.find((it) => it.t === 'group' && it.tf);
+    assert.ok(g, `${fixture}: expected the rangoli to be drawn as a transformed group`);
+
+    const [a, bb, c, d, e, f] = g.tf;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const at = (x, y) => {
+      const px = a * x + c * y + e, py = bb * x + d * y + f;
+      minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+      minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+    };
+    const walk = (list) => {
+      for (const it of list) {
+        if (it.items) { walk(it.items); continue; }
+        if (it.t === 'circle') { at(it.cx - it.r, it.cy - it.r); at(it.cx + it.r, it.cy + it.r); }
+        if (it.t === 'path' && it.d) for (const [x, y] of pathPoints(it.d) ?? []) at(x, y);
+      }
+    };
+    walk(g.items);
+    assert.ok(Number.isFinite(minX), `${fixture}: the rangoli group drew nothing measurable`);
+
+    const covers = report.artZones.some((z) => z.page === page.page && z.kind === 'busy'
+      && z.x <= minX && z.y <= minY && z.x + z.w >= maxX && z.y + z.h >= maxY);
+    assert.ok(covers, `${fixture}: the rangoli draws x ${minX.toFixed(1)}-${maxX.toFixed(1)}, `
+      + `y ${minY.toFixed(1)}-${maxY.toFixed(1)}, and no busy zone on page ${page.page} contains it - `
+      + 'text could sit on it with noTextInBusyArt none the wiser');
+  }
+});
+
+/*
  * The exact shape the design critic's round 1 found on `story-large` page 19: a section of two
  * ("Brothers and sisters") lands right on the middle, so the naive `Math.ceil(rows.length / 2)`
  * break puts the heading and its first name at the foot of column one and the heading again,
