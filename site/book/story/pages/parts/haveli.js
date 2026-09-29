@@ -56,7 +56,9 @@ function jaaliWindow(P, x, y, w, h, flip) {
  * is the app's own "name not known" notation (dashed brass) and would misname an empty corner. */
 function nicheLit(art, P, x, y, w, h) {
   return [
-    rect(x, y, w, h, { r: w * 0.42, fill: P.deep }),
+    // A warm alcove, not a hole: `deep` on a cream day wall read as a black speaker grille on the
+    // first page of every book.
+    rect(x, y, w, h, { r: w * 0.42, fill: P.clay }),
     ...glowDiscs(P, x + w / 2, y + h * 0.66, w * 0.46, P.flame),
     art.place('diya-small', { x: x + w / 2, y: y + h * 0.78, w: w * 0.56 }),
   ];

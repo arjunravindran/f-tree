@@ -30,7 +30,7 @@ import { kinOf } from './kin.js';
 import { planStory, VARIANTS } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { openingLine } from './copy.js';
-import { PAGES, lampRows, MIN_LAMP } from './pages/hero.js';
+import { PAGES, lampRows, MIN_LAMP, rowsToWarm } from './pages/hero.js';
 import { SAFE, bandTint, paperGround, tailpiece } from './pages/parts/page.js';
 import { MALA_DROP, joinFrames, yearsCaption } from './pages/parts/people.js';
 import { heroTint } from './avatars.js';
@@ -638,4 +638,33 @@ test('finding 12: the folio sits at the outer foot, alternating by page parity a
   const p2 = folioNumber(heirloom.pages[1]), p3 = folioNumber(heirloom.pages[2]);
   assert.ok(p2 && p3, 'the format-1 book has no folio number on its interior pages to compare');
   assert.equal(p2.x, p3.x, 'format 1 moved its folio - Heirloom’s goldens would move with it');
+});
+
+/*
+ * Round 2, second pass: the zone glow that finding 6 added lit the rows it was meant to light at
+ * 200 people and, at 15, put two hard halos in empty water - the loudest objects on the cover the
+ * issue's own acceptance criterion judges at 150 px. The rule is that a glow belongs over lamps
+ * that do not glow by themselves, and nowhere else.
+ */
+test('a zone glow only ever sits over a row of lamps that does not light itself', () => {
+  const box = { x: 40, y: 400, w: 520, h: 300 };
+  for (const n of [1, 2, 7, 15, 23, 48, 120, 200]) {
+    const rows = lampRows(n, box);
+    const warm = rowsToWarm(rows);
+    assert.ok(warm.length <= 2, `${n}: ${warm.length} glows`);
+    assert.equal(new Set(warm).size, warm.length, `${n}: the same row is warmed twice`);
+    for (const row of warm) {
+      assert.ok(rows.includes(row), `${n}: a glow sits over no row at all`);
+      assert.ok(!row.boat && row.w < 16, `${n}: a glow sits over lamps that already carry a flame`);
+    }
+  }
+});
+
+test('a family small enough that every lamp lights itself gets no zone glow', () => {
+  // story-eldest is this case: its rows are leaf boats and full-size diyas, so two discs placed at
+  // fixed fractions of the zone lit nothing and drowned the lamps at thumbnail size.
+  const box = { x: 40, y: 400, w: 520, h: 300 };
+  assert.deepEqual(rowsToWarm(lampRows(15, box)), [], 'fifteen lamps were given a zone halo');
+  assert.deepEqual(rowsToWarm(lampRows(23, box)), [], 'a twenty-three lamp cover was given one too');
+  assert.ok(rowsToWarm(lampRows(200, box)).length > 0, 'a crowd of lamps lost its warmth');
 });

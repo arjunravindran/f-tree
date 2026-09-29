@@ -63,6 +63,7 @@ const FAR_SPREAD = 0.62;
  * and a two-hundred-person cover lights two hundred of them.
  */
 const GLOWS_ABOVE = 16;
+const GLOW_ZONE_FROM = 40;   // lamps, below which the field lights itself and a zone disc only greys it
 
 /**
  * How many rows of lamps `n` people take. It grows as the square root of the count, which is what
@@ -118,6 +119,23 @@ export function lampRows(n, box) {
     at += count;
   }
   return out;
+}
+
+/**
+ * The rows a zone-scale glow belongs over: the ones whose own lamps are the glow-less `diya-small`.
+ * A row of `diya` or of leaf boats carries its own flame, so a disc laid over it only greys the
+ * water; and a disc laid where there is no row at all was the loudest thing on a small family's
+ * 150 px cover. Nearest first, at most two, never the same row twice.
+ */
+export function rowsToWarm(rows) {
+  // A small family's lamps are few enough to be looked at one at a time, and a zone disc over them
+  // is simply a grey halo on the water - at fifteen it was the loudest thing on the 150 px cover.
+  // The zone glow exists for the crowd, so it starts when there is a crowd.
+  if (rows.reduce((n, r) => n + r.count, 0) < GLOW_ZONE_FROM) return [];
+  const dim = rows.filter((r) => !r.boat && r.w < GLOWS_ABOVE);
+  if (!dim.length) return [];
+  const pick = [...new Set([dim.length - 1, Math.floor((dim.length - 1) / 2)])];
+  return pick.map((i) => dim[i]);
 }
 
 /**
@@ -204,9 +222,16 @@ function cover(ctx, page, story) {
   // people left only the near row lit and the cover reading as a muddy smear with no warm heart.
   // Two zone-scale `glowDiscs` clusters - near and mid - cost almost nothing next to per-lamp
   // glow (`diyaRow.js`'s own budget note), scaled up a little for a larger family's fuller rows.
+  // A disc has to sit on a row that exists. At fixed fractions of the zone, a fifteen-lamp cover
+  // laid its rows at 0.12 and 0.94 and both discs landed in empty water - the two loudest objects
+  // on its 150 px thumbnail, lighting nothing. So warm only the rows whose own lamps are the
+  // glow-less `diya-small`, at those rows' real centres, and leave a family small enough to glow
+  // by itself alone.
   const warmth = Math.min(1, ids.length / 120);
-  items.push(glowDiscs(P, lampsZone.x + lampsZone.w * 0.52, lampsZone.y + lampsZone.h * 0.86, lampsZone.h * (0.26 + 0.1 * warmth), P.flame));
-  items.push(glowDiscs(P, lampsZone.x + lampsZone.w * 0.48, lampsZone.y + lampsZone.h * 0.46, lampsZone.h * (0.16 + 0.08 * warmth), P.gold));
+  for (const [k, row] of rowsToWarm(lampRows(ids.length, lampsZone)).entries()) {
+    const r = (row.x2 - row.x1) * (0.3 + 0.08 * warmth) * (k ? 0.7 : 1);
+    items.push(glowDiscs(P, (row.x1 + row.x2) / 2, row.y, r, k ? P.gold : P.flame));
+  }
   items.push(...lamps(ctx, ids, lampsZone, seed));
   // The one rangoli this book may afford beside "Still to be found"'s: laid flat on the landing,
   // tilted onto the floor the way the approved frames tilt theirs.
