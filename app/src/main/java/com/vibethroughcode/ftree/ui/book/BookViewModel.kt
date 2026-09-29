@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vibethroughcode.ftree.book.Book
+import com.vibethroughcode.ftree.book.BookEstimate
 import com.vibethroughcode.ftree.book.BookComposer
 import com.vibethroughcode.ftree.book.BookFailure
 import com.vibethroughcode.ftree.book.BookPrinter
@@ -439,9 +440,10 @@ class BookViewModel(
 
         /**
          * About how large the PDF will be. Android's PdfDocument keeps photographs losslessly, so
-         * this is `site/book/compose.js`'s estimateBytes with `lossless: true`, kept in step with it.
+         * this is `site/book/compose.js`'s estimateBytes with `lossless: true`, kept in step with it
+         * by [BookEstimate] - which, unlike the constant that used to live here, also carries the
+         * vector-art term a format-2 storybook is mostly made of (#245).
          */
-        fun estimate(book: Book): Long =
-            420_000L + book.pages.size * 18_000L + book.photos.sumOf { (it.px.toLong() * it.px * 18) / 10 }
+        fun estimate(book: Book): Long = BookEstimate.bytes(book)
     }
 }
