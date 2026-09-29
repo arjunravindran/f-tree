@@ -107,6 +107,47 @@ export function portrait(ctx, story, id, cx, cy, d, forcedStage = null) {
 const LATE_RE = /\blate\s+/i;
 
 /**
+ * How many lines greedy word-wrap needs for `text` at `size` within `width` - the same rule
+ * `ctx.lines` wraps with (`breakLines`, text.js), reimplemented on `ctx.measure` alone because
+ * `ctx` exposes no way to reach the raw font metrics `breakLines` itself needs. No cap, no
+ * ellipsis: this is only ever used to compare against a caption's own line budget.
+ */
+function wrapCount(ctx, role, text, size, width) {
+  const words = text.split(/\s+/).filter(Boolean);
+  let lines = words.length ? 1 : 0;
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && ctx.measure(candidate, role, size) > width) { lines++; current = word; }
+    else current = candidate;
+  }
+  return lines;
+}
+
+/**
+ * The largest size, no bigger than `max` and no smaller than `min`, at which `text` wraps to at
+ * most `maxLines` within `width` with no single word left overflowing it on its own.
+ *
+ * `ctx.fit` alone judges the WHOLE STRING on one line, so a two-word name in a tight row - most of
+ * a crowded gathering row's aunts and uncles, not just the one- or two-person row round 1 pictured
+ * - gets floored to `min` the moment the unbroken string does not fit, even though "Manoj" and
+ * "Sharma" wrapped onto their own two lines would have had room to spare at nearly full size
+ * (#257 round 2, finding 11: sized from the frame slot, not the room the words actually break
+ * into). Fitting to how the words wrap, not to the string standing on one line, is what lets a
+ * two-word name hold its size while a name that truly cannot fit two lines - three words, or one
+ * long enough on its own - still shrinks toward `min` exactly as before.
+ */
+function fitWrappedSize(ctx, role, text, width, max, min, maxLines = 2) {
+  const words = text.split(/\s+/).filter(Boolean);
+  for (let size = max; size > min; size -= 0.25) {
+    if (wrapCount(ctx, role, text, size, width) > maxLines) continue;
+    if (words.some((w) => ctx.measure(w, role, size) > width)) continue;
+    return size;
+  }
+  return min;
+}
+
+/**
  * The name line under a frame: the person's own name, or - for somebody the record never named -
  * the relation they are named by, in the hand face. One rule, so measuring a caption and drawing
  * it can never disagree about what it says.
@@ -125,7 +166,7 @@ function nameLine(ctx, story, id, width, showsYears) {
   const late = !p.name && typeof raw === 'string' && LATE_RE.test(raw);
   const text = late && showsYears ? raw.replace(LATE_RE, '') : raw;
   const role = p.name ? 'strong' : 'hand';
-  return { text, role, size: text ? ctx.fit(text, role, TYPE.name, width, TYPE.nameMin) : TYPE.name, late };
+  return { text, role, size: text ? fitWrappedSize(ctx, role, text, width, TYPE.name, TYPE.nameMin) : TYPE.name, late };
 }
 
 /**

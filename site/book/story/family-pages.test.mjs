@@ -27,7 +27,7 @@ import { readFamily } from '../family.js';
 import { kinOf } from './kin.js';
 import { resolveFeatured } from './featured.js';
 import { PAGES } from './pages/family.js';
-import { SAFE } from './pages/parts/paper.js';
+import { SAFE, TYPE } from './pages/parts/paper.js';
 
 const MINE = Object.keys(PAGES);
 
@@ -503,6 +503,24 @@ test('an aunt is drawn dramatically smaller than the parent she stands under', a
   // that regression without pinning the exact ratio `fitRow`'s own clamping can shift a little.
   const ratio = smallest / biggest;
   assert.ok(ratio < 0.65, `an aunt is only ${ratio.toFixed(2)}x the parent's size - not dramatically smaller`);
+});
+
+test('a two-word name wraps at full size instead of being floored to fit on one line', async () => {
+  // "Manoj Sharma" and its five row-mates (story-large's aunts and uncles, "Mother and father")
+  // each fit their own frame's width only by wrapping onto two lines - `ctx.fit` alone judges the
+  // whole string standing on ONE line, so it floors a two-word name to TYPE.nameMin(9) the moment
+  // the unbroken string does not fit, even though "Manoj" and "Sharma" on their own two lines have
+  // room to spare at nearly the full 10.5 (#257 round 2, finding 11: sized from the frame slot,
+  // not the room the words actually break into - true of a crowded row, not just a one- or
+  // two-person one). Every name here wraps to two short lines, so none should be anywhere near the
+  // floor.
+  const { report } = await compose('story-large');
+  const page = report.pages.find((p) => p.archetype === 'gathering' && p.people.length >= 6 && p.people.length <= 8 && p.page > 4);
+  assert.ok(page, 'the fixture no longer draws a six-or-more-person aunts-and-uncles row');
+  const names = report.textBoxes.filter((b) => b.page === page.page && b.kind === 'name');
+  assert.ok(names.length >= 6, `expected at least 6 name lines on page ${page.page}, found ${names.length}`);
+  const floored = names.filter((b) => b.size <= TYPE.nameMin + 0.1);
+  assert.deepEqual(floored.map((b) => b.s), [], 'a name wrapped onto two short lines was still floored to the minimum size');
 });
 
 test('a row of siblings straddling the elder cutoff reads as one life stage, not two', async () => {
