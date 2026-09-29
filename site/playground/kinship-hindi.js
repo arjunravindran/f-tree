@@ -221,7 +221,9 @@ export function hindiTerm(kinship, subject, target) {
       // generation. Anything further out has no word, and English says it better.
       return term.degree !== 1 || term.removed !== 0 ? null : firstCousin(kinship, target);
     case 'spouse':
-      return byGender(target, 'PATI', 'PATNI');
+      // No word for a marriage that ended or was never one: पति / पत्नी say "married". A late
+      // spouse keeps hers -- the marriage was a marriage, and the book already says so.
+      return term.subtype === 'DIVORCED' || term.subtype === 'PARTNER' ? null : byGender(target, 'PATI', 'PATNI');
     case 'spouse-of':
       return marriedIn(term.relative, kinship, target);
     case 'of-spouse':
