@@ -18,6 +18,7 @@ import com.vibethroughcode.ftree.transfer.RelationshipRecord
 import com.vibethroughcode.ftree.transfer.TreeDocument
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.After
@@ -73,11 +74,17 @@ class BookPdfTest {
         return TreeDocument(exportedAt = "2026-09-15T00:00:00Z", sourceTreeId = "test", people = people, relationships = relationships)
     }
 
+    /**
+     * Read from the test's own assets rather than the app's.
+     *
+     * Heirloom arrives by download from v0.11.0-beta.2 (#214), so the release no longer carries it -
+     * but a format-1 book is still the plainest thing this test can draw, and the template is data.
+     * `app/build.gradle.kts` puts `site/book/templates` on the androidTest assets for this.
+     */
     private fun input(templateId: String = "heirloom"): String = runBlocking {
-        // Shipped templates always carry their JSON; only a template offered for download does not.
-        val template = checkNotNull(
-            BookTemplates(app).offered(java.time.LocalDate.of(2026, 9, 15)).first { it.id == templateId }.json
-        )
+        val template = InstrumentationRegistry.getInstrumentation().context.assets
+            .open("$templateId.json").bufferedReader().use { it.readText() }
+            .let { ExportJson.parseToJsonElement(it).jsonObject }
         buildJsonObject {
             put("doc", ExportJson.parseToJsonElement(ExportJson.encodeToString(TreeDocument.serializer(), document())))
             putJsonObject("options") { put("now", "2026-09-15") }
