@@ -139,6 +139,26 @@ function laneClip(holes) {
 }
 
 /**
+ * A few accent tints the lane may wash across its sky and its houses - existing palette tokens,
+ * never a new colour of their own. Chosen from the family's own seed together with which branches
+ * actually stand on *this* page (its `groups`' own keys), never the page number
+ * (site/book/art/README.md, rule 6, so moving a page elsewhere in the book never reshuffles it):
+ * `story-large` used to run p10-p17 as the identical amber sky and the identical four house
+ * colours, eight times over, with only the mirror telling one page from the next (round 2, finding
+ * 12). The wash sits under everything drawn afterward, at low enough opacity that the scene's own
+ * colours and the names printed over it both still read - it changes a page's mood, not its facts.
+ */
+const LANE_WASHES = ['rani', 'peacock', 'indigo', 'leaf', 'sindoor', 'wash'];
+
+/** One of `LANE_WASHES`, seeded from the family, this page's own groups and a `what` that keeps
+ * the sky's own pick independent of any one house's. */
+function laneTint(ctx, story, page, what) {
+  const key = page.groups.map((g) => g.key).join(',') || 'blank';
+  const roll = seeded(`${familySeed(ctx, story, `lane-tint-${what}`)}|${key}`)();
+  return LANE_WASHES[Math.floor(roll * LANE_WASHES.length)];
+}
+
+/**
  * Our lane: a house for every branch of the family, drawn on the `haveli-lane` scene.
  *
  * The plan decided the houses - one per aunt's or uncle's branch, a large branch over several
@@ -169,7 +189,10 @@ function lane(ctx, page, story) {
   const scenePic = blankSlots.length
     ? group([s.items[0]], { clip: laneClip(blankSlots.map((i) => houseHole(plates[i], boards[i], doorsteps[i]))) })
     : s.items[0];
-  const items = [scenePic, ...titleBlock(ctx, page, copy, s.zone('title'), { ink: P.ink, soft: P.inkSoft })];
+  // The sky wash (round 2, finding 12): a translucent tint over the scene's own upper third, so a
+  // family with several lane pages does not see the identical amber sky on every one of them.
+  const skyWash = rect(0, 0, PAGE.w, HOUSE_ROOF_Y + 16, { fill: P[laneTint(ctx, story, page, 'sky')], op: 0.12 });
+  const items = [scenePic, skyWash, ...titleBlock(ctx, page, copy, s.zone('title'), { ink: P.ink, soft: P.inkSoft })];
 
   const featuredName = nameOf(family, kin, kin.featured);
   const taken = new Set();
@@ -178,6 +201,12 @@ function lane(ctx, page, story) {
     const slot = slots[i];
     const plate = plates[slot], board = boards[slot];
     const cx = board.x + board.w / 2;
+    // The house's own wash (round 2, finding 12): the same low-opacity tint idea as the sky,
+    // over this one house's own footprint, seeded per house so the four houses on a page do not
+    // all draw the same tint - and so a family whose lane runs several pages sees a different
+    // house-to-colour pairing from one page to the next.
+    const hole = houseHole(plate, board, doorsteps[slot]);
+    items.push(rect(hole.x, hole.y, hole.w, hole.h, { fill: P[laneTint(ctx, story, page, `house-${slot}`)], op: 0.1 }));
     const name = houseName(family, house.people, taken);
     if (name) {
       taken.add(name);
@@ -248,29 +277,44 @@ const MAX_FIGURES = 6;
 export function figuresFor(family, kin) {
   const out = [];
   for (const f of FIGURES) {
-    const line = numberFact(family, kin, countInCircle(kin, f.circle, f.role ?? null), f.noun, out.length);
-    if (line) out.push({ motif: f.motif, line });
+    const n = countInCircle(kin, f.circle, f.role ?? null);
+    const line = numberFact(family, kin, n, f.noun, out.length);
+    if (line) out.push({ motif: f.motif, line, count: n });
     if (out.length === MAX_FIGURES) break;
   }
   return out;
 }
 
+/** Past this many, the figure's own repeated shapes would crowd into a smear rather than read as
+ * separate pieces, so the vignette falls back to one motif standing for "several" instead. */
+const COUNTABLE_FIGURE_MAX = 5;
+
 /**
  * A figure vignette, not a bare icon (round 2, finding 25): a soft ink shadow, a paper-deep mat
- * disc and a thin gold ring under the motif's own drop shadow - three or four cut layers, the way
- * every other paper-cut piece in this book is built, rather than one flat shape floating beside a
- * line of text.
+ * disc and a thin gold ring, under two to five small copies of the motif arranged like petals
+ * where `count` is small enough to lay out on its own - five lotus petals for five children, not
+ * one lotus standing in for "some" - or one motif at full size where it isn't. The same symbol
+ * placed several times, never a second drawing (site/book/art/README.md, "reuse, don't copy").
  */
-function figureVignette(ctx, id, cx, cy, size) {
+export function figureVignette(ctx, id, cx, cy, size, count = 0) {
   const { P } = ctx;
   const r = size * 0.62;
   ctx.zone('busy', { x: cx - r, y: cy - r, w: r * 2, h: r * 2 });
-  return [
+  const items = [
     circle(cx + 1.6, cy + 2, r, { fill: P.ink, op: 0.08 }),
     circle(cx, cy, r, { fill: P.paperDeep }),
     circle(cx, cy, r, { stroke: P.gold, sw: 0.8, op: 0.55 }),
-    motif(ctx, id, cx, cy, size, { shadow: { dx: 1, dy: 1.4 } }),
   ];
+  if (count >= 2 && count <= COUNTABLE_FIGURE_MAX) {
+    const petal = size * 0.42, spread = r * 0.56;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 - Math.PI / 2;
+      items.push(motif(ctx, id, cx + Math.cos(a) * spread, cy + Math.sin(a) * spread, petal, { shadow: { dx: 0.6, dy: 0.9 } }));
+    }
+  } else {
+    items.push(motif(ctx, id, cx, cy, size, { shadow: { dx: 1, dy: 1.4 } }));
+  }
+  return items;
 }
 
 /**
@@ -291,10 +335,10 @@ function numbers(ctx, page, story) {
   const colW = (SAFE.w - 34) / 2;
   const top = 200;
   const rowH = (SAFE.bottom - 66 - top) / Math.max(1, Math.ceil(figures.length / 2));
-  figures.forEach(({ motif: id, line }, i) => {
+  figures.forEach(({ motif: id, line, count }, i) => {
     const x = SAFE.x + (i % 2) * (colW + 34);
     const middle = top + (Math.floor(i / 2) + 0.5) * rowH;
-    items.push(...figureVignette(ctx, id, x + 38, middle, 68));
+    items.push(...figureVignette(ctx, id, x + 38, middle, 68, count));
     items.push(...ctx.lines(x + 86, middle - 8, line, 'hand', 13.5, P.ink, { width: colW - 92, maxLines: 3, lead: 18, kind: 'body' }).items);
   });
   if (figures.length) items.push(ctx.art.place('divider-lotus', { x: PAGE.w / 2, y: SAFE.bottom - 16, w: 150, op: 0.7 }));

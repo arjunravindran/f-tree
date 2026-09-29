@@ -27,7 +27,7 @@ import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { countInCircle, numberFact } from './copy.js';
 import { countWords } from '../blocks/words.js';
-import { FIGURES, figuresFor, generationsBehind, lostName } from './pages/lists.js';
+import { FIGURES, figureVignette, figuresFor, generationsBehind, lostName } from './pages/lists.js';
 import { NAME_SIZE, ROW, SECTION_TITLES, duplicateRegisterNames, personRow, splitColumns } from './pages/parts/register-rows.js';
 import { SAFE, lifeDates } from './pages/parts/furniture.js';
 
@@ -187,6 +187,30 @@ test('a count of nobody is never printed as a fact', async () => {
 });
 
 /*
+ * Round 2, finding 25: a figure vignette used to draw exactly one motif whatever the count, so
+ * "five children" and "twenty-three cousins" looked identical beside their own sentence. Where the
+ * count is small enough to lay out on its own it is now drawn that many times - the same symbol
+ * placed several times, never a second drawing - and past `COUNTABLE_FIGURE_MAX` it falls back to
+ * one motif standing for "several", so a large family's vignette never crowds into a smear.
+ */
+test('a small count draws that many motifs, and a large one draws a single motif standing for "several"', () => {
+  const drawn = [];
+  const ctx = {
+    P: { ink: '#000', paperDeep: '#fff', gold: '#f2b84b' },
+    zone() {},
+    art: {
+      box: () => ({ w: 10, h: 10 }),
+      place: (id, placement) => ({ t: 'use', ref: `pc-${id}`, ...placement }),
+    },
+  };
+  const countUses = (count) => figureVignette(ctx, 'lotus', 100, 100, 68, count).filter((it) => it.ref === 'pc-lotus').length;
+  assert.equal(countUses(1), 1, 'a count of one should draw one motif');
+  assert.equal(countUses(3), 3, 'a count of three should draw three motifs, one per instance');
+  assert.equal(countUses(5), 5, 'a count at the countable maximum should still draw one motif each');
+  assert.equal(countUses(23), 1, 'a count past the countable maximum should fall back to a single motif');
+});
+
+/*
  * No living person's age, on the page most likely to reach for one. `noLivingAge` is the harness's
  * own check; this runs it over the numbers pages alone so a failure names this page rather than
  * being lost among a whole book's.
@@ -222,6 +246,30 @@ test('a lane page at the cap draws all four houses and all their names', async (
   // A name for everybody on the page, plus up to one nameplate a house.
   assert.ok(names >= full.people.length, `${names} name lines for ${full.people.length} people`);
   assert.ok(names <= full.people.length + DENSITY.houses, 'the lane drew more names than it has people and plates');
+});
+
+/*
+ * Round 2, finding 12: `story-large` runs eight consecutive lane pages (p10-p17), and before this
+ * fix every one of them washed the identical amber sky over the identical four house colours, with
+ * only the mirror telling one page from the next. The wash is the first `rect` laid directly over
+ * the scene at `op: 0.12` (sky) or `op: 0.1` (a house); a reverted fix leaves neither behind.
+ */
+test('lane pages do not all wash their sky the same colour', async () => {
+  const { book: b, plan } = await book('story-large');
+  const lanePages = plan.pages.filter((p) => p.archetype === 'lane');
+  assert.ok(lanePages.length >= 4, 'story-large was expected to have several lane pages');
+  const skyFills = lanePages.map((p) => b.pages[p.pageNo - 1].items.find((it) => it.t === 'rect' && it.op === 0.12)?.fill);
+  assert.ok(skyFills.every(Boolean), `every lane page was expected to wash its own sky: ${JSON.stringify(skyFills)}`);
+  assert.ok(new Set(skyFills).size > 1, `every lane page washed its sky the same colour (${skyFills[0]})`);
+});
+
+test('a full lane page tints its own four houses with more than one colour', async () => {
+  const { book: b, plan } = await book('story-large');
+  const full = plan.pages.find((p) => p.archetype === 'lane' && p.groups.length === DENSITY.houses);
+  assert.ok(full, 'story-large was expected to fill a lane page');
+  const houseFills = b.pages[full.pageNo - 1].items.filter((it) => it.t === 'rect' && it.op === 0.1).map((it) => it.fill);
+  assert.equal(houseFills.length, DENSITY.houses, `expected a tint for each of ${DENSITY.houses} houses, found ${houseFills.length}`);
+  assert.ok(new Set(houseFills).size > 1, 'every house on the page was tinted the same colour');
 });
 
 /* ------------------------------------------------------------------ still to be found */
