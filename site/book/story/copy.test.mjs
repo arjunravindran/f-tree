@@ -191,7 +191,7 @@ test('openingLine composes the full sentence from a complete record', () => {
   ], [parents('dad', 'mum', 'ankit', 'priya', 'rahul')]);
   const { family: f, kin: k } = build(family, 'ankit');
   assert.equal(openingLine(f, k),
-    'Ankit was born in 1995, the second of three children of Rajesh and Sunita. This is the family behind Ankit.');
+    'Ankit was born in 1995, the second of three children of Rajesh and Sunita. The rest of this book carries the story onward.');
 });
 
 test('openingLine drops the birth-order claim, not the sentence, when the featured person\'s year is unknown', () => {
@@ -203,7 +203,7 @@ test('openingLine drops the birth-order claim, not the sentence, when the featur
   assert.ok(!/undefined|NaN|\{/.test(out), out);
   // No year to rank Ankit by, so the record still names his parents without calling him "the
   // eldest" of anything it cannot actually place him within.
-  assert.equal(out, 'Ankit is a child of Rajesh and Sunita. This is the family behind Ankit.');
+  assert.equal(out, 'Ankit is a child of Rajesh and Sunita. The rest of this book carries the story onward.');
 });
 
 test('openingLine drops the parents clause entirely when none is recorded, and keeps the year', () => {
@@ -211,7 +211,7 @@ test('openingLine drops the parents clause entirely when none is recorded, and k
   const { family: f, kin: k } = build(family, 'ankit');
   const out = openingLine(f, k);
   assert.ok(!/undefined|NaN|\{/.test(out), out);
-  assert.equal(out, 'Ankit was born in 1995. This is the family behind Ankit.');
+  assert.equal(out, 'Ankit was born in 1995. The rest of this book carries the story onward.');
 });
 
 test('openingLine names the featured person by relation when their own name is lost', () => {
@@ -219,7 +219,9 @@ test('openingLine names the featured person by relation when their own name is l
   const { family: f, kin: k } = build(family, 'gm');
   const out = openingLine(f, k);
   assert.ok(out.startsWith('Shyam Lal’s wife'), out);
-  assert.ok(out.endsWith('This is the family behind Shyam Lal’s wife.'), out);
+  assert.ok(out.endsWith('The rest of this book carries the story onward.'), out);
+  // The closing clause never repeats the name a second time (round 2, finding 21).
+  assert.equal(out.match(/Shyam Lal’s wife/g).length, 1, out);
 });
 
 /* ------------------------------------------------------------------ rootsLine */
@@ -279,7 +281,7 @@ test('the birth-order fragment is dropped, not guessed, when any full sibling\'s
   // Priya's year is unknown, so Ankit cannot honestly be called "the eldest", "the youngest" or
   // any ordinal among the three - even though Ankit's own year (1995) is known.
   assert.ok(!/eldest|youngest|second|third/.test(out), out);
-  assert.equal(out, 'Ankit was born in 1995, a child of Rajesh and Sunita. This is the family behind Ankit.');
+  assert.equal(out, 'Ankit was born in 1995, a child of Rajesh and Sunita. The rest of this book carries the story onward.');
 });
 
 test('fillPlaceholders is idempotent: three or more dropped facts in a row still clean up fully', () => {
@@ -348,6 +350,17 @@ test('chapterCopy composes for every chapter id in plan.js\'s CHAPTERS, and degr
       }
     }
   }
+});
+
+test('{from-family} is the line a cover carries, not the family\'s title said twice', () => {
+  // "The Kumar Family" is already a whole phrase, so a template cannot build "from the Kumar
+  // family" out of {family} - "from the {family} family" prints the article and the noun twice.
+  const family = readFamily(doc([M('a', 'Ankit Kumar', '1995'), M('b', 'Ravi Kumar', '1960')], []), { now: NOW });
+  const kin = kinOf(family, resolveFeatured(family, {}), {});
+  const vars = chapterVars('opening', family, kin);
+  assert.equal(vars.family, 'The Kumar Family');
+  assert.equal(vars['from-family'], 'from the Kumar family');
+  assert.equal(fillPlaceholders('{from-family}', vars), 'from the Kumar family');
 });
 
 test('chapterCopy also composes over every format-2 template already in the catalogue', () => {

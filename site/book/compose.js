@@ -407,10 +407,19 @@ function context(family, options, tpl, allowance, now, rec) {
      * Both are marked `kind: 'folio'` - page furniture, not reading text, so they answer to the
      * book's own 7 pt floor rather than a caption's 8 (`qa/invariants.mjs`). Every storybook page
      * calls this, and every line in a storybook has to say what it is.
+     *
+     * Round 2 (finding 12): a format-2 book alternates the folio to the OUTER foot, the way a
+     * printed book's recto/verso pages do - an odd page is a recto, so its folio sits at the
+     * right; an even page mirrors it to the left, and the credit takes whichever corner the folio
+     * just left, so the margins stay symmetrical. Format 1 keeps its fixed corners: moving them
+     * would move Heirloom's goldens, which is the one thing this function may never do.
      */
     footer(ink) {
-      const items = [said(text(PAGE.w - 40, PAGE.h - 22, String(ctx.pageNo), 'text', 7.5, ink, { align: 'end', w: 30, op: 0.85 }), 'folio')];
-      if (ctx.attribution) items.push(said(text(40, PAGE.h - 22, 'Made with f-tree', 'text', 7, ink, { w: 120, op: 0.75 }), 'folio'));
+      const numberRight = ctx.tpl.format !== 2 || ctx.pageNo % 2 === 1;
+      const items = [said(text(numberRight ? PAGE.w - 40 : 40, PAGE.h - 22, String(ctx.pageNo), 'text', 7.5, ink, { align: numberRight ? 'end' : 'start', w: 30, op: 0.85 }), 'folio')];
+      if (ctx.attribution) {
+        items.push(said(text(numberRight ? 40 : PAGE.w - 40, PAGE.h - 22, 'Made with f-tree', 'text', 7, ink, { align: numberRight ? 'start' : 'end', w: 120, op: 0.75 }), 'folio'));
+      }
       return items;
     },
 
