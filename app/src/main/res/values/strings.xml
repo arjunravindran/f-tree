@@ -127,6 +127,14 @@
     <string name="role_husband">Husband</string>
     <string name="role_wife">Wife</string>
     <string name="role_spouse">Spouse</string>
+    <!-- #291: the heading for a marriage the record says has ended. -->
+    <string name="role_former_husband">Former husband</string>
+    <string name="role_former_wife">Former wife</string>
+    <string name="role_former_spouse">Former spouse</string>
+    <string name="role_late_husband">Late husband</string>
+    <string name="role_late_wife">Late wife</string>
+    <string name="role_late_spouse">Late spouse</string>
+    <string name="role_partner">Partner</string>
     <string name="role_son">Son</string>
     <string name="role_daughter">Daughter</string>
     <string name="role_child">Child</string>
@@ -644,6 +652,14 @@
     <string name="kin_husband">husband</string>
     <string name="kin_wife">wife</string>
     <string name="kin_spouse">spouse</string>
+    <!-- #291: a marriage the record says has ended is not described as a current one. -->
+    <string name="kin_former_husband">former husband</string>
+    <string name="kin_former_wife">former wife</string>
+    <string name="kin_former_partner">former partner</string>
+    <string name="kin_late_husband">late husband</string>
+    <string name="kin_late_wife">late wife</string>
+    <string name="kin_late_partner">late partner</string>
+    <string name="kin_partner">partner</string>
     <!-- Relationships through one marriage. English names these outright; where it has no word,
          relation_answer_married_to and relation_answer_of_spouse say it in a sentence instead. -->
     <string name="kin_brother_in_law">brother-in-law</string>

@@ -1,6 +1,7 @@
 package com.vibethroughcode.ftree.graph
 
 import com.vibethroughcode.ftree.data.Gender
+import com.vibethroughcode.ftree.data.SpouseKind
 
 /**
  * A Hindi kinship word, chosen but not yet spelled.
@@ -105,7 +106,15 @@ object HindiKinship {
         is KinshipTerm.Cousin ->
             if (term.degree != 1 || term.removed != 0) null else firstCousin(path, target)
 
-        KinshipTerm.Spouse -> byGender(target, HindiKinTerm.PATI, HindiKinTerm.PATNI)
+        // #291: no word for a marriage that ended or was never one - पति / पत्नी say "married", and
+        // saying one about a marriage the record says is over states the opposite of the record. A
+        // late spouse keeps the word: that marriage WAS a marriage, and the book already says so.
+        is KinshipTerm.Spouse ->
+            if (term.subtype == SpouseKind.DIVORCED || term.subtype == SpouseKind.PARTNER) {
+                null
+            } else {
+                byGender(target, HindiKinTerm.PATI, HindiKinTerm.PATNI)
+            }
 
         is KinshipTerm.SpouseOf -> marriedIn(term.relative, path, target)
         is KinshipTerm.OfSpouse -> ofSpouse(term.relative, path, subject, target)

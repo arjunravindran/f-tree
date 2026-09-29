@@ -8,6 +8,7 @@ import com.vibethroughcode.ftree.data.Person
 import com.vibethroughcode.ftree.graph.FamilySnapshot
 import com.vibethroughcode.ftree.graph.Kinship
 import com.vibethroughcode.ftree.graph.Relation
+import com.vibethroughcode.ftree.data.SpouseKind
 import com.vibethroughcode.ftree.graph.StepKind
 import com.vibethroughcode.ftree.ui.common.matchingPeople
 import kotlinx.coroutines.Dispatchers
@@ -22,8 +23,13 @@ import kotlinx.coroutines.flow.stateIn
 /** Which of the two slots a pick is filling. */
 enum class RelationSlot { FROM, TO }
 
-/** One person along the chain, with what they are to the person before them. */
-data class ChainLink(val person: Person, val kind: StepKind)
+/**
+ * One person along the chain, with what they are to the person before them.
+ *
+ * [spouse] is the state of the marriage on a [StepKind.SPOUSE] link (#291), so a sentence built
+ * from the chain can say "former wife" where the record says the marriage ended.
+ */
+data class ChainLink(val person: Person, val kind: StepKind, val spouse: SpouseKind? = null)
 
 data class RelationUiState(
     val loading: Boolean = true,
@@ -82,7 +88,7 @@ class RelationViewModel(
             to = to?.let(graph.people::get),
             relation = relation,
             chain = found?.chain.orEmpty().mapNotNull { step ->
-                graph.people[step.personId]?.let { ChainLink(it, step.kind) }
+                graph.people[step.personId]?.let { ChainLink(it, step.kind, step.spouse) }
             },
             // Naming the ancestor is only worth a line when it is somebody else. "Through Ankit
             // Kumar, the nearest ancestor they share" is a true thing to say about Ankit and his

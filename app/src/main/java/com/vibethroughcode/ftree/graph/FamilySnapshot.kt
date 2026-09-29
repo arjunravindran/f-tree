@@ -1,6 +1,7 @@
 package com.vibethroughcode.ftree.graph
 
 import com.vibethroughcode.ftree.data.Person
+import com.vibethroughcode.ftree.data.SpouseKind
 
 /**
  * A bounded slice of the family graph, already loaded.
@@ -15,12 +16,23 @@ data class FamilySnapshot(
     val parentEdges: List<Pair<String, String>>,
     val spouseEdges: List<Pair<String, String>>,
     val siblingEdges: List<Pair<String, String>>,
+    /**
+     * The state of each spouse edge, by the pair it joins. #291: without this a marriage that
+     * ended is indistinguishable from one that did not, and the relation panel called a divorced
+     * wife पत्नी - a word that asserts the marriage the record says is over. Defaulted, so a
+     * caller that only needs the shape of the graph (the layout engines) is unaffected.
+     */
+    val spouseKinds: Map<Pair<String, String>, SpouseKind> = emptyMap(),
 ) {
     val parentsOf: Map<String, List<String>> =
         parentEdges.groupBy({ it.second }, { it.first })
 
     val childrenOf: Map<String, List<String>> =
         parentEdges.groupBy({ it.first }, { it.second })
+
+    /** [spouseKinds] both ways round, so a lookup does not have to know which way the edge was stored. */
+    val spouseKindBetween: Map<Pair<String, String>, SpouseKind> =
+        spouseKinds + spouseKinds.map { (pair, kind) -> (pair.second to pair.first) to kind }
 
     val spousesOf: Map<String, List<String>> =
         (spouseEdges + spouseEdges.map { it.second to it.first })
@@ -57,6 +69,7 @@ data class FamilySnapshot(
             parentEdges = parentEdges.kept(),
             spouseEdges = spouseEdges.kept(),
             siblingEdges = siblingEdges.kept(),
+            spouseKinds = spouseKinds.filterKeys { it.first in ids && it.second in ids },
         )
     }
 

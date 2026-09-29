@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.vibethroughcode.ftree.data.DeletionMode
 import com.vibethroughcode.ftree.data.FamilyRepository
 import com.vibethroughcode.ftree.data.Person
+import com.vibethroughcode.ftree.data.RelationshipType
 import com.vibethroughcode.ftree.data.RelativeKind
+import com.vibethroughcode.ftree.data.SpouseKind
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -18,6 +20,8 @@ data class PersonDetailUiState(
     val relationshipCount: Int = 0,
     val loaded: Boolean = false,
     val relatives: Map<RelativeKind, List<Person>> = emptyMap(),
+    /** The state of each marriage, by the spouse's id (#291), so a heading can say "Former wife". */
+    val spouseKinds: Map<String, SpouseKind> = emptyMap(),
 ) {
     fun of(kind: RelativeKind): List<Person> = relatives[kind].orEmpty()
 }
@@ -43,14 +47,21 @@ class PersonDetailViewModel(
 
     val uiState: StateFlow<PersonDetailUiState> = combine(
         repository.observePerson(personId),
-        repository.observeEdgesOf(personId).map { it.size },
+        repository.observeEdgesOf(personId),
         relatives,
     ) { person, edges, related ->
         PersonDetailUiState(
             person = person,
-            relationshipCount = edges,
+            relationshipCount = edges.size,
             loaded = true,
             relatives = related,
+            spouseKinds = edges
+                .filter { it.type == RelationshipType.SPOUSE }
+                .mapNotNull { edge ->
+                    val other = edge.other(personId) ?: return@mapNotNull null
+                    SpouseKind.fromName(edge.subtype)?.let { other to it }
+                }
+                .toMap(),
         )
     }.stateIn(
         scope = viewModelScope,
