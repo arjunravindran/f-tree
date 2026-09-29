@@ -13,6 +13,7 @@
 import { estimateBytes } from '../compose.js';
 import { resolveFeatured } from '../story/featured.js';
 import { DENSITY } from '../story/plan.js';
+import { NON_CHAPTER_COPY } from '../template.js';
 
 /** The design system's floors, by what the page said a line is (`ctx.line(..., { kind })`). */
 export const SIZE_FLOORS = Object.freeze({ body: 10.5, name: 9, caption: 8 });
@@ -102,6 +103,22 @@ export function consecutivePagesVary({ report }) {
     if (prev?.archetype === p.archetype && prev.variant === p.variant) out.push(`pages ${prev.page} and ${p.page} are both ${p.archetype}/${p.variant}`);
   });
   return out;
+}
+
+/**
+ * A page's words belong to the people on it.
+ *
+ * The planner merges a run of small household chapters onto one page. Before #285 the page kept
+ * the first chapter's `copyKey`, so one chapter's sentence was printed over several chapters'
+ * people - `sample` page 5 said "The one who shared the house with Vinod" over a half-sister and
+ * a wife. A page that carries more than one chapter therefore may not speak as a single chapter:
+ * it takes a reserved non-chapter entry (`copy.household`) whose wording is true of any run, and
+ * whose count is the people drawn rather than one circle's size.
+ */
+export function wordsMatchPeople({ report }) {
+  return report.pages
+    .filter((p) => (p.chapters?.length ?? 0) > 1 && !NON_CHAPTER_COPY.includes(p.copyKey))
+    .map((p) => `page ${p.page} (${p.label}) carries ${p.chapters.join(' + ')} but takes its words from "${p.copyKey}" alone`);
 }
 
 /** People-per-page caps: heroes 1-2, family pages 8, gatherings 12, a lane 32, the register 48. */
@@ -209,6 +226,7 @@ export const INVARIANTS = Object.freeze({
   noTextOverlap: { check: noTextOverlap },
   noTextInBusyArt: { check: noTextInBusyArt },
   consecutivePagesVary: { check: consecutivePagesVary, storyOnly: 'a format-1 book has no archetypes: its page order is the template\'s fixed list' },
+  wordsMatchPeople: { check: wordsMatchPeople, storyOnly: 'a format-1 page has no chapters: its words are the template\'s own, page by page' },
   peoplePerPage: { check: peoplePerPage, storyOnly: 'the density caps are the storybook\'s; format-1 generation pages pack by portrait size instead' },
   pageCount: { check: pageCount },
   jsonBudget: { check: jsonBudget },
