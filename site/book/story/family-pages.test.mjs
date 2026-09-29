@@ -104,7 +104,7 @@ function layoutFaults(book, report, pageNo) {
 /* ------------------------------------------------------------------ the pages draw at all */
 
 test('every family page composes, describes itself from the plan, and keeps the layout rules', async () => {
-  for (const fixture of ['story-large', 'story-half-siblings', 'story-twelve-siblings', 'story-three-spouses', 'story-unknown-names', 'story-devanagari', 'story-leaf', 'story-eldest']) {
+  for (const fixture of ['story-large', 'story-half-siblings', 'story-twelve-siblings', 'story-three-spouses', 'story-unknown-names', 'story-devanagari', 'story-leaf', 'story-eldest', 'story-roots']) {
     const { book, report, plans } = await compose(fixture);
     assert.deepEqual(validateBook(book), [], `${fixture}: not a valid Book`);
     const drawn = report.pages.filter((p) => MINE.includes(p.archetype));
@@ -119,6 +119,22 @@ test('every family page composes, describes itself from the plan, and keeps the 
       for (const id of plan.people) assert.ok(report.shown[id]?.includes(info.page), `${fixture} page ${info.page}: ${id} is on it but not shown`);
     }
   }
+});
+
+test('the banyan actually gets drawn: a family recorded deep enough emits a roots page', async () => {
+  // #257 round 2: no other fixture's roots chapter reaches far enough above F to make the planner
+  // ask for a `banyan` page at all, so the archetype had never had a render pass of its own -
+  // `story-roots` (tools/make_sample_tree.py) records four generations above F on purpose. This
+  // would throw on the missing fixture file before it could even get to the assertions below, which
+  // is the regression this guards: a banyan page drawn from a plan, not a stub standing in for one.
+  const { report, plans } = await compose('story-roots');
+  const banyan = report.pages.find((p) => p.archetype === 'banyan');
+  assert.ok(banyan, 'story-roots did not make the planner ask for a banyan page');
+  const plan = plans.find((p) => p.pageNo === banyan.page);
+  // The fixture's one unnamed, departed great-grandmother must be on the page: a banyan with only
+  // named, living-record ancestors would leave the lamp-unknown-under-mala ordering (finding 3)
+  // untested by the one fixture built to reach this archetype at all.
+  assert.ok(plan.people.includes('ggm-p'), 'the unnamed, departed great-grandmother is not on the banyan page');
 });
 
 test('every variant the planner may ask for draws, and draws differently', async () => {

@@ -807,6 +807,9 @@ def story_unnamed():
 # name -> (builder, what it is, the people a test can name). A None builder is the empty tree as
 # Android's exporter writes it: no people, and no empty lists either.
 BOOK_FIXTURES = {
+    "roots": (story_roots, "four recorded generations above F, so the planner emits a roots page",
+              {"featured": "f", "great-grandparents": ["gggf-p", "ggf-p", "ggm-p", "ggf-m", "ggm-m"],
+               "grandparents": ["pgf", "pgm", "mgf", "mgm"]}),
     "large": (story_large, "about 200 people, six generations, both of F's sides known",
               {"featured": "f", "father": "father", "mother": "mother",
                "grandparents": ["pgf", "pgm", "mgf", "mgm"], "siblings": ["f-sib0", "f-sib1"]}),
