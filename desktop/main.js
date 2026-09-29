@@ -3303,6 +3303,36 @@ async function runBookSmoke(win, check) {
     (opened?.templates ?? 0) >= 2, String(opened?.templates ?? 0));
 
   /*
+   * #260: switch to the storybook, so everything below smokes the template that actually ships it.
+   *
+   * The dialog opens on whatever `BookCatalog.opening()` picks, and Diwali is the featured template
+   * only inside its own season (2026-10-18 to 11-15, catalog.json) -- so outside that window this
+   * whole pass used to run against Heirloom, and the storybook's PDF was never written by the
+   * desktop shell at all. Selected by NAME rather than by waiting for the season, so this test says
+   * the same thing on either side of the date.
+   *
+   * It is also the harder book by every measure below: format 2, so the PDF carries symbols and
+   * clipped groups, with far more vector art per page than Heirloom's grid of portraits.
+   */
+  const picked = await page(() => {
+    const chip = [...document.querySelectorAll('#book-templates .book-template-chip')]
+      .find((b) => b.querySelector('.book-template-name')?.textContent.trim() === 'Diwali');
+    if (!chip) return null;
+    chip.click();
+    return true;
+  });
+  check('the storybook template can be chosen by name', Boolean(picked), String(picked));
+  // The chip triggers a recompose; save re-enables only once one that started after it has landed.
+  const storybook = await waitFor(() => {
+    const save = document.getElementById('book-save');
+    if (save.disabled) return false;
+    const hint = document.getElementById('book-story-hint');
+    return { pages: document.querySelectorAll('#book-preview svg').length, hintHidden: Boolean(hint?.hidden) };
+  }, { timeoutMs: 20_000 });
+  check('the storybook composes in the desktop shell, and offers "whose story" rather than explaining itself away',
+    (storybook?.pages ?? 0) > 0 && storybook?.hintHidden === true, JSON.stringify(storybook));
+
+  /*
    * A Devanagari title, before anything is saved: the composer's own tests already hold Devanagari
    * shaping to a golden fixture, so what this proves is different -- that the whole desktop path
    * (this page's fonts, the print window's own, and Chromium's PDF backend) still gets it right,

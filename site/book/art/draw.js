@@ -83,7 +83,16 @@ export function createArt(ctx, library) {
     if (filed.has(ref)) return filed.get(ref);
     if (!Object.hasOwn(library.gradients, ref)) throw new Error(`art: ${what} fills with gradient "${ref}", which the art library does not hold - rerun node tools/book_art.mjs`);
     const g = library.gradients[ref];
-    const stops = g.stops.map(([o, t, a]) => (a === undefined ? [o, colour(t, `gradient ${ref}`)] : [o, colour(t, `gradient ${ref}`), a]));
+    /*
+     * Always three parts. The Book format's stop is `[offset, colour, opacity]`
+     * (docs/family-book.md, "Gradients"), and Android's reader enforces exactly that
+     * (`Book.kt`: "a stop is [offset, colour, opacity]"). This used to drop the opacity when the
+     * art did not state one, so every gradient the art library owns reached the book two parts
+     * long - which `svg.js` happily painted and Android refused outright, with the result that no
+     * storybook could be opened on a phone at all. An absent opacity is 1, and saying so is what
+     * the format asks for. `svg.js` still emits no `stop-opacity` for 1, so no drawing changes.
+     */
+    const stops = g.stops.map(([o, t, a]) => [o, colour(t, `gradient ${ref}`), a ?? 1]);
     filed.set(ref, ctx.gradient(SYMBOL_PREFIX + ref, { ...g, stops }));
     return filed.get(ref);
   };
