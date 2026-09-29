@@ -68,7 +68,13 @@ fun bookEngine(site: File): List<File> {
         check(file.startsWith(site.canonicalFile)) { "the book engine imports ${file} from outside site/" }
         specifier.findAll(file.readText()).forEach { queue.add(file.parentFile.resolve(it.groupValues[1]).canonicalFile) }
     }
-    return found.toList() + (site.resolve("book/templates").listFiles { f -> f.extension == "json" }?.sorted() ?: emptyList())
+    // Every template except the ones this release deliberately does not carry: Heirloom arrives by
+    // download instead (#214), which is why `catalog.json` still lists it and the assets do not have
+    // it - `BookTemplates` skips a listed template whose file is absent, and the signed catalogue
+    // offers it. The desktop packages `site/` directly and is unaffected.
+    val byDownload = setOf("heirloom.json")
+    return found.toList() +
+        (site.resolve("book/templates").listFiles { f -> f.extension == "json" && f.name !in byDownload }?.sorted() ?: emptyList())
 }
 
 android {
@@ -79,8 +85,8 @@ android {
         applicationId = "com.vibethroughcode.ftree"
         minSdk = 26
         targetSdk = 36
-        versionCode = 32
-        versionName = "0.11.0-beta.1"
+        versionCode = 33
+        versionName = "0.11.0-beta.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -198,6 +204,9 @@ android {
     sourceSets {
         getByName("androidTest") {
             assets.srcDir(rootProject.file("site/book/golden"))
+            // Heirloom is no longer in the app's own assets (#214, it downloads), but the format-1
+            // golden PDF is still worth drawing, so the tests carry the templates themselves.
+            assets.srcDir(rootProject.file("site/book/templates"))
         }
     }
 }

@@ -441,6 +441,15 @@ it arrives, and *Couldn't verify* when it is refused. *Remove copy* appears unde
 template while it is the chosen one - that frees the space and returns the tile to *Download*.
 Turning the switch off stops the network; it does not take a downloaded book away.
 
+**Heirloom is the first one.** From v0.11.0-beta.2 the Android release does not carry
+`heirloom.json`: `catalog.json` still lists it, the assets simply do not have it, and
+`BookTemplates` already skips a listed template whose file is absent - so it appears in the picker as
+a download and nothing else had to change, not the catalogue, not the seasons, not the policy tiers.
+An install that takes that beta keeps Diwali and fetches Heirloom if it wants it. **The desktop still
+ships both**: it packages `site/` directly and has no download path, which is a deliberate non-goal,
+so the two shells carry different templates from that release on. The excluded list is one line in
+`app/build.gradle.kts`'s `bookEngine`.
+
 **Publishing one.** The private key never enters the repository, and no placeholder key does either -
 with `TEMPLATE_PUBLIC_KEY` empty the feature is dormant and the switch is absent.
 

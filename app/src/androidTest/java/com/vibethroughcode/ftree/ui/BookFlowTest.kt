@@ -201,25 +201,13 @@ class BookFlowTest {
         rule.onAllNodesWithTag(BookFeaturedResetTag).assertCountEquals(0)
     }
 
-    /**
-     * Heirloom is the one template left that does not tell a person's story - `featuresOnePerson`
-     * reads that off the template's own `format`, not a hand-written list - so there "Whose story"
-     * and "Include notes" explain themselves with a hint rather than hiding, exactly as the issue's
-     * acceptance criteria ask.
+    /*
+     * The flow that held the "Heirloom doesn't feature one person yet." hint on a device lived here
+     * until v0.11.0-beta.2, when Heirloom became a download (#214) and no format-1 template shipped
+     * for it to run against. The decision behind the hint is not untested: `BookOptionsTest` holds
+     * `featuresOnePerson` to the real `heirloom.json`, read from `site/`, which is where that answer
+     * is actually made. Restore this test if a format-1 template ever ships again.
      */
-    @Test
-    fun heirloomExplainsWhyWhoseStoryDoesNothingThereYet() {
-        rule.waitUntil(10_000) { rule.onAllNodesWithTag(TreeBookTag).fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithTag(TreeBookTag).performClick()
-        waitForBook()
-
-        rule.onNodeWithText("Heirloom").performClick()
-        rule.waitUntil(5_000) {
-            rule.onAllNodesWithText("Heirloom doesn't feature one person yet.").fetchSemanticsNodes().isNotEmpty()
-        }
-        rule.onNodeWithTag(BookFeaturedRowTag).assertExists()
-        rule.onNodeWithTag(BookNotesTag).assertExists()
-    }
 
     /**
      * #260: the other half of that, on the template that actually ships the storybook.
