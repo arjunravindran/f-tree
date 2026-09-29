@@ -120,9 +120,20 @@ export function doorway(ctx, page, { x1, x2, y }, what) {
   return hung ? [hung] : [];
 }
 
+/** The plinth's own height, before the lighter paper-shadow tread under it. */
+const STEP_H = 9;
+
+/**
+ * How far below the `y` it is given `step()`'s drawing actually reaches: the plinth, plus the
+ * paper-shadow tread under it. A caller that needs something below the step to clear it - a
+ * caption's first line, say - has to clear this, not just the bare `y`: a 9 pt solid block does not
+ * behave like the hairline `groundLine` draws at the same `y` (#257 round 3, regression 1).
+ */
+export const STEP_DROP = STEP_H * 1.7;
+
 /** The cut-paper step a household stands on: a plinth of `stone`, with the paper shadow. */
 export function step(ctx, { x1, x2, y }) {
-  const w = x2 - x1 + 26, h = 9;
+  const w = x2 - x1 + 26, h = STEP_H;
   const x = x1 - 13;
   return [
     rect(x + 1.7, y + 2.3, w, h, { fill: ctx.P.ink, op: 0.22 }),

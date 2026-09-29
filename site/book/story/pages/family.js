@@ -33,7 +33,7 @@
 import { PAGE } from '../../format.js';
 import { chapterCopy, kinCaption, nameOf, rootsLine, stillToBeFoundCaption } from '../copy.js';
 import {
-  SAFE, TYPE, doorway, folio, groundLine, handmadePaper,
+  SAFE, STEP_DROP, TYPE, doorway, folio, groundLine, handmadePaper,
   noteCard, noteHeight, sanjhiBand, step, tailpiece, titleBlock,
 } from './parts/paper.js';
 import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait, rowStage } from './parts/medallions.js';
@@ -61,6 +61,17 @@ const SLACK = 34;
  * the cord this far above the frame top, so the two always agree.
  */
 const TORAN_ROOM = 30;
+
+/**
+ * How far past a row's own frame-bottom (`cy + d * HANG`) its captions start: clear of the thin
+ * ground line, or - when a solo cluster or the `steps` variant stands the row on the solid step
+ * instead (finding 16) - clear of the step's own drawn height. `drawRow` (which draws the captions)
+ * and `sizeRows` (which budgets the room they need) both read this one function, so the row that
+ * lays a caption out and the row that reserves space for it can no longer disagree about where it
+ * starts the way they did in #257 round 3's regression 1: a hard-coded `+ 6` that put a caption's
+ * first line inside the step's own 9 pt plinth.
+ */
+const capGap = (stepHere) => (stepHere ? 4 + STEP_DROP + 4 : 6);
 
 const PAGE_MID = PAGE.w / 2;
 
@@ -155,7 +166,8 @@ function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
     // The ground line means "siblings share one ground line" - under a solo frame it is a
     // meaningless shelf, so a cluster of one takes the step instead, whatever the row's own
     // variant is (#257 round 2, finding 16).
-    if (variant === 'steps' || ids.length === 1) behind.push(...step(ctx, span));
+    const stepHere = variant === 'steps' || ids.length === 1;
+    if (stepHere) behind.push(...step(ctx, span));
     else behind.push(...groundLine(ctx, page, span, `${tag}-${i}`));
     if (variant === 'doorways') behind.push(...doorway(ctx, page, { x1: span.x1, x2: span.x2, y: cy - d * RIM - TORAN_ROOM }, `${tag}-${i}`));
     for (let j = 0; j + 1 < ids.length; j++) {
@@ -164,9 +176,11 @@ function drawRow(ctx, story, page, { clusters, d, cy }, variant, tag) {
     // One life stage for the whole cluster (finding 21): siblings a year or two either side of
     // the elder cutoff used to read as two generations apart, each read at their own age alone.
     const stage = rowStage(ctx, story, ids);
+    // The caption starts clear of whichever shelf this cluster actually stands on (see `capGap`).
+    const top = cy + d * HANG + capGap(stepHere);
     ids.forEach((id, j) => {
       front.push(...portrait(ctx, story, id, centres[j], cy, d, stage));
-      captions.push(...caption(ctx, story, id, { cx: centres[j], top: cy + d * HANG + 6, width: pitch - 6, nameLines }).items);
+      captions.push(...caption(ctx, story, id, { cx: centres[j], top, width: pitch - 6, nameLines }).items);
     });
     x += width + CLUSTER_GAP;
   });
@@ -461,17 +475,24 @@ function rowsOf(story, page) {
   return rows;
 }
 
+/** Whether any cluster on a row stands on the solid step rather than the thin ground line. */
+const rowStepHere = (variant, clusters) => variant === 'steps' || clusters.some((ids) => ids.length === 1);
+
 /**
  * How big every frame is, and where each row sits: one size for the story's own people and a
  * smaller one for the circle beyond them, both cut down together until the rows fit the page.
  */
-function sizeRows(ctx, story, rows, top, bottom, headroom) {
+function sizeRows(ctx, story, rows, top, bottom, headroom, variant) {
   const core = rows.filter((r) => !r.outer);
   const base = Math.min(FRAME.max, ...(core.length ? core : rows).map((r) => fitRow(ctx, r.clusters, FRAME.max)));
   const sizeOf = (row, d) => Math.min(row.outer ? d * SECONDARY : d, fitRow(ctx, row.clusters, FRAME.max));
+  // The gap between a row's frames and its captions - `capGap`, same as `drawRow` reads - so a row
+  // that stands on the step is budgeted the room its (lower) caption actually needs (#257 round 3,
+  // regression 1).
+  const gapOf = (row) => capGap(rowStepHere(variant, row.clusters));
   const height = (d) => rows.reduce((sum, row) => {
     const rd = sizeOf(row, d);
-    return sum + headroom + rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP;
+    return sum + headroom + rd * (RIM + HANG) + gapOf(row) + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP;
   }, 0);
 
   const room = bottom - top;
@@ -491,7 +512,7 @@ function sizeRows(ctx, story, rows, top, bottom, headroom) {
   for (const row of rows) {
     const rd = sizeOf(row, d);
     out.push({ clusters: row.clusters, d: rd, cy: y + headroom + rd * RIM });
-    y += headroom + rd * (RIM + HANG) + 6 + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP + slack;
+    y += headroom + rd * (RIM + HANG) + gapOf(row) + rowCaptionHeight(ctx, story, row.clusters, rd) + ROW_GAP + slack;
   }
   return out;
 }
@@ -503,7 +524,8 @@ function sizeRows(ctx, story, rows, top, bottom, headroom) {
  */
 function closer(ctx, story, page, rows) {
   const last = rows[rows.length - 1];
-  const bottom = last ? last.cy + last.d * HANG + 6 + rowCaptionHeight(ctx, story, last.clusters, last.d) : SAFE.top;
+  const lastGap = last ? capGap(rowStepHere(page.variant, last.clusters)) : 0;
+  const bottom = last ? last.cy + last.d * HANG + lastGap + rowCaptionHeight(ctx, story, last.clusters, last.d) : SAFE.top;
   if (page.variant === 'steps') {
     return bottom + 26 <= SAFE.bottom ? [ctx.art.place('divider-lotus', { x: PAGE_MID, y: SAFE.bottom - 14, w: 150 })] : [];
   }
@@ -525,7 +547,7 @@ function gathering(ctx, page, story) {
 
   const note = pageNote(ctx, page);
   const noteH = noteHeight(ctx, note, 330);
-  const rows = sizeRows(ctx, story, rowsOf(story, page), block.bottom + 8, SAFE.bottom - noteH, page.variant === 'doorways' ? TORAN_ROOM : 0);
+  const rows = sizeRows(ctx, story, rowsOf(story, page), block.bottom + 8, SAFE.bottom - noteH, page.variant === 'doorways' ? TORAN_ROOM : 0, page.variant);
   rows.forEach((row) => items.push(...drawRow(ctx, story, page, row, page.variant, `r${row.clusters.flat()[0]}`)));
 
   if (note) items.push(...noteCard(ctx, page, note, { cx: PAGE_MID, top: SAFE.bottom - noteH + 24, w: 330 }).items);

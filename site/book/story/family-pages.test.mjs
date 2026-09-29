@@ -492,6 +492,32 @@ test('a solo frame stands on the step, never a ground line meant for siblings sh
   assert.ok(stepRects.length >= 3, 'a solo frame got no step under it either');
 });
 
+test('the step sits clear of the caption below it, not printing through the name line (#257 round 3, regression 1)', async () => {
+  // The same solo-child rewrite as the test above: a lone cluster always takes the step (finding
+  // 16), and the step is the one shelf that can overlap a caption - a thin ground line cannot, at
+  // the same `y` (docs above `drawRow`, family.js).
+  const { book, report } = await compose('story-devanagari', {
+    archetype: 'gathering',
+    rewrite: (page, story) => {
+      const [solo] = story.kin.circles.children;
+      assert.ok(solo, 'the fixture no longer has a solo child to test with');
+      return { archetype: 'gathering', variant: 'band', density: 'family', people: [solo], groups: [{ key: 'solo:', people: [solo] }] };
+    },
+  });
+  const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.length === 1 && p.variant === 'band');
+  assert.ok(info, 'the rewrite did not produce a one-person band-variant page');
+  const items = book.pages[info.page - 1].items;
+  // The step's own full drawn extent: the plinth and the lighter paper-shadow tread under it - the
+  // envelope a caption below has to clear, not just the plinth's own top edge.
+  const stepRects = items.filter((it) => it.t === 'rect' && it.fill && it.h && it.h < 12);
+  assert.ok(stepRects.length >= 3, 'a solo frame got no step under it');
+  const stepBottom = Math.max(...stepRects.map((r) => r.y + r.h));
+  const nameBox = report.textBoxes.find((b) => b.page === info.page && b.kind === 'name');
+  assert.ok(nameBox, 'the solo frame has no name line on the page');
+  assert.ok(nameBox.y >= stepBottom - 0.5,
+    `the step (drawn down to y=${stepBottom.toFixed(1)}) crosses the caption's name line (its ink starts at y=${nameBox.y.toFixed(1)})`);
+});
+
 test('an aunt is drawn dramatically smaller than the parent she stands under', async () => {
   const { report, kin } = await compose('story-leaf');
   const info = report.pages.find((p) => p.archetype === 'gathering' && p.people.some((id) => kin.people.get(id).role === 'aunt-uncle'));
