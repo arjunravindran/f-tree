@@ -27,7 +27,7 @@ import { noLivingAge, noTextInBusyArt, noTextOverlap } from '../qa/invariants.mj
 import { kinOf, CIRCLES } from './kin.js';
 import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
-import { countInCircle, numberFact } from './copy.js';
+import { chapterVars, countInCircle, numberFact } from './copy.js';
 import { countWords } from '../blocks/words.js';
 import { FIGURES, figureVignette, figuresFor, generationsBehind, lostName } from './pages/lists.js';
 import { NAME_SIZE, ROW, SECTION_TITLES, duplicateRegisterNames, personRow, splitColumns } from './pages/parts/register-rows.js';
@@ -421,6 +421,28 @@ function usesOn(page, refs) {
   walk(page.items);
   return n;
 }
+
+/*
+ * Ankit's decision 9: the chapter's own count and the page's own lamps must be the same number.
+ *
+ * They were two definitions. `plan.js` put people with no *recorded* name on the page; `copy.js`
+ * counted people with no *printable* name - and `nameOf` gives an unnamed person a kin description
+ * to print ("Raj Kumar's wife"), so almost nobody counted. `story-large` read "0 lamps are lit"
+ * over three lit lamps, and `story-unnamed` counted five for a page that does not exist. #258 fixed
+ * the page by handing it the plan's count and left `copy.js` wrong for every other caller; there is
+ * one definition now (`plan.js`'s `isStillToBeFound`).
+ *
+ * This holds them together on every fixture, in both directions - a chapter that over-counts is as
+ * wrong as one that under-counts, and the old code did both.
+ */
+test('the chapter\'s count of names still to be found is the number of lamps actually lit', async () => {
+  for (const fixture of STORY) {
+    const { family, kin, plan } = await book(fixture);
+    const lit = plan.pages.reduce((n, p) => n + (p.archetype === 'still-to-be-found' ? p.people.length : 0), 0);
+    assert.equal(chapterVars('still-to-be-found', family, kin).n, lit,
+      `${fixture}: the copy counts a different number of names than the book lights lamps for`);
+  }
+});
 
 test('still to be found keeps exactly one lamp for each name, and never one more', async () => {
   for (const fixture of EVERY) {

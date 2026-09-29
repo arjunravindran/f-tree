@@ -32,7 +32,7 @@
 import { PLACEHOLDER } from '../template.js';
 import { andList, countWords, fromFamily, ORDINALS } from '../blocks/words.js';
 import { byKey } from '../family.js';
-import { CHAPTERS, NO_NOTES } from './plan.js';
+import { CHAPTERS, NO_NOTES, isStillToBeFound } from './plan.js';
 
 /* ------------------------------------------------------------------ template placeholders */
 
@@ -359,7 +359,7 @@ const CHAPTER_COUNT = {
   children: (family, kin) => kin.circles.children.length,
   lane: (family, kin) => kin.circles.branches.length + kin.circles.lane.length,
   register: (family, kin) => kin.people.size,
-  'still-to-be-found': (family, kin) => [...kin.people.keys()].filter((id) => !nameOf(family, kin, id)).length,
+  'still-to-be-found': (family, kin) => [...kin.people.keys()].filter((id) => isStillToBeFound(family, kin, id)).length,
 };
 
 /**
