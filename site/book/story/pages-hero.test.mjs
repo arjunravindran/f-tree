@@ -460,15 +460,36 @@ test('finding 3: the arch view is a scene - a skyline and a river - not a gradie
   assert.ok(all.some((it) => it.t === 'path' && it.fill === PAPERCUT_PALETTE.stone), 'no skyline silhouette in the view');
 });
 
-test('finding 4: lamp rows tilt and interleave, and the near rows light the leaf-boat lamp', () => {
+test('finding 4: every lamp row bends visibly, at the sizes where the field used to band', () => {
+  /*
+   * #287, finding 4. The tilt was `(rand() - 0.5) * w * 0.5`, and `w` is the LAMP width, which is
+   * capped by the lamp spacing - so it shrinks as the family grows. The bend disappeared exactly
+   * where the banding appeared. This asserted `rows.some((r) => r.y1 !== r.y2)` at 96 people: one
+   * row bending by any amount at all passed it, including the 0.2 pt that reads as a ruled line.
+   *
+   * It is EVERY row now, at the sizes that actually band, against a threshold expressed as a
+   * fraction of the row's own span - which is the width the bend is seen at. 1.5% of a 300 pt row
+   * is 4.5 pt end to end: shallow, but a bend. Against the old code the 400-person field tilted
+   * as little as 0.07% of its span.
+   */
   const box = { x: 240, y: 514, w: 345, h: 216 };
-  const rows = lampRows(96, box);
-  assert.ok(rows.some((r) => r.y1 !== r.y2), 'every row is still a flat, ruled line');
-  assert.ok(rows.some((r) => r.boat), 'no row lights the leaf-boat variant');
-  for (const r of rows) {
-    assert.ok(r.y1 >= box.y - 1e-6 && r.y1 <= box.y + box.h + 1e-6, `a tilted row's near end (${r.y1}) runs outside the lamps zone`);
-    assert.ok(r.y2 >= box.y - 1e-6 && r.y2 <= box.y + box.h + 1e-6, `a tilted row's far end (${r.y2}) runs outside the lamps zone`);
+  for (const n of [96, 200, 400]) {
+    for (const r of lampRows(n, box)) {
+      const span = Math.abs(r.x2 - r.x1);
+      const bend = Math.abs(r.y2 - r.y1);
+      assert.ok(bend / span >= 0.015,
+        `${n}: a row of ${r.count} bends ${bend.toFixed(2)} pt across ${span.toFixed(0)} pt (${(100 * bend / span).toFixed(2)}%) - a ruled line`);
+      assert.ok(r.y1 >= box.y - 1e-6 && r.y1 <= box.y + box.h + 1e-6, `${n}: a tilted row's near end (${r.y1}) runs outside the lamps zone`);
+      assert.ok(r.y2 >= box.y - 1e-6 && r.y2 <= box.y + box.h + 1e-6, `${n}: a tilted row's far end (${r.y2}) runs outside the lamps zone`);
+    }
   }
+  const rows = lampRows(96, box);
+  assert.ok(rows.some((r) => r.boat), 'no row lights the leaf-boat variant');
+  // A row that bent by the same amount every time would be its own kind of ruled - they differ,
+  // and they do not all lean the same way.
+  const signed = lampRows(400, box).map((r) => (r.y2 - r.y1) / Math.abs(r.x2 - r.x1));
+  assert.ok(new Set(signed.map((v) => v.toFixed(3))).size > 1, 'every row bends by exactly the same amount');
+  assert.ok(signed.some((v) => v > 0) && signed.some((v) => v < 0), 'every row leans the same way, so the field shears');
 });
 
 test('finding 5: the ghat figures read as separate people, not a row of bollards', async () => {

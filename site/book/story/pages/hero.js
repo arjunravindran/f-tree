@@ -55,6 +55,24 @@ export const MIN_LAMP = 5;
 /** How wide the furthest row runs, as a fraction of the lamps zone: the river bends away. */
 const FAR_SPREAD = 0.62;
 /*
+ * #287, finding 4: why the field banded once a family was large.
+ *
+ * The tilt was scaled by the LAMP width, and the lamp width is capped by the lamp spacing - so it
+ * shrinks as the count rises. The bend therefore vanished exactly where it was needed: at 400
+ * people the rows tilted 0.2-0.9 pt across a 300 pt span, which is a ruled line, and the rows read
+ * as the textile swatch round 2 was trying to get away from. It is scaled by the row's own SPAN
+ * now, so a row bends by the same visible fraction of itself at every size, and the magnitude has
+ * a floor as well as a ceiling - a seeded tilt that came out near zero was its own flat row.
+ *
+ * The issue also asks for an alternating phase offset so adjacent rows' lamps do not line up. I
+ * could not show that defect: adjacent rows differ in both count and span, so they already walk
+ * out of phase, and only 1-3 of a 12-row field have a lamp near the centre line, scattered. The
+ * pairs of lamps that do coincide are one in twenty-odd - moire, not a seam - so nothing here
+ * shifts sideways for it.
+ */
+const TILT_MIN = 0.018;   // of the row's span, end to end
+const TILT_MAX = 0.055;
+/*
  * A lamp keeps its own glow while it is near enough for the glow to read. Further off it is drawn
  * as `diya-small`, the same lamp without the glow discs: `ghat-night` already lays one warm glow
  * over the whole lamps zone, "whatever their number" (tools/book_scenes.mjs), so a small lamp's own
@@ -105,13 +123,17 @@ export function lampRows(n, box) {
     const count = base + (i < extra ? 1 : 0);
     const t = rows === 1 ? 1 : i / (rows - 1);          // 0 far, 1 near
     const spread = FAR_SPREAD + (1 - FAR_SPREAD) * Math.pow(t, 0.8);
-    const cyBase = box.y + box.h * (0.12 + 0.82 * t);
-    const cy = Math.min(box.y + box.h, Math.max(box.y, cyBase + (rand() - 0.5) * rowGap * 0.32));
     const half = (box.w * spread) / 2;
     const cx = box.x + box.w * (0.5 + 0.06 * (1 - t));   // the far rows sit a little upstream
     // the rows near the foot grow fastest, which is how a receding row of lamps really looks
     const w = Math.min(FAR_LAMP + (NEAR_LAMP - FAR_LAMP) * t * t, count > 1 ? ((2 * half) / (count - 1)) * 0.95 : NEAR_LAMP);
-    const tilt = (rand() - 0.5) * w * 0.5;
+    /*
+     * The bend is a fraction of the row's own span, with a floor: a row always bends visibly, and
+     * always by a different amount and in its own direction.
+     */
+    const tilt = (2 * half) * (TILT_MIN + rand() * (TILT_MAX - TILT_MIN)) * (rand() < 0.5 ? -1 : 1) / 2;
+    const cyBase = box.y + box.h * (0.12 + 0.82 * t);
+    const cy = Math.min(box.y + box.h - Math.abs(tilt), Math.max(box.y + Math.abs(tilt), cyBase + (rand() - 0.5) * rowGap * 0.32));
     out.push({
       from: at, count, x1: cx - half, x2: cx + half, y: cy, w,
       y1: cy - tilt, y2: cy + tilt, boat: t > 0.72,
@@ -333,7 +355,16 @@ function view(ctx, box, { mirror = false, seed = 'view' } = {}) {
   items.push(path(String(d), { fill: P.stone }));
 
   const riverY = box.y + box.h * 0.82;
-  items.push(rect(box.x, riverY, box.w, box.y + box.h - riverY, { fill: P.wash, op: 0.55 }));
+  /*
+   * #287, finding 3: this was `wash` at op 0.55 over the gradient, and by 0.82 down the gradient
+   * is `dayMid` at full strength - so the river composited to #9e969a, a dead neutral grey, from
+   * a clear blue (#6f93c7) over a warm orange (#d99a62). The two cancelled each other exactly.
+   *
+   * A paper-cut layer is a piece of cut paper laid on another, not a glaze over it, so the river
+   * is its own colour now. The ripple strokes below keep their opacity - those are ink ON the
+   * water, which is a different thing from the water.
+   */
+  items.push(rect(box.x, riverY, box.w, box.y + box.h - riverY, { fill: P.wash }));
   const ripple = new PathData();
   for (let i = 0; i < 2; i++) { const ry = riverY + (box.y + box.h - riverY) * (0.32 + i * 0.34); ripple.M(box.x + box.w * 0.1, ry).L(box.x + box.w * 0.9, ry); }
   items.push(path(String(ripple), { stroke: P.card, sw: 0.6, op: 0.3 }));
