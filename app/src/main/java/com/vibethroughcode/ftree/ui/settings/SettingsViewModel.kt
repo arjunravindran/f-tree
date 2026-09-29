@@ -13,6 +13,7 @@ import com.vibethroughcode.ftree.data.OccasionCensus
 import com.vibethroughcode.ftree.reminders.ReminderLead
 import com.vibethroughcode.ftree.reminders.ReminderPreferences
 import com.vibethroughcode.ftree.reminders.Reminders
+import com.vibethroughcode.ftree.book.TemplateDownloader
 import com.vibethroughcode.ftree.update.AvailableUpdate
 import com.vibethroughcode.ftree.update.UpdatePreferences
 import com.vibethroughcode.ftree.update.UpdateRepository
@@ -34,6 +35,7 @@ class SettingsViewModel(
     private val nearbyRepository: NearbyRepository,
     private val reminderPreferences: ReminderPreferences,
     private val reminders: Reminders,
+    private val templateDownloads: TemplateDownloader,
 ) : ViewModel() {
 
     val remindersEnabled: StateFlow<Boolean> = reminderPreferences.enabled
@@ -108,6 +110,43 @@ class SettingsViewModel(
 
     fun setBetaChannel(value: Boolean) = preferences.setBetaChannel(value)
 
+    /**
+     * Whether the app may ask about book templates, and whether this build can at all (#214).
+     *
+     * [templatesOffered] is false when no signing key is pinned in the build, and the switch is not
+     * shown at all then: a switch that could only ever refuse would be a promise the build cannot
+     * keep.
+     */
+    val templatesEnabled: StateFlow<Boolean> = preferences.templates
+    val templatesOffered: Boolean = templateDownloads.configured()
+
+    private val _templateRefresh = MutableStateFlow<TemplateDownloader.Refresh?>(null)
+
+    /** What the last catalogue check came to, for the one line under the switch. */
+    val templateRefresh: StateFlow<TemplateDownloader.Refresh?> = _templateRefresh.asStateFlow()
+
+    fun setTemplatesEnabled(value: Boolean) {
+        preferences.setTemplates(value)
+        if (!value) {
+            _templateRefresh.value = null
+        } else {
+            // Turning it on is the consent to look, and looking means the catalogue - never a template.
+            refreshTemplates()
+        }
+    }
+
+    /**
+     * Fetches the signed catalogue, and only that.
+     *
+     * Called from here and from [check], so the button that already asks GitHub about releases asks
+     * about templates in the same breath. It never downloads a template: that takes a tap on the
+     * template itself, in the book screen.
+     */
+    fun refreshTemplates() {
+        if (!templatesOffered) return
+        viewModelScope.launch { _templateRefresh.value = templateDownloads.refreshCatalogue() }
+    }
+
     val photosInChart: StateFlow<Boolean> = chart.photosInChart
 
     fun setPhotosInChart(enabled: Boolean) = chart.setPhotosInChart(enabled)
@@ -130,6 +169,7 @@ class SettingsViewModel(
     fun check() {
         work?.cancel()
         work = viewModelScope.launch { updates.check(manual = true) }
+        refreshTemplates()
     }
 
     fun download(update: AvailableUpdate) {

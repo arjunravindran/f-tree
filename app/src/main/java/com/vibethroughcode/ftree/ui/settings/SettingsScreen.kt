@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibethroughcode.ftree.BuildConfig
 import com.vibethroughcode.ftree.R
+import com.vibethroughcode.ftree.book.TemplateDownloader
 import com.vibethroughcode.ftree.data.KinshipLanguage
 import com.vibethroughcode.ftree.ui.common.SectionRule
 import com.vibethroughcode.ftree.ui.nearby.NearbyMode
@@ -82,6 +83,23 @@ const val SettingsWordsHindiTag = "settings-words-hindi"
 const val SettingsExportTag = "settings-export"
 const val SettingsImportTag = "settings-import"
 const val SettingsBetaToggleTag = "settings-beta-toggle"
+const val SettingsTemplatesToggleTag = "settings-templates-toggle"
+
+/**
+ * The one sentence a catalogue check earns (#214).
+ *
+ * "Nothing new" covers both a catalogue no newer than the one already verified and an older one
+ * replayed at the app, deliberately: they are the same answer to the reader, and the second is
+ * refused either way.
+ */
+private fun templateRefreshMessage(refresh: TemplateDownloader.Refresh): Int = when (refresh) {
+    TemplateDownloader.Refresh.Off -> R.string.settings_templates_explainer
+    TemplateDownloader.Refresh.None -> R.string.settings_templates_none
+    TemplateDownloader.Refresh.Unchanged -> R.string.settings_templates_unchanged
+    is TemplateDownloader.Refresh.Updated -> R.string.settings_templates_updated
+    is TemplateDownloader.Refresh.Refused -> R.string.settings_templates_refused
+    is TemplateDownloader.Refresh.Failed -> R.string.settings_templates_failed
+}
 const val SettingsBetaConfirmTag = "settings-beta-confirm"
 const val SettingsNearbyToggleTag = "settings-nearby-toggle"
 const val SettingsNearbySendTag = "settings-nearby-send"
@@ -113,6 +131,8 @@ fun SettingsScreen(
     val photosInChart by viewModel.photosInChart.collectAsStateWithLifecycle()
     val kinshipLanguage by viewModel.kinshipLanguage.collectAsStateWithLifecycle()
     val betaChannel by viewModel.betaChannel.collectAsStateWithLifecycle()
+    val templatesEnabled by viewModel.templatesEnabled.collectAsStateWithLifecycle()
+    val templateRefresh by viewModel.templateRefresh.collectAsStateWithLifecycle()
     var confirmingBeta by remember { mutableStateOf(false) }
     val nearbyEnabled by viewModel.nearbyEnabled.collectAsStateWithLifecycle()
     val deviceName by viewModel.deviceName.collectAsStateWithLifecycle()
@@ -190,6 +210,25 @@ fun SettingsScreen(
                     onCheckedChange = viewModel::setUpdatesEnabled,
                     tag = SettingsUpdatesToggleTag,
                 )
+
+                /*
+                 * Under the updates switch and gated on it, because it makes the same request to the
+                 * same place (#214). Its own switch rather than a mode of that one: this is consent
+                 * to ask about book templates, and consent to fetch one when you tap it - never
+                 * consent to fetch templates on its own.
+                 */
+                if (viewModel.templatesOffered) {
+                    AnimatedVisibility(visible = enabled) {
+                        SettingsSwitch(
+                            title = stringResource(R.string.settings_templates_toggle),
+                            body = templateRefresh?.let { stringResource(templateRefreshMessage(it)) }
+                                ?: stringResource(R.string.settings_templates_explainer),
+                            checked = templatesEnabled,
+                            onCheckedChange = viewModel::setTemplatesEnabled,
+                            tag = SettingsTemplatesToggleTag,
+                        )
+                    }
+                }
 
                 AnimatedVisibility(visible = enabled) {
                     UpdatePanel(

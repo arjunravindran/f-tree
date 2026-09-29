@@ -74,7 +74,10 @@ class BookPdfTest {
     }
 
     private fun input(templateId: String = "heirloom"): String = runBlocking {
-        val template = BookTemplates(app).offered(java.time.LocalDate.of(2026, 9, 15)).first { it.id == templateId }.json
+        // Shipped templates always carry their JSON; only a template offered for download does not.
+        val template = checkNotNull(
+            BookTemplates(app).offered(java.time.LocalDate.of(2026, 9, 15)).first { it.id == templateId }.json
+        )
         buildJsonObject {
             put("doc", ExportJson.parseToJsonElement(ExportJson.encodeToString(TreeDocument.serializer(), document())))
             putJsonObject("options") { put("now", "2026-09-15") }

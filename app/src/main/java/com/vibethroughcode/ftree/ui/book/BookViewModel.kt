@@ -12,6 +12,7 @@ import com.vibethroughcode.ftree.book.BookComposer
 import com.vibethroughcode.ftree.book.BookFailure
 import com.vibethroughcode.ftree.book.BookPrinter
 import com.vibethroughcode.ftree.book.BookTemplates
+import com.vibethroughcode.ftree.book.TemplateDownloader
 import com.vibethroughcode.ftree.data.FamilyRepository
 import com.vibethroughcode.ftree.data.KinshipLanguage
 import com.vibethroughcode.ftree.data.KinshipPreferences
@@ -121,6 +122,15 @@ data class TemplateChoice(
      * makes this worth declaring in `template.js` instead of naming it here by id.
      */
     val featuresOnePerson: Boolean = true,
+    /**
+     * True for a template the signed catalogue offers that this device does not have (#214). There is
+     * nothing to draw a cover with and nothing to compose: the tile offers the download instead.
+     */
+    val available: Boolean = false,
+    /** True for a template that came from a download, so its copy can be removed to free the space. */
+    val removable: Boolean = false,
+    /** What this tile is doing, when it is doing anything: downloading, or explaining a refusal. */
+    val status: TemplateDownloader.Status? = null,
 )
 
 data class BookUiState(
@@ -175,6 +185,7 @@ class BookViewModel(
     private val printer: BookPrinter,
     private val composer: BookComposer,
     private val templates: BookTemplates,
+    private val downloads: TemplateDownloader?,
     private val policy: Policy?,
     private val entitlements: EntitlementSource,
     private val ledger: UsageLedger,
@@ -229,25 +240,88 @@ class BookViewModel(
             val branchOf = scopePersonId?.let { id -> people.firstOrNull { it.id == id }?.name?.trim()?.split(Regex("\\s+"))?.firstOrNull() }
             document = Json.parseToJsonElement(exporter.documentJson())
             val list = templates.offered(today())
-            templateJson = list.associate { it.id to it.json }
-            tierOf = list.associate { it.id to it.tier }
+            apply(list)
             _state.update {
                 it.copy(
                     branchOf = branchOf,
                     hasPhotos = people.any { p -> p.photoId != null },
-                    templates = list.map { t -> TemplateChoice(t.id, t.name, t.featured, null, featuresOnePerson = featuresOnePerson(t.json)) },
                 )
             }
-            list.firstOrNull()?.let { first -> change { it.copy(templateId = first.id) } }
+            list.firstOrNull { it.json != null }?.let { first -> change { it.copy(templateId = first.id) } }
 
             // The book first, the template choices' small covers after it: the reader is looking at
             // the book, and the composer takes one request at a time.
             launch { options.debounce(180).distinctUntilChanged().collect { compose(it) } }
             launch { drawCovers() }
+            downloads?.let { d -> launch { d.status.collect { statuses -> showStatuses(statuses) } } }
         }
     }
 
     fun setTemplate(id: String) = change { it.copy(templateId = id) }
+
+    /**
+     * Fetches the template the reader tapped, and nothing else (#214).
+     *
+     * The only thing in the book screen that touches the network, and it takes a tap to do it:
+     * opening this screen, choosing a template and composing a book never ask GitHub anything.
+     */
+    fun downloadTemplate(id: String) {
+        val downloads = downloads ?: return
+        viewModelScope.launch {
+            downloads.download(id)
+            reloadTemplates()
+        }
+    }
+
+    /**
+     * Removes the local copy of a downloaded template, which is about space and nothing else: it
+     * stays in the catalogue and its tile goes back to offering the download.
+     */
+    fun removeTemplate(id: String) {
+        val downloads = downloads ?: return
+        downloads.remove(id)
+        viewModelScope.launch { reloadTemplates() }
+    }
+
+    private suspend fun reloadTemplates() {
+        val list = templates.offered(today())
+        apply(list)
+        // A template that is no longer on the device cannot stay chosen - the copy may have been
+        // removed, or a newer catalogue may have stopped vouching for the bytes on disk.
+        if (templateJson[options.value.templateId] == null) {
+            list.firstOrNull { it.json != null }?.let { first -> change { it.copy(templateId = first.id) } }
+        }
+        drawCovers()
+    }
+
+    /** Takes what [BookTemplates] offered and makes the picker's rows out of it. */
+    private fun apply(list: List<BookTemplates.Template>) {
+        templateJson = list.mapNotNull { t -> t.json?.let { t.id to it } }.toMap()
+        tierOf = list.associate { it.id to it.tier }
+        val statuses = downloads?.status?.value.orEmpty()
+        val covers = _state.value.templates.associate { it.id to it.cover }
+        _state.update { s ->
+            s.copy(
+                templates = list.map { t ->
+                    TemplateChoice(
+                        id = t.id,
+                        name = t.name,
+                        featured = t.featured,
+                        cover = covers[t.id].takeIf { t.json != null },
+                        featuresOnePerson = t.json?.let(::featuresOnePerson) ?: true,
+                        available = t.json == null,
+                        removable = t.downloaded,
+                        status = statuses[t.id],
+                    )
+                },
+            )
+        }
+    }
+
+    private fun showStatuses(statuses: Map<String, TemplateDownloader.Status>) {
+        _state.update { s -> s.copy(templates = s.templates.map { it.copy(status = statuses[it.id]) }) }
+    }
+
     fun setTitle(title: String) = change { it.copy(title = title) }
     fun resetTitle() = change { it.copy(title = null) }
     /**

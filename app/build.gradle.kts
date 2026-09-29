@@ -98,6 +98,18 @@ android {
             "UPDATE_RELEASES_URL",
             "\"https://api.github.com/repos/thisisankit27/f-tree/releases?per_page=20\"",
         )
+        /*
+         * The one key that says which book templates this app will accept from that same place
+         * (#214): the public half of the P-256 keypair whose private half signs `templates.json`.
+         *
+         * The public half only. Its private half signs `templates.json` at release time and lives
+         * offline, outside every repository: losing it means no further catalogue can be published,
+         * and replacing it is an app update, because this line is where the trust is.
+         *
+         * Emptying this string turns the feature off entirely - no switch, and
+         * `TemplateDownloader.configured()` is false. See docs/family-book.md for the signing steps.
+         */
+        buildConfigField("String", "TEMPLATE_PUBLIC_KEY", "\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3CDF+rEzRC5k6kisDYGvyGEt355lK6GYlfZQdfH2a3DC3Ml2QVUrhTHzjZcaG2twNqJNdcEc66vTKxq6VjJwLw==\"")
         buildConfigField(
             "String",
             "RELEASES_PAGE_URL",

@@ -457,6 +457,13 @@
     <string name="coming_up_reminders_on">Birthday reminders are on</string>
     <string name="coming_up_reminders_off">Birthday reminders</string>
     <string name="settings_beta_toggle">Offer me beta releases</string>
+    <string name="settings_templates_toggle">Look for new book templates</string>
+    <string name="settings_templates_explainer">Lets the app ask GitHub which book templates are on offer, in the same breath as it asks about releases. It downloads nothing on its own: a template arrives only when you tap it in the book screen, and you can remove your copy whenever you like.</string>
+    <string name="settings_templates_updated">Checked. New templates, if any, are in the book screen, waiting to be downloaded.</string>
+    <string name="settings_templates_unchanged">Nothing new since the last look.</string>
+    <string name="settings_templates_none">This release doesn\'t offer any templates to download.</string>
+    <string name="settings_templates_refused">That list wasn\'t signed by the key this app trusts, so it was refused. Nothing was changed.</string>
+    <string name="settings_templates_failed">Couldn\'t reach GitHub. Your templates are untouched.</string>
     <string name="settings_beta_explainer">Most people should leave this off. Betas are unfinished builds put out to be tested — they can be slow, wrong, or lose work, and a fix may take days. You will be offered them ahead of everyone else, which is the point and also the risk.</string>
     <string name="settings_beta_explainer_updates_off">Turn on “Check for updates” above first. This only changes which release the updater offers you; on its own it does nothing.</string>
     <string name="settings_beta_dialog_title">Take unfinished builds?</string>
@@ -465,7 +472,7 @@
     <string name="settings_beta_dialog_confirm">Offer me betas</string>
     <string name="settings_beta_dialog_cancel">Not now</string>
     <string name="settings_permissions_title">Permissions</string>
-    <string name="settings_permissions_body">Six that never ask, and two that do. Two are for the updater: internet access to ask GitHub about releases, and permission to install an update. Three are for nearby sharing: to see the Wi-Fi network, to hear other devices on it, and to check a connection exists. One is for birthday reminders: to set the morning\'s reminder again after the phone restarts. The two that ask are the camera, only if you choose to scan a code, and you can always type instead; and notifications, only when you turn birthday reminders on. Nothing leaves the device except when you deliberately send it, to a device you can see, on a network you are already on, with no account and nothing in between.</string>
+    <string name="settings_permissions_body">Six that never ask, and two that do. Two are for the updater: internet access to ask GitHub about releases \u2014 the same access that fetches a book template, from the same place, only when you ask for one \u2014 and permission to install an update. Three are for nearby sharing: to see the Wi-Fi network, to hear other devices on it, and to check a connection exists. One is for birthday reminders: to set the morning\'s reminder again after the phone restarts. The two that ask are the camera, only if you choose to scan a code, and you can always type instead; and notifications, only when you turn birthday reminders on. Nothing about your family goes with either request, and nothing leaves the device except when you deliberately send it, to a device you can see, on a network you are already on, with no account and nothing in between.</string>
 
     <!-- Nearby sharing -->
     <string name="settings_section_nearby">Nearby sharing</string>
@@ -709,6 +716,9 @@
     <string name="book_back">Back</string>
     <string name="book_template">Template</string>
     <!-- Under a festival template that is in season, in the template choices. -->
+    <string name="book_template_get">Download</string>
+    <string name="book_template_refused">Couldn\'t verify</string>
+    <string name="book_template_remove">Remove copy</string>
     <string name="book_this_season">This season</string>
     <string name="book_title_label">Title</string>
     <string name="book_title_reset">Reset</string>

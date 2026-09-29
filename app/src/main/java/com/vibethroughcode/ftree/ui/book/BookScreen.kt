@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -93,6 +95,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vibethroughcode.ftree.BuildConfig
 import com.vibethroughcode.ftree.R
 import com.vibethroughcode.ftree.book.BookFailure
+import com.vibethroughcode.ftree.book.TemplateDownloader
 import com.vibethroughcode.ftree.book.sendBookIntent
 import com.vibethroughcode.ftree.data.Person
 import com.vibethroughcode.ftree.entitlement.Decision
@@ -391,12 +394,28 @@ private fun Options(state: BookUiState, viewModel: BookViewModel) {
     SectionRule(stringResource(R.string.book_template))
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(state.templates, key = { it.id }) { template ->
-            val selected = template.id == options.templateId
+            val selected = template.id == options.templateId && !template.available
+            val downloading = template.status is TemplateDownloader.Status.Downloading
+            val failure = (template.status as? TemplateDownloader.Status.Failed)?.failure
+            /*
+             * One tile, five states, and the same 88.dp frame for all of them (#214).
+             *
+             * A template that is offered but not on the device has no cover, because there is no
+             * JSON to draw one with - so the frame that is empty until a cover arrives is where the
+             * offer to fetch it goes, and tapping the tile downloads instead of selecting. Nothing
+             * here starts a download on its own.
+             */
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .width(96.dp)
-                    .selectable(selected = selected, role = Role.RadioButton, onClick = { viewModel.setTemplate(template.id) })
+                    .then(
+                        if (template.available) {
+                            Modifier.clickable(enabled = !downloading) { viewModel.downloadTemplate(template.id) }
+                        } else {
+                            Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = { viewModel.setTemplate(template.id) })
+                        }
+                    )
                     .padding(vertical = 4.dp),
             ) {
                 Surface(
@@ -409,6 +428,29 @@ private fun Options(state: BookUiState, viewModel: BookViewModel) {
                             drawIntoCanvas { canvas ->
                                 val native = canvas.nativeCanvas
                                 native.withScale(size.width / cover.width, size.height / cover.height, 0f, 0f) { drawPicture(cover) }
+                            }
+                        }
+                    }
+                    if (template.available) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize().padding(6.dp),
+                        ) {
+                            when {
+                                downloading -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                failure != null -> Text(
+                                    stringResource(R.string.book_template_refused),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center,
+                                )
+                                else -> Text(
+                                    stringResource(R.string.book_template_get),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
+                                )
                             }
                         }
                     }
@@ -428,6 +470,16 @@ private fun Options(state: BookUiState, viewModel: BookViewModel) {
                         color = MaterialTheme.colorScheme.tertiary,
                         maxLines = 1,
                     )
+                }
+                // Offered only on the chosen one, so a row of tiles is not a row of buttons: this is
+                // about reclaiming the space, and the template stays in the catalogue either way.
+                if (selected && template.removable) {
+                    TextButton(
+                        onClick = { viewModel.removeTemplate(template.id) },
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    ) {
+                        Text(stringResource(R.string.book_template_remove), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }

@@ -55,6 +55,7 @@ object FTreeViewModels {
                 nearbyRepository = app.container.nearbyRepository,
                 reminderPreferences = app.container.reminderPreferences,
                 reminders = app.container.reminders,
+                templateDownloads = app.container.templateDownloader,
             )
         }
         initializer {
@@ -109,6 +110,7 @@ object FTreeViewModels {
                 // One composer - one hidden WebView - per book screen, closed with it.
                 composer = BookComposer(app),
                 templates = app.container.bookTemplates,
+                downloads = app.container.templateDownloader,
                 policy = app.container.entitlementPolicy,
                 entitlements = app.container.entitlementSource,
                 ledger = app.container.usageLedger,

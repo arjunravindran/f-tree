@@ -51,6 +51,38 @@ class UpdatePreferences(context: Context) {
         prefs.edit().remove(KEY_SKIPPED).apply()
     }
 
+    private val _templates = MutableStateFlow(prefs.getBoolean(KEY_TEMPLATES, false))
+
+    /**
+     * Whether the app may ask GitHub for the book-template catalogue, and fetch a template when the
+     * reader asks for one (#214).
+     *
+     * One switch, one meaning, and nothing automatic about it: turning it on does not download a
+     * template, and no template is ever fetched except by a tap on that template. Gated in the
+     * screen on [enabled], like [betaChannel], because it makes the same request this app already
+     * makes and nothing here may start a request on its own.
+     */
+    val templates: StateFlow<Boolean> = _templates.asStateFlow()
+
+    fun setTemplates(value: Boolean) {
+        prefs.edit().putBoolean(KEY_TEMPLATES, value).apply()
+        _templates.value = value
+        // Deliberately nothing else. See [templatesSeq]: a downloaded template stays usable, and
+        // the trust state stays put.
+    }
+
+    /**
+     * The highest manifest `seq` ever verified, which a manifest must beat to be accepted.
+     *
+     * The one key here that is **not** cleared when its switch goes off, and the exception is the
+     * point: this is anti-rollback state rather than a remembered result. Clearing it would let a
+     * withdrawn manifest be replayed by turning the switch off and on again, which is exactly the
+     * move it exists to refuse. Removing a downloaded template does not touch it either.
+     */
+    var templatesSeq: Long
+        get() = prefs.getLong(KEY_TEMPLATES_SEQ, 0L)
+        set(value) = prefs.edit().putLong(KEY_TEMPLATES_SEQ, value).apply()
+
     var lastCheckedAt: Long
         get() = prefs.getLong(KEY_LAST_CHECKED, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_CHECKED, value).apply()
@@ -65,5 +97,7 @@ class UpdatePreferences(context: Context) {
         const val KEY_LAST_CHECKED = "last-checked"
         const val KEY_SKIPPED = "skipped-version"
         const val KEY_BETA = "beta-channel"
+        const val KEY_TEMPLATES = "templates-enabled"
+        const val KEY_TEMPLATES_SEQ = "templates-seq"
     }
 }
