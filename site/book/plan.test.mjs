@@ -225,9 +225,10 @@ test('a chapter overflowing its page by exactly 2 or 3 continues on a page of at
 });
 
 test('chapters of exactly 2 merge into one household page; a chapter of exactly 3 keeps its own', () => {
-  // Parents (2) and siblings (2): both under 3, so they share a page.
+  // Parents (2) and siblings (2): both under 3, so they share a page - and it takes its words
+  // from `copy.household`, not from whichever chapter happened to come first (#285).
   const two = plan(withSiblings(2), 'f').plan;
-  assert.deepEqual(two.pages.filter((pg) => pg.chapters.includes('parents')).map((pg) => [pg.chapters, pg.copyKey, pg.people.length]), [[['parents', 'siblings'], 'parents', 4]]);
+  assert.deepEqual(two.pages.filter((pg) => pg.chapters.includes('parents')).map((pg) => [pg.chapters, pg.copyKey, pg.people.length]), [[['parents', 'siblings'], 'household', 4]]);
   // Parents (2) and siblings (3): the parents' page stands alone as a portrait hero.
   const three = plan(withSiblings(3), 'f').plan;
   assert.deepEqual(three.pages.filter((pg) => ['parents', 'siblings'].includes(pg.chapter)).map((pg) => `${pg.chapters.join('+')} ${pg.archetype} ${pg.people.length}`),

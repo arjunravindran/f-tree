@@ -21,9 +21,11 @@ import { VARIANTS, CHAPTERS, planStory } from './plan.js';
 import { kinOf } from './kin.js';
 import { resolveFeatured } from './featured.js';
 import { readFamily } from '../family.js';
-import { validateTemplate, PAPERCUT_PALETTE_KEYS, HAND_FONT_KEY } from '../template.js';
+import { validateTemplate, PAPERCUT_PALETTE_KEYS, HAND_FONT_KEY, NON_CHAPTER_COPY } from '../template.js';
 import { STORY_TEMPLATE } from '../qa/story-template.mjs';
 import { loadFixture, NOW } from '../qa/book-fixtures.mjs';
+import { composeWithReport } from '../compose.js';
+import { countWords } from '../blocks/words.js';
 
 /* ------------------------------------------------------------------ the dispatch */
 
@@ -110,9 +112,12 @@ test('it carries every chapter the planner knows, in the story\'s order', () => 
 test('its copy names only chapters it lists, and every chapter but the cover has a title', () => {
   const t = validateTemplate(STORY_TEMPLATE);
   for (const chapter of Object.keys(t.copy)) {
-    assert.ok(t.story.chapters.includes(chapter), `copy.${chapter} is not a chapter`);
+    // `household` is deliberately not a chapter: a merged page belongs to several at once, so it
+    // has words of its own rather than borrowing the first chapter's (#285, template.js).
+    assert.ok(t.story.chapters.includes(chapter) || NON_CHAPTER_COPY.includes(chapter), `copy.${chapter} is not a chapter`);
     assert.ok(t.copy[chapter].title, `copy.${chapter} has no title`);
   }
+  for (const key of NON_CHAPTER_COPY) assert.ok(!t.story.chapters.includes(key), `"${key}" is a reserved copy key and must not be a chapter`);
   for (const chapter of t.story.chapters) {
     if (chapter === 'cover') continue;   // the cover's words are `cover`, not `copy.cover`
     assert.ok(t.copy[chapter], `no copy for the "${chapter}" chapter`);
@@ -141,6 +146,27 @@ test('a storybook composes through the dispatch: format 2, every planned page, t
   assert.deepEqual(report.pages.map((p) => p.page), plan.pages.map((p) => p.pageNo), 'a page was drawn under the wrong number');
   assert.deepEqual(report.pages.map((p) => p.archetype), plan.pages.map((p) => p.archetype));
   assert.ok(report.textBoxes.every((b) => b.kind), 'a line did not say what kind it is');
+});
+
+test('a merged household page takes its words from the page, not from its first chapter (#285)', async () => {
+  /*
+   * What this pins: `sample` page 5 merges siblings and spouses, and printed the siblings' own
+   * singular line - "The one who shared the house with Vinod" - over a half-sister and a wife.
+   * Two things were wrong at once, and both are checked here: the words belonged to one chapter
+   * out of several, and the `{n}` came from that chapter's circle instead of the people drawn, so
+   * the sentence counted one where the page showed two.
+   */
+  const { report } = composeWithReport(await loadFixture('sample'), { now: NOW }, STORY_TEMPLATE);
+  const merged = report.pages.filter((p) => p.chapters.length > 1);
+  assert.ok(merged.length, 'the sample fixture merges no chapters any more - this test checks nothing');
+  for (const p of merged) {
+    assert.equal(p.copyKey, 'household', `page ${p.page} carries ${p.chapters.join('+')} but speaks as "${p.copyKey}"`);
+    const said = report.textBoxes.filter((b) => b.page === p.page).map((b) => b.s);
+    const line = said.find((t) => t?.includes('of the family closest to'));
+    assert.ok(line, `page ${p.page} prints none of the household words: ${JSON.stringify(said)}`);
+    assert.ok(line.startsWith(`${countWords(p.people.length, true)} `),
+      `page ${p.page} draws ${p.people.length} people and says "${line}"`);
+  }
 });
 
 test('every person in scope is shown, because the register page is one of the pages drawn', async () => {

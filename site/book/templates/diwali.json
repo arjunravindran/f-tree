@@ -98,6 +98,13 @@
       "title": "A new family joins",
       "line": "A second family, joined to this one."
     },
+    "household": {
+      "title": "The nearest lamps",
+      "line": {
+        "one": "One of the family closest to {featured-first}.",
+        "other": "{Count-words} of the family closest to {featured-first}."
+      }
+    },
     "children": {
       "title": "The next lamps",
       "line": {

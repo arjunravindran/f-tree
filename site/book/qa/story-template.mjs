@@ -77,6 +77,13 @@ export const STORY_TEMPLATE = Object.freeze({
     parents: { title: 'Mother and father', line: 'The two who began this house, and the family they grew up in.' },
     siblings: { title: 'Growing up together', line: { one: 'The one who shared the house with {featured-first}.', other: 'The ones who shared the house with {featured-first}.' } },
     spouses: { title: 'A new family joins', line: 'A second family, joined to this one.' },
+    // #285: not a chapter. The planner merges a run of small household chapters onto one page, and
+    // that page belongs to all of them at once - so the first chapter's words were being printed
+    // over other chapters' people ("The one who shared the house with Vinod" over a sister and a
+    // wife). The wording has to be true of any run, and a run may include `roots` or `courtyards`,
+    // so it cannot claim one roof or one generation. Its {n} is the people drawn on the page, not
+    // a circle's size, which is the other half of what was wrong.
+    household: { title: 'The nearest lamps', line: { one: 'One of the family closest to {featured-first}.', other: '{Count-words} of the family closest to {featured-first}.' } },
     children: { title: 'The next lamps', line: { one: 'The lamp lit after {featured-first}.', other: 'The lamps lit after {featured-first}.' } },
     lane: { title: 'Our lane', line: 'A house for every branch of the family.' },
     numbers: { title: 'In numbers', line: 'This family, counted from where {featured-first} stands.' },

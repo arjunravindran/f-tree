@@ -31,11 +31,12 @@
  */
 
 import { PAGE } from '../../format.js';
-import { chapterCopy, kinCaption, nameOf, rootsLine, stillToBeFoundCaption } from '../copy.js';
+import { chapterCopy, pageVars, kinCaption, nameOf, rootsLine, stillToBeFoundCaption } from '../copy.js';
 import {
   SAFE, STEP_DROP, TYPE, doorway, folio, groundLine, handmadePaper,
   noteCard, noteHeight, sanjhiBand, step, tailpiece, titleBlock,
 } from './parts/paper.js';
+import { describePage } from './parts/describe.js';
 import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait, rowStage } from './parts/medallions.js';
 
 /** A frame's slot is this much wider than its opening: the petal rim, plus air. */
@@ -78,7 +79,7 @@ const PAGE_MID = PAGE.w / 2;
 /* ------------------------------------------------------------------ shared pieces */
 
 /** The chapter's words, or empty ones where this template names no copy for the chapter. */
-const words = (ctx, page, kin) => chapterCopy(page.copyKey, { family: ctx.family, kin, tpl: ctx.tpl })
+const words = (ctx, page, kin) => chapterCopy(page.copyKey, { family: ctx.family, kin, tpl: ctx.tpl }, pageVars(page))
   ?? { title: null, line: null };
 
 /** A scene's zones, and the same zones by name, as one placement puts them on the page. */
@@ -235,7 +236,7 @@ function spread(ids, n) {
  * in the same two columns the medallions hang in.
  */
 function banyan(ctx, page, story) {
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const placement = { x: 0, y: 0, w: PAGE.w, ...(page.variant === 'canopy' ? { flip: 'x' } : {}) };
   const { all, by } = sceneZones(ctx, 'banyan', placement);
   const items = [ctx.art.place('banyan', placement)];
@@ -334,7 +335,7 @@ function nameRun(ctx, story, id, { x, y, width }) {
  * chapter id is only the fallback for a template that names no copy for it (#259 found all three
  * of these labelling pages "courtyards", "parents", "children" in Diwali's own goldens). */
 function courtyards(ctx, page, story) {
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const mirrored = page.variant === 'mirrored';
   const placement = { x: 0, y: 0, w: PAGE.w, ...(mirrored ? { flip: 'x' } : {}) };
   const { all, by } = sceneZones(ctx, 'aangan', placement);
@@ -540,7 +541,7 @@ function closer(ctx, story, page, rows) {
  * composed as rows of generations on cream paper.
  */
 function gathering(ctx, page, story) {
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const items = handmadePaper(ctx, page);
   if (page.variant === 'band') items.push(...sanjhiBand(ctx, page));
 

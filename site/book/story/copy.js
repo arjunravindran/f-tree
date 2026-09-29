@@ -29,7 +29,7 @@
  * (`desktop/renderer/relation.js`) - "married to Ankit's cousin", never "Ankit's cousin's wife".
  */
 
-import { PLACEHOLDER } from '../template.js';
+import { PLACEHOLDER, NON_CHAPTER_COPY } from '../template.js';
 import { andList, countWords, fromFamily, ORDINALS } from '../blocks/words.js';
 import { byKey } from '../family.js';
 import { CHAPTERS, NO_NOTES, isStillToBeFound } from './plan.js';
@@ -402,7 +402,19 @@ export function chapterVars(chapterId, family, kin) {
  * from there, plus the one `kin` the book computed once, and can pass the three straight through.
  * `null` where the template names no copy for this chapter at all.
  */
-export function chapterCopy(chapterId, ctx) {
-  if (!CHAPTERS.includes(chapterId)) throw new Error(`copy.js: chapterCopy does not know the chapter "${chapterId}"`);
-  return renderCopy(ctx.tpl.copy?.[chapterId], chapterVars(chapterId, ctx.family, ctx.kin));
+/**
+ * What a page adds to its chapter's own vars.
+ *
+ * A merged household page's `{n}` is the people it draws, not a circle's size (#285). Its words
+ * belong to several chapters at once, so no one chapter's count is the right one - and the count
+ * a reader checks is the frames in front of them. Every other page keeps its chapter's count,
+ * which is what its sentence is about even on a continuation page.
+ */
+export const pageVars = (page) => (NON_CHAPTER_COPY.includes(page.copyKey) ? { n: page.people.length } : {});
+
+export function chapterCopy(chapterId, ctx, extra = {}) {
+  if (!CHAPTERS.includes(chapterId) && !NON_CHAPTER_COPY.includes(chapterId)) {
+    throw new Error(`copy.js: chapterCopy does not know the chapter "${chapterId}"`);
+  }
+  return renderCopy(ctx.tpl.copy?.[chapterId], { ...chapterVars(chapterId, ctx.family, ctx.kin), ...extra });
 }

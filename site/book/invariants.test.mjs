@@ -20,7 +20,7 @@ import { STORY_TEMPLATE } from './qa/story-template.mjs';
 import { DENSITY } from './story/plan.js';
 import { TEMPLATE_FORMAT, MAX_TEMPLATE_FORMAT, FORMAT_PAPERCUT } from './template.js';
 import {
-  INVARIANTS, everyoneShown, sizes, noTextOverlap, noTextInBusyArt, consecutivePagesVary, peoplePerPage,
+  INVARIANTS, everyoneShown, sizes, noTextOverlap, noTextInBusyArt, consecutivePagesVary, peoplePerPage, wordsMatchPeople,
   pageCount, jsonBudget, pdfBudget, noLivingAge, pageBounds,
 } from './qa/invariants.mjs';
 
@@ -276,6 +276,20 @@ test('meta: consecutive pages that repeat composition and placement fail', () =>
   assert.deepEqual(consecutivePagesVary({ report: { pages: [page(1, 'hero', 'arch'), page(2, 'hero', 'window'), page(3, 'lane', 'a')] } }), []);
   assert.deepEqual(consecutivePagesVary({ report: { pages: [page(1, 'hero', 'arch'), page(2, 'hero', 'arch')] } }), ['pages 1 and 2 are both hero/arch']);
   assert.equal(consecutivePagesVary({ report: { pages: [page(1, null, null)] } }).length, 1, 'an undescribed page is a violation, not a pass');
+});
+
+test('meta: a page that speaks as one chapter while carrying several fails', () => {
+  /*
+   * The shape of #285: `sample` page 5 merged siblings and spouses and kept `copyKey: 'siblings'`,
+   * so it printed the siblings' singular line over a half-sister and a wife. A page carrying one
+   * chapter is free to speak as it; carrying several, it must use a reserved non-chapter entry.
+   */
+  const page = (n, chapters, copyKey) => ({ page: n, label: `p${n}`, archetype: 'gathering', variant: 'a', people: [], density: null, chapters, copyKey });
+  assert.deepEqual(wordsMatchPeople({ report: { pages: [page(1, ['siblings'], 'siblings'), page(2, ['parents', 'siblings'], 'household')] } }), []);
+  assert.deepEqual(
+    wordsMatchPeople({ report: { pages: [page(5, ['siblings', 'spouses'], 'siblings')] } }),
+    ['page 5 (p5) carries siblings + spouses but takes its words from "siblings" alone'],
+  );
 });
 
 test('meta: a page over its density cap fails', () => {

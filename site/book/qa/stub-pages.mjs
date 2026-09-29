@@ -16,12 +16,13 @@
 import { VARIANTS } from '../story/plan.js';
 import { PAGES } from '../story/pages/index.js';
 import { nameOf } from '../story/copy.js';
+import { describePage } from '../story/pages/parts/describe.js';
 
 const MARGIN = 42;
 
 /** A page that says what would be drawn here, and lists who it is about. */
 const stub = (archetype) => (ctx, page, story) => {
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const items = [
     ctx.line(MARGIN, 90, `${page.chapters.join(' + ')}${page.continued ? ' (continued)' : ''}`, 'display', 26, ctx.P.ink, { kind: 'title' }),
     ctx.line(MARGIN, 116, `stub: ${archetype} / ${page.variant}`, 'text', 11, ctx.P.inkSoft, { kind: 'body' }),

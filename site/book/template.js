@@ -85,6 +85,17 @@ export const PAPERCUT_PALETTE_KEYS = [
 export const REQUIRED_CHAPTERS = ['cover', 'opening', 'register', 'closing'];
 
 /**
+ * Copy keys that are deliberately not chapters. The story planner merges a run of small household
+ * chapters onto one page, and that page belongs to several chapters at once, so no single
+ * chapter's words are true of it (#285). It takes its words from `copy.household` instead.
+ *
+ * These stay out of `story.chapters`: `planStory` refuses a chapter it does not know, and it must
+ * keep refusing one. A template may leave the entry out, and a merged page then falls back to its
+ * first chapter's title the way a page with no copy at all does.
+ */
+export const NON_CHAPTER_COPY = ['household'];
+
+/**
  * `copy` and cover text may only interpolate these - anything else is refused, not skipped.
  * `{family}` is the family's own title ("The Kumar Family"); `{from-family}` is the same title
  * turned into the line the approved cover carries under the greeting ("from the Kumar family",
@@ -249,7 +260,9 @@ function validatePapercutTemplate(t) {
   const rawCopy = t.copy;
   if (!rawCopy || typeof rawCopy !== 'object' || Array.isArray(rawCopy)) fail('copy must be an object');
   for (const chapter of Object.keys(rawCopy)) {
-    if (!story.chapters.includes(chapter)) fail(`copy names a chapter "${chapter}" not in story.chapters`);
+    if (!story.chapters.includes(chapter) && !NON_CHAPTER_COPY.includes(chapter)) {
+      fail(`copy names a chapter "${chapter}" not in story.chapters`);
+    }
     const entry = rawCopy[chapter];
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) fail(`copy.${chapter} must be an object`);
     for (const k of Object.keys(entry)) if (k !== 'title' && k !== 'line') fail(`unknown key "${k}" in copy.${chapter}`);

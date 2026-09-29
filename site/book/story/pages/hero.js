@@ -32,10 +32,11 @@ import { SITE_QR } from '../../qr.js';
 import { qrPath } from '../../blocks/art.js';
 import { diyaRow, rangoli, toran } from '../../art/procedural/index.js';
 import { seeded } from '../../art/seed.js';
-import { chapterCopy, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine, withCountWords } from '../copy.js';
+import { chapterCopy, pageVars, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine, withCountWords } from '../copy.js';
 import { SAFE, folio, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
 import { MALA_DROP, frameOuter, framedPerson, joinFrames, nameStack, openingIn, yearsCaption } from './parts/people.js';
 import { haveliFacade } from './parts/haveli.js';
+import { describePage as describe } from './parts/describe.js';
 
 const { w: W, h: H } = PAGE;
 
@@ -430,7 +431,7 @@ function openingHero(ctx, page, story) {
   const { P, family } = ctx;
   describe(ctx, page);
   const person = family.byId.get(page.people[0]);
-  const copy = chapterCopy(page.copyKey, { family, kin: story.kin, tpl: ctx.tpl });
+  const copy = chapterCopy(page.copyKey, { family, kin: story.kin, tpl: ctx.tpl }, pageVars(page));
   const sentence = openingLine(family, story.kin) ?? copy?.line ?? null;
   const caption = yearsCaption(ctx, story, person);
   return archPage(ctx, page, {
@@ -498,7 +499,7 @@ function portraitHero(ctx, page, story) {
   describe(ctx, page);
   const arches = page.variant === 'arch';
   const people = page.people.map((id) => family.byId.get(id) ?? null);
-  const copy = chapterCopy(page.copyKey, { family, kin: story.kin, tpl: ctx.tpl });
+  const copy = chapterCopy(page.copyKey, { family, kin: story.kin, tpl: ctx.tpl }, pageVars(page));
   const featuredName = nameOf(family, story.kin, story.kin.featured);
   const seed = `${family.title} ${page.chapter}`;
   const items = [paperGround(ctx, family.title), sanjhiBand(ctx, seed)];
@@ -577,7 +578,7 @@ function closing(ctx, page, story) {
   describe(ctx, page);
   const mirror = page.variant.endsWith('-mirrored');
   const sky = scene(ctx, 'closing-sky', scenePlacement(mirror));
-  const copy = chapterCopy(page.copyKey, { family, kin: story.kin, tpl });
+  const copy = chapterCopy(page.copyKey, { family, kin: story.kin, tpl }, pageVars(page));
   const items = [sky.item];
 
   const title = sky.at('title');
@@ -622,10 +623,7 @@ function closing(ctx, page, story) {
 
 /* ------------------------------------------------------------------ shared */
 
-/** What every one of these pages tells the QA harness about itself, straight from the plan. */
-const describe = (ctx, page) => ctx.describePage({
-  archetype: page.archetype, variant: page.variant, people: page.people, density: page.density,
-});
+
 
 /** Archetype id -> draw(ctx, page, story). #256: cover, opening-hero, waiting, portrait-hero, closing. */
 export const PAGES = Object.freeze({
