@@ -117,7 +117,7 @@ class KinshipTest {
     fun `a marriage is named where English has a name for it, and only there`() {
         // These three used all to come back as "related by marriage", which said nothing about any
         // of them and the same nothing about all of them.
-        assertEquals(KinshipTerm.Spouse, term("me", "wife"))
+        assertEquals(KinshipTerm.Spouse(null, SpouseStatus.CURRENT), term("me", "wife"))
         assertEquals(KinshipTerm.OfSpouse(KinshipTerm.Ancestor(1)), term("me", "wifes-mother"))
         // And read the other way round, a mother-in-law.
         assertEquals(KinshipTerm.OfSpouse(KinshipTerm.Ancestor(1)), term("wife", "mum"))
@@ -423,8 +423,8 @@ class KinshipTest {
 
     @Test
     fun `somebody married to the subject is named, not called a marriage`() {
-        assertEquals(KinshipTerm.Spouse, termOf("me", "wife"))
-        assertEquals(KinshipTerm.Spouse, termOf("wife", "me"))
+        assertEquals(KinshipTerm.Spouse(null, SpouseStatus.CURRENT), termOf("me", "wife"))
+        assertEquals(KinshipTerm.Spouse(null, SpouseStatus.CURRENT), termOf("wife", "me"))
     }
 
     @Test

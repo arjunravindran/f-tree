@@ -36,7 +36,14 @@ enum class RelationshipType {
 enum class ParentKind { BIOLOGICAL, ADOPTIVE, STEP, FOSTER }
 
 /** The state of a spouse relationship. Absent means simply "married or partnered". */
-enum class SpouseKind { MARRIED, PARTNER, DIVORCED, WIDOWED }
+enum class SpouseKind {
+    MARRIED, PARTNER, DIVORCED, WIDOWED;
+
+    companion object {
+        /** The stored free-text `subtype`, or null for absent and for anything unrecognised. */
+        fun fromName(value: String?): SpouseKind? = entries.firstOrNull { it.name == value }
+    }
+}
 
 /** Only meaningful on explicit sibling edges. */
 enum class SiblingKind { FULL, HALF }

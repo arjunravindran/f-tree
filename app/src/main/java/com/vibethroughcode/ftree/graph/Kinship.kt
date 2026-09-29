@@ -3,6 +3,7 @@ package com.vibethroughcode.ftree.graph
 import com.vibethroughcode.ftree.data.Gender
 import com.vibethroughcode.ftree.data.PartialDate
 import com.vibethroughcode.ftree.data.Person
+import com.vibethroughcode.ftree.data.SpouseKind
 
 /**
  * How any two people in a tree are related.
@@ -21,8 +22,32 @@ import com.vibethroughcode.ftree.data.Person
 /** The kind of step taken from one person to the next along a chain. */
 enum class StepKind { PARENT, CHILD, SPOUSE, SIBLING }
 
-/** One link in the chain: the person arrived at, and what they are to the person before them. */
-data class RelationStep(val personId: String, val kind: StepKind)
+/**
+ * One link in the chain: the person arrived at, and what they are to the person before them.
+ *
+ * [spouse] is the state of the marriage, on a [StepKind.SPOUSE] step and null on every other.
+ * #291: the step used to drop it, so nothing downstream could tell a marriage from one that ended.
+ */
+data class RelationStep(val personId: String, val kind: StepKind, val spouse: SpouseKind? = null)
+
+/** Whether a marriage is current, has ended, or ended with a death. */
+enum class SpouseStatus { CURRENT, FORMER, LATE }
+
+/**
+ * The app's one rule for whether a marriage ended, and the twin of `spouseStatus` in
+ * `site/playground/model.js`.
+ *
+ * DIVORCED is former. WIDOWED is LATE only for the partner who actually died: the edge is
+ * symmetric and cannot say which of the two it was, so it is the person being described who
+ * decides. Everything that needs the answer asks this, so the label and the word cannot drift.
+ */
+fun spouseStatus(spouse: Person?, subtype: SpouseKind?): SpouseStatus = when {
+    subtype == SpouseKind.DIVORCED -> SpouseStatus.FORMER
+    // `isNoLongerLiving`, not the raw flag: model.js reads `p.deceased === true || p.deathDate`,
+    // and a file can carry a death date without the flag being set.
+    subtype == SpouseKind.WIDOWED && spouse?.isNoLongerLiving == true -> SpouseStatus.LATE
+    else -> SpouseStatus.CURRENT
+}
 
 /**
  * The English kinship term for a blood relationship, as a structure rather than a string.
@@ -52,8 +77,12 @@ sealed interface KinshipTerm {
 
     /* ------------------------------------------------------------------ by marriage */
 
-    /** Married to the subject. */
-    data object Spouse : KinshipTerm
+    /**
+     * Married to the subject. [subtype] is the record's own word for the marriage and [status] the
+     * one rule's answer about it - #291, so neither the English label nor the Hindi one has to
+     * re-decide what "former" means, and neither can call a marriage that ended a marriage.
+     */
+    data class Spouse(val subtype: SpouseKind?, val status: SpouseStatus) : KinshipTerm
 
     /**
      * Married to a blood relative of the subject — an uncle's wife, a sister's husband.
@@ -253,7 +282,10 @@ object Kinship {
         val at = chain.indexOfFirst { it.kind == StepKind.SPOUSE }
 
         // The whole line is one marriage: they are simply married to each other.
-        if (chain.size == 1) return Affinal(KinshipTerm.Spouse, null)
+        if (chain.size == 1) {
+            val subtype = chain.first().spouse
+            return Affinal(KinshipTerm.Spouse(subtype, spouseStatus(snapshot.people[toId], subtype)), null)
+        }
 
         return when (at) {
             // ...married to the person the line reaches just before them. The path runs to *them*,
@@ -445,7 +477,11 @@ object Kinship {
             }
             neighbours.forEach { (next, kind) ->
                 if (next !in snapshot.people || !seen.add(next)) return@forEach
-                cameFrom[next] = RelationStep(next, kind)
+                cameFrom[next] = RelationStep(
+                    next,
+                    kind,
+                    if (kind == StepKind.SPOUSE) snapshot.spouseKindBetween[current to next] else null,
+                )
                 previous[next] = current
                 queue.addLast(next)
             }

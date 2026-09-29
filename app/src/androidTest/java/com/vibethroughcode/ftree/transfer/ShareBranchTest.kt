@@ -13,6 +13,7 @@ import com.vibethroughcode.ftree.data.RelativeKind
 import com.vibethroughcode.ftree.graph.Kinship
 import com.vibethroughcode.ftree.graph.KinshipTerm
 import com.vibethroughcode.ftree.graph.Relation
+import com.vibethroughcode.ftree.graph.SpouseStatus
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -127,7 +128,7 @@ class ShareBranchTest {
 
         runBlocking {
             // The marriage.
-            assertEquals(KinshipTerm.Spouse, (relate("Sandeep Kumar", "Pragya Kumar") as Relation.Found).term)
+            assertEquals(KinshipTerm.Spouse(null, SpouseStatus.CURRENT), (relate("Sandeep Kumar", "Pragya Kumar") as Relation.Found).term)
             // Both children, through both parents.
             listOf("Ankit Kumar", "Sarika Kumar").forEach { child ->
                 val found = relate("Sandeep Kumar", child) as Relation.Found
@@ -171,7 +172,7 @@ class ShareBranchTest {
             repository.addRelative(me.id, idOf("Sarika Kumar"), RelativeKind.SPOUSE)
 
             assertEquals(
-                KinshipTerm.Spouse,
+                KinshipTerm.Spouse(null, SpouseStatus.CURRENT),
                 (relate("Ankit Srivastava", "Sarika Kumar") as Relation.Found).term,
             )
             // Her father is now my father-in-law, which is a relationship the app can only name if

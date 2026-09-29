@@ -7,9 +7,11 @@ import com.vibethroughcode.ftree.R
 import com.vibethroughcode.ftree.data.Gender
 import com.vibethroughcode.ftree.data.KinshipLanguage
 import com.vibethroughcode.ftree.data.RelativeKind
+import com.vibethroughcode.ftree.data.SpouseKind
 import com.vibethroughcode.ftree.graph.HindiKinship
 import com.vibethroughcode.ftree.graph.KinshipPath
 import com.vibethroughcode.ftree.graph.KinshipTerm
+import com.vibethroughcode.ftree.graph.SpouseStatus
 import com.vibethroughcode.ftree.graph.StepKind
 
 /**
@@ -64,7 +66,16 @@ fun kinshipLabel(term: KinshipTerm, gender: Gender): String? = when (term) {
         }
     }
 
-    KinshipTerm.Spouse -> byGender(gender, R.string.kin_husband, R.string.kin_wife, R.string.kin_spouse)
+    // #291: a marriage that ended is not a marriage. PARTNER is a different axis from status - it
+    // says nothing about whether the relationship ended - so it is answered before the status is.
+    is KinshipTerm.Spouse -> when {
+        term.subtype == SpouseKind.PARTNER -> stringResource(R.string.kin_partner)
+        term.status == SpouseStatus.FORMER ->
+            byGender(gender, R.string.kin_former_husband, R.string.kin_former_wife, R.string.kin_former_partner)
+        term.status == SpouseStatus.LATE ->
+            byGender(gender, R.string.kin_late_husband, R.string.kin_late_wife, R.string.kin_late_partner)
+        else -> byGender(gender, R.string.kin_husband, R.string.kin_wife, R.string.kin_spouse)
+    }
 
     // A marriage-relation English happens to have a word for; null when it does not, and the
     // screen then says who they married in a sentence instead of inventing one.

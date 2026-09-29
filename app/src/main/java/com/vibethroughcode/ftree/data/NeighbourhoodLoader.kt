@@ -60,6 +60,11 @@ class NeighbourhoodLoader(
                 .map { it.fromPersonId to it.toPersonId },
             siblingEdges = edges.filter { it.type == RelationshipType.SIBLING }
                 .map { it.fromPersonId to it.toPersonId },
+            spouseKinds = edges.filter { it.type == RelationshipType.SPOUSE }
+                .mapNotNull { edge ->
+                    SpouseKind.fromName(edge.subtype)?.let { (edge.fromPersonId to edge.toPersonId) to it }
+                }
+                .toMap(),
         )
     }
 

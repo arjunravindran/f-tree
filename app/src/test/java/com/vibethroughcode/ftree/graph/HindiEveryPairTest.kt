@@ -93,7 +93,8 @@ class HindiEveryPairTest {
      * the vocabulary. This is the honest denominator.
      */
     private fun hindiCovers(term: KinshipTerm): Boolean = when (term) {
-        KinshipTerm.Self, KinshipTerm.Sibling, KinshipTerm.Spouse -> true
+        KinshipTerm.Self, KinshipTerm.Sibling -> true
+        is KinshipTerm.Spouse -> true
         is KinshipTerm.Ancestor -> term.generations <= 3
         is KinshipTerm.Descendant -> term.generations <= 3
         is KinshipTerm.ParentsSibling -> term.greats == 0

@@ -11,10 +11,11 @@ import com.vibethroughcode.ftree.FTreeApplication
 import com.vibethroughcode.ftree.R
 import com.vibethroughcode.ftree.graph.KinshipTerm
 import com.vibethroughcode.ftree.graph.Relation
+import com.vibethroughcode.ftree.graph.spouseStatus
 import com.vibethroughcode.ftree.transfer.sendCardIntent
+import com.vibethroughcode.ftree.ui.common.displayName
 import com.vibethroughcode.ftree.ui.common.kinshipLabel
 import com.vibethroughcode.ftree.ui.common.kinshipName
-import com.vibethroughcode.ftree.ui.common.displayName
 import kotlinx.coroutines.launch
 
 const val RelationSlotFromTag = "relation-slot-from"
@@ -113,7 +114,10 @@ internal fun answerSentence(state: RelationUiState, relation: Relation.Found): A
         is KinshipTerm.OfSpouse -> {
             val spouse = state.chain.firstOrNull()?.person ?: return null
             val relative = kinshipLabel(term.relative, to.gender) ?: return null
-            val spouseWord = kinshipLabel(KinshipTerm.Spouse, spouse.gender) ?: return null
+            // #291: if that marriage ended, say so - "your former wife's mother", not "your wife's".
+            val link = state.chain.firstOrNull()
+            val spouseTerm = KinshipTerm.Spouse(link?.spouse, spouseStatus(spouse, link?.spouse))
+            val spouseWord = kinshipLabel(spouseTerm, spouse.gender) ?: return null
             Answer(
                 stringResource(
                     R.string.relation_answer_of_spouse, toName, fromName, relative, spouseWord,
