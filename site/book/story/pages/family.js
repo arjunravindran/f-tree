@@ -36,7 +36,7 @@ import {
   SAFE, TYPE, doorway, folio, groundLine, handmadePaper,
   noteCard, noteHeight, sanjhiBand, step, tailpiece, titleBlock,
 } from './parts/paper.js';
-import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait, rowStage } from './parts/people.js';
+import { FRAME, HANG, RIM, caption, captionHeight, marriage, married, nameLineCount, pageNote, portrait, rowStage } from './parts/medallions.js';
 
 /** A frame's slot is this much wider than its opening: the petal rim, plus air. */
 const PITCH = 1.34;
