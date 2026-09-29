@@ -121,7 +121,8 @@ class Discovery extends EventEmitter {
     this.interfaces = interfaces;
     this.socket = null;
     this.peers = new PeerTable();
-    this.announcement = null;
+    /** What to announce, rather than a finished beacon: see `announcement`. */
+    this.advertised = null;
     this.timers = [];
     this.lastAnswered = 0;
     /** Adapter addresses the group has been joined on. */
@@ -170,20 +171,32 @@ class Discovery extends EventEmitter {
   }
 
   /**
+   * The beacon as it would go out right now, or null while this device is not announcing.
+   *
+   * It is built per tick rather than once, so that renaming the device reaches the room within a
+   * beat. The payload was previously frozen when advertising started, which meant the new name did
+   * not leave the machine until the screen was closed and opened again (#192).
+   */
+  get announcement() {
+    if (!this.advertised) return null;
+    return beaconWire.announce({
+      platform: beaconWire.thisPlatform(),
+      flags: this.advertised.flags,
+      tcpPort: this.advertised.tcpPort,
+      deviceId: this.identity.deviceId,
+      keyFingerprint: this.advertised.keyFingerprint,
+      displayName: this.identity.displayName,
+    });
+  }
+
+  /**
    * Starts announcing on a given TCP port.
    *
    * TTL 1 is what makes "the same Wi-Fi" literally true: the datagram does not survive a router,
    * so a device two hops away cannot see this one however the network is arranged.
    */
   advertise({ tcpPort, keyFingerprint, flags = protocol.SUPPORTED_FLAGS }) {
-    this.announcement = beaconWire.announce({
-      platform: beaconWire.thisPlatform(),
-      flags,
-      tcpPort,
-      deviceId: this.identity.deviceId,
-      keyFingerprint,
-      displayName: this.identity.displayName,
-    });
+    this.advertised = { tcpPort, keyFingerprint, flags };
 
     // A burst rather than a first beat, so a device whose screen has just opened appears at once
     // and one lost datagram does not cost two seconds of an empty list.
@@ -205,13 +218,14 @@ class Discovery extends EventEmitter {
    * expiry staring at a device that is no longer there.
    */
   stop() {
-    if (this.announcement && this.socket) {
-      const farewell = beaconWire.encodeBeacon(beaconWire.goodbye(this.announcement));
+    const parting = this.announcement;
+    if (parting && this.socket) {
+      const farewell = beaconWire.encodeBeacon(beaconWire.goodbye(parting));
       for (let i = 0; i < protocol.GOODBYE_COUNT; i += 1) {
         setTimeout(() => this.#send(farewell), i * protocol.GOODBYE_GAP_MS);
       }
     }
-    this.announcement = null;
+    this.advertised = null;
     for (const timer of this.timers) {
       clearTimeout(timer);
       clearInterval(timer);
@@ -232,8 +246,9 @@ class Discovery extends EventEmitter {
   }
 
   #announce() {
-    if (!this.announcement) return;
-    this.#send(beaconWire.encodeBeacon(this.announcement));
+    const beacon = this.announcement;
+    if (!beacon) return;
+    this.#send(beaconWire.encodeBeacon(beacon));
   }
 
   /**
@@ -343,7 +358,7 @@ class Discovery extends EventEmitter {
    * this device into an amplifier.
    */
   #answerQuery() {
-    if (!this.announcement) return;
+    if (!this.advertised) return;
     const now = this.clock();
     if (now - this.lastAnswered < protocol.QUERY_ANSWER_MIN_GAP_MS) return;
     this.lastAnswered = now;

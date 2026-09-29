@@ -79,8 +79,7 @@ class SettingsViewModel(
         nearbyRepository.onEnabledChanged(enabled)
     }
 
-    private val _deviceName = MutableStateFlow(nearbyIdentity.displayName)
-    val deviceName: StateFlow<String> = _deviceName.asStateFlow()
+    val deviceName: StateFlow<String> = nearbyIdentity.displayNames
 
     /** The name this device is generated, for the hint in the rename dialog. */
     val generatedDeviceName: String
@@ -89,7 +88,6 @@ class SettingsViewModel(
     /** Committed once, on Done: the name is broadcast, and half of one should never be. */
     fun renameDevice(name: String) {
         nearbyIdentity.chosenName = name.ifBlank { null }
-        _deviceName.value = nearbyIdentity.displayName
     }
 
     val trustedOnly: StateFlow<Boolean> = nearbyPreferences.trustedOnly

@@ -4,6 +4,9 @@ import android.content.Context
 import com.vibethroughcode.ftree.nearby.wire.DeviceId
 import com.vibethroughcode.ftree.nearby.wire.NearbyNames
 import java.security.SecureRandom
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * The two things a transfer needs to know about the device it is running on.
@@ -59,6 +62,16 @@ open class NearbyIdentity(context: Context) : NearbySelf {
     override val displayName: String
         get() = chosenName ?: NearbyNames.friendlyName(deviceId.bytes)
 
+    // Seeded on first use rather than in the constructor, because reading it mints a device id and
+    // merely constructing this class should not.
+    private val _displayNames: MutableStateFlow<String> by lazy { MutableStateFlow(displayName) }
+
+    /**
+     * The same name as [displayName], as a flow, so that a rename reaches a screen that is already
+     * open instead of waiting for it to be closed and opened again (#192).
+     */
+    val displayNames: StateFlow<String> get() = _displayNames.asStateFlow()
+
     /** What the reader typed, or `null` if they have not. Sanitised before it is stored. */
     open var chosenName: String?
         get() = preferences.getString(KEY_NAME, null)
@@ -67,6 +80,7 @@ open class NearbyIdentity(context: Context) : NearbySelf {
             preferences.edit().apply {
                 if (cleaned == null) remove(KEY_NAME) else putString(KEY_NAME, cleaned)
             }.apply()
+            _displayNames.value = displayName
         }
 
     private companion object {

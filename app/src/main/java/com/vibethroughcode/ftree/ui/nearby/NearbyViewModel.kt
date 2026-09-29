@@ -48,7 +48,8 @@ class NearbyViewModel(
     private val _preparing = MutableStateFlow(false)
     val preparing: StateFlow<Boolean> = _preparing.asStateFlow()
 
-    val deviceName: String get() = identity.displayName
+    /** A flow, not a getter: the beacon and this line have to agree while the screen is open. */
+    val deviceName: StateFlow<String> = identity.displayNames
 
     fun open(mode: NearbyMode) {
         _mode.value = mode
