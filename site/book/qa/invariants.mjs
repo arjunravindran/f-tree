@@ -94,13 +94,32 @@ export function noTextInBusyArt({ report }) {
   return out;
 }
 
-/** No two consecutive pages share both a composition and an art placement. */
+/**
+ * No two consecutive pages share both a composition and an art placement
+ * (`book-design-system.md`, "Variety").
+ *
+ * The furniture half of this is #287, a reopening of round 2's finding 11. Round 2 fixed "two
+ * pages close with the same garland at the same x" by seeding the band's tint and the tailpiece's
+ * form on the page's CHAPTER - which guarantees two different chapters differ, but says nothing
+ * about neighbours, and `sample` page 2 and page 3 went on sharing a peacock band and a lotus
+ * tailpiece. It lives here rather than in a unit test because this runs over every fixture x
+ * template x featured choice, with a meta-test behind it, and the unit test it replaces
+ * (`tints.size >= 2` across six chapters) was passed by the very collision it was meant to catch.
+ */
 export function consecutivePagesVary({ report }) {
   const out = [];
   report.pages.forEach((p, i) => {
     if (!p.archetype) { out.push(`page ${p.page} (${p.label}) does not describe its archetype - ctx.describePage it`); return; }
     const prev = report.pages[i - 1];
     if (prev?.archetype === p.archetype && prev.variant === p.variant) out.push(`pages ${prev.page} and ${p.page} are both ${p.archetype}/${p.variant}`);
+  });
+  // A page that draws neither is not furniture's neighbour, so the run is over the pages that do.
+  const furnished = report.pages.filter((p) => p.band || p.tailpiece);
+  furnished.forEach((p, i) => {
+    const prev = furnished[i - 1];
+    if (prev && prev.band === p.band && prev.tailpiece === p.tailpiece) {
+      out.push(`pages ${prev.page} and ${p.page} both close with a ${p.band} band and a ${p.tailpiece} tailpiece`);
+    }
   });
   return out;
 }

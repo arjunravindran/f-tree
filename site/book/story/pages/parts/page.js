@@ -108,8 +108,56 @@ export const BAND_TILES = 18;
 const BAND_TINTS = Object.freeze(['clay', 'peacock', 'rani', 'wash']);
 export const bandTint = (seed) => BAND_TINTS[Math.floor(seeded(`${seed} band`)() * BAND_TINTS.length)];
 
+/*
+ * The furniture a page carries: its band's tint and its tailpiece's form, decided together.
+ *
+ * Both are seeded on the page's CHAPTER, never its number, so an unrelated edit elsewhere never
+ * reshuffles which one a chapter gets. #287 is a reopening of round 2's finding 11: seeding on the
+ * chapter guarantees two different chapters differ, but it says nothing about NEIGHBOURS - and it
+ * actively guarantees a collision for a chapter that runs over several pages, since every page of
+ * it is handed the identical seed. `book-design-system.md`'s Variety rule ("no two consecutive
+ * pages share both a composition and an art placement") was being broken several pages at a time.
+ *
+ * The obvious fix - choose against the previous page the way `plan.js`'s `nextVariant` does - would
+ * destroy the property the chapter seed exists for: inserting a page upstream would reshuffle every
+ * chapter's colour downstream. So the chapter's own choice stays the PREFERENCE, and only a page
+ * that would repeat BOTH of its neighbour's steps aside.
+ *
+ * It is the tailpiece that steps, never the band: the band's tint IS the chapter's colour, and a
+ * chapter that runs over four pages should keep its colour across them. The step is the length of
+ * the run so far, so a five-page chapter cycles its tailpiece rather than alternating - and a run
+ * length is stable under an edit further up the book, which a page number is not.
+ */
+const FURNITURE = new WeakMap();   // ctx -> what the page before this one wanted, and got
+
+export function pageFurniture(ctx, seed) {
+  let st = FURNITURE.get(ctx);
+  if (!st) FURNITURE.set(ctx, (st = { pageNo: null, want: null, chosen: null, run: 0 }));
+  // The band asks at the head of the page and the tailpiece at its foot: one decision, asked twice.
+  if (st.pageNo === ctx.pageNo) return st.chosen;
+
+  const want = { band: bandTint(seed), tailpiece: TAILPIECE_FORMS[Math.floor(seeded(`${seed} tailpiece`)() * TAILPIECE_FORMS.length)] };
+  const repeats = st.want !== null && st.want.band === want.band && st.want.tailpiece === want.tailpiece;
+  st.run = repeats ? st.run + 1 : 0;
+  const chosen = st.run === 0 ? want : {
+    band: want.band,
+    tailpiece: TAILPIECE_FORMS[(TAILPIECE_FORMS.indexOf(want.tailpiece) + st.run) % TAILPIECE_FORMS.length],
+  };
+  Object.assign(st, { pageNo: ctx.pageNo, want, chosen });
+  // The page reports what it took, so `qa/invariants.mjs` can hold every book to the Variety rule
+  // without re-deriving a seed it should not have to know about.
+  ctx.describePage?.({ band: chosen.band, tailpiece: chosen.tailpiece });
+  return chosen;
+}
+
+/**
+ * How far down the page the sanjhi band reaches - what a page drawing at the head has to keep
+ * clear of. #287: the haveli's vines did not, and grew up through the band on the `arch` variant.
+ */
+export const bandBottom = (ctx) => ctx.art.box('band-sanjhi', { x: 0, y: 0, anchor: 'top-left', w: W / BAND_TILES }).h;
+
 export function sanjhiBand(ctx, seed = 'sanjhi') {
-  const tint = bandTint(seed);
+  const tint = pageFurniture(ctx, seed).band;
   const w = W / BAND_TILES;
   const items = [];
   for (let i = 0; i < BAND_TILES; i++) items.push(ctx.art.place('band-sanjhi', { x: i * w, y: 0, anchor: 'top-left', w, tint }));
@@ -123,6 +171,13 @@ export function sanjhiBand(ctx, seed = 'sanjhi') {
  * (book-design-system.md, "Folio"). `ctx.footer` owns the words and the page number; this adds the
  * lamp beside them, clear of the number's own column.
  */
+/**
+ * The top of the folio row - its lamp is the tallest thing in it. #287: the closing's QR caption
+ * was placed against a hand-counted margin instead, and came up 7 pt short, so the caption and the
+ * folio lamp overlapped on every odd page. A page that draws above the folio asks for this.
+ */
+export const folioTop = (ctx) => ctx.art.box('diya-small', { x: 0, y: H - 17, w: 11 }).y;
+
 export function folio(ctx, ink) {
   // Round 2, finding 12: the lamp sits beside wherever `ctx.footer` (compose.js) put the page
   // number - the outer foot, alternating with page parity at format 2 - never a fixed corner.
@@ -162,7 +217,7 @@ export function titleBlock(ctx, { title, line, cx, y, width, titleSize = 32, tit
 const TAILPIECE_FORMS = Object.freeze(['garland', 'lotus', 'sprig']);
 
 export function tailpiece(ctx, cx, y, seed = 'tailpiece') {
-  const form = TAILPIECE_FORMS[Math.floor(seeded(`${seed} tailpiece`)() * TAILPIECE_FORMS.length)];
+  const form = pageFurniture(ctx, seed).tailpiece;
   if (form === 'lotus') {
     return [
       ctx.art.place('divider-lotus', { x: cx, y, w: 132 }),

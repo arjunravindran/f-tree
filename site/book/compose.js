@@ -354,7 +354,15 @@ function context(family, options, tpl, allowance, now, rec) {
      * (#285) is the only thing that can make disagree.
      */
     describePage(info = {}) {
-      if (rec) rec.pages.set(ctx.pageNo, { ...PAGE_INFO, ...info, people: [...(info.people ?? [])], chapters: [...(info.chapters ?? [])] });
+      if (!rec) return;
+      /*
+       * Merges rather than replaces, so a page can be described in more than one go. `describe.js`
+       * reports the plan at the top of an archetype; the page furniture (#287) reports the band
+       * and tailpiece it picked, which is not known until it is drawn, and which no archetype
+       * should have to thread through by hand.
+       */
+      const merged = { ...PAGE_INFO, ...rec.pages.get(ctx.pageNo), ...info };
+      rec.pages.set(ctx.pageNo, { ...merged, people: [...(merged.people ?? [])], chapters: [...(merged.chapters ?? [])] });
     },
 
     measure: (s, role, size) => measure(s, metricsOf(role), size),
@@ -463,7 +471,7 @@ export function reportFromBook(book) {
 const recorder = () => ({ shown: new Map(), zones: [], kinds: new WeakMap(), pages: new Map() });
 
 /** What `ctx.describePage` records, and what a page that never called it reports. */
-const PAGE_INFO = Object.freeze({ archetype: null, variant: null, people: [], density: null, chapters: [], copyKey: null });
+const PAGE_INFO = Object.freeze({ archetype: null, variant: null, people: [], density: null, chapters: [], copyKey: null, band: null, tailpiece: null });
 
 function finishReport(book, rec) {
   const textBoxes = [];

@@ -75,18 +75,50 @@ function glowDiscs(P, cx, cy, r, colour) {
 }
 
 /**
- * The vine draping one top corner: two or three peepal leaves cascading inward, alternating tint.
+ * The vine draping one top corner: three peepal leaves cascading inward, alternating tint, hung
+ * off a stem that runs from the corner through each of them.
+ *
+ * #287: the leaves used to start at `wallTop + 2` whatever was above them. On the `arch` variant
+ * the wall begins at y=46 and the sanjhi band reaches y=31.55, so the first leaf - which hangs
+ * some 32 pt ABOVE its own anchor - crossed 18-20 pt up into the band and cut through its motifs.
+ * (The `window` variant puts the wall at y=268 and never collided, which is why this only ever
+ * showed on half the arch pages.) `minTop` is the lowest the vine may reach; the whole cascade
+ * slides down together when it would break it, so the leaves keep their own spacing.
+ *
+ * And with no stem the three leaves read as three lollipops stuck on the brickwork rather than one
+ * thing growing over the parapet, so a stem now runs from the corner through every anchor.
  */
-function vine(art, x, y, seed, flip) {
+function vine(art, P, x, y, seed, flip, minTop = -Infinity) {
   const rand = seeded(seed);
-  const items = [];
+  const leaves = [];
   for (let i = 0; i < 3; i++) {
-    const dx = (flip ? -1 : 1) * (10 + i * 13 + rand() * 4);
-    const dy = i * 15 + rand() * 5;
-    items.push(art.place('peepal', {
-      x: x + dx, y: y + dy, s: 0.62 - i * 0.06, flip: flip ? 'x' : undefined, tint: i % 2 ? 'leafDeep' : 'leaf',
-    }));
+    leaves.push({
+      dx: (flip ? -1 : 1) * (10 + i * 13 + rand() * 4),
+      dy: i * 15 + rand() * 5,
+      s: 0.62 - i * 0.06,
+      tint: i % 2 ? 'leafDeep' : 'leaf',
+    });
   }
+
+  /*
+   * How far the cascade has to slide to clear `minTop`, measured from the drawing itself rather
+   * than from a guess at how far a peepal reaches above its anchor: `art.box` reports where a
+   * placement actually puts the viewBox, at the scale it is drawn.
+   */
+  const opts = (l, shift) => ({ x: x + l.dx, y: y + l.dy + shift, s: l.s, flip: flip ? 'x' : undefined });
+  const top = Math.min(...leaves.map((l) => art.box('peepal', opts(l, 0)).y));
+  const shift = Math.max(0, minTop - top);
+
+  // The stem: from the corner, through each leaf's anchor, bending as it goes.
+  const d = new PathData().M(x, y + shift);
+  let [px, py] = [x, y + shift];
+  for (const l of leaves) {
+    const [cx, cy] = [x + l.dx, y + l.dy + shift];
+    d.Q(px + (cx - px) * 0.35, cy, cx, cy);
+    [px, py] = [cx, cy];
+  }
+  const items = [path(String(d), { stroke: P.leafDeep, sw: 1.1 })];
+  for (const l of leaves) items.push(art.place('peepal', { ...opts(l, shift), tint: l.tint }));
   return items;
 }
 
@@ -94,7 +126,7 @@ function vine(art, x, y, seed, flip) {
  * The whole facade, sized around `outer` (an arch's own `frameOuter` box): draw this BEFORE the
  * arch frame itself, so the window sits in the wall rather than floating on bare paper.
  */
-export function haveliFacade(ctx, outer, seed) {
+export function haveliFacade(ctx, outer, seed, { clearTop = -Infinity } = {}) {
   const { P, art } = ctx;
   const margin = 34;
   const wallX = outer.x - margin, wallW = outer.w + margin * 2;
@@ -122,9 +154,9 @@ export function haveliFacade(ctx, outer, seed) {
   items.push(...nicheLit(art, P, wallX + 6, ny, nw, nh));
   items.push(...nicheLit(art, P, wallX + wallW - 6 - nw, ny, nw, nh));
 
-  // a peepal vine draping each top corner
-  items.push(...vine(art, wallX + 10, wallTop + 2, `${seed} vine-l`, false));
-  items.push(...vine(art, wallX + wallW - 10, wallTop + 2, `${seed} vine-r`, true));
+  // a peepal vine draping each top corner, kept clear of whatever the page put above the wall
+  items.push(...vine(art, P, wallX + 10, wallTop + 2, `${seed} vine-l`, false, clearTop));
+  items.push(...vine(art, P, wallX + wallW - 10, wallTop + 2, `${seed} vine-r`, true, clearTop));
 
   return [group(items)];
 }

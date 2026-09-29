@@ -33,7 +33,7 @@ import { qrPath } from '../../blocks/art.js';
 import { diyaRow, rangoli, toran } from '../../art/procedural/index.js';
 import { seeded } from '../../art/seed.js';
 import { chapterCopy, pageVars, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine, withCountWords } from '../copy.js';
-import { SAFE, folio, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
+import { SAFE, bandBottom, folio, folioTop, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
 import { MALA_DROP, frameOuter, framedPerson, joinFrames, nameStack, openingIn, yearsCaption } from './parts/people.js';
 import { haveliFacade } from './parts/haveli.js';
 import { describePage as describe } from './parts/describe.js';
@@ -54,6 +54,24 @@ const FAR_LAMP = 12;    // pt wide, the furthest
 export const MIN_LAMP = 5;
 /** How wide the furthest row runs, as a fraction of the lamps zone: the river bends away. */
 const FAR_SPREAD = 0.62;
+/*
+ * #287, finding 4: why the field banded once a family was large.
+ *
+ * The tilt was scaled by the LAMP width, and the lamp width is capped by the lamp spacing - so it
+ * shrinks as the count rises. The bend therefore vanished exactly where it was needed: at 400
+ * people the rows tilted 0.2-0.9 pt across a 300 pt span, which is a ruled line, and the rows read
+ * as the textile swatch round 2 was trying to get away from. It is scaled by the row's own SPAN
+ * now, so a row bends by the same visible fraction of itself at every size, and the magnitude has
+ * a floor as well as a ceiling - a seeded tilt that came out near zero was its own flat row.
+ *
+ * The issue also asks for an alternating phase offset so adjacent rows' lamps do not line up. I
+ * could not show that defect: adjacent rows differ in both count and span, so they already walk
+ * out of phase, and only 1-3 of a 12-row field have a lamp near the centre line, scattered. The
+ * pairs of lamps that do coincide are one in twenty-odd - moire, not a seam - so nothing here
+ * shifts sideways for it.
+ */
+const TILT_MIN = 0.018;   // of the row's span, end to end
+const TILT_MAX = 0.055;
 /*
  * A lamp keeps its own glow while it is near enough for the glow to read. Further off it is drawn
  * as `diya-small`, the same lamp without the glow discs: `ghat-night` already lays one warm glow
@@ -105,13 +123,17 @@ export function lampRows(n, box) {
     const count = base + (i < extra ? 1 : 0);
     const t = rows === 1 ? 1 : i / (rows - 1);          // 0 far, 1 near
     const spread = FAR_SPREAD + (1 - FAR_SPREAD) * Math.pow(t, 0.8);
-    const cyBase = box.y + box.h * (0.12 + 0.82 * t);
-    const cy = Math.min(box.y + box.h, Math.max(box.y, cyBase + (rand() - 0.5) * rowGap * 0.32));
     const half = (box.w * spread) / 2;
     const cx = box.x + box.w * (0.5 + 0.06 * (1 - t));   // the far rows sit a little upstream
     // the rows near the foot grow fastest, which is how a receding row of lamps really looks
     const w = Math.min(FAR_LAMP + (NEAR_LAMP - FAR_LAMP) * t * t, count > 1 ? ((2 * half) / (count - 1)) * 0.95 : NEAR_LAMP);
-    const tilt = (rand() - 0.5) * w * 0.5;
+    /*
+     * The bend is a fraction of the row's own span, with a floor: a row always bends visibly, and
+     * always by a different amount and in its own direction.
+     */
+    const tilt = (2 * half) * (TILT_MIN + rand() * (TILT_MAX - TILT_MIN)) * (rand() < 0.5 ? -1 : 1) / 2;
+    const cyBase = box.y + box.h * (0.12 + 0.82 * t);
+    const cy = Math.min(box.y + box.h - Math.abs(tilt), Math.max(box.y + Math.abs(tilt), cyBase + (rand() - 0.5) * rowGap * 0.32));
     out.push({
       from: at, count, x1: cx - half, x2: cx + half, y: cy, w,
       y1: cy - tilt, y2: cy + tilt, boat: t > 0.72,
@@ -333,7 +355,16 @@ function view(ctx, box, { mirror = false, seed = 'view' } = {}) {
   items.push(path(String(d), { fill: P.stone }));
 
   const riverY = box.y + box.h * 0.82;
-  items.push(rect(box.x, riverY, box.w, box.y + box.h - riverY, { fill: P.wash, op: 0.55 }));
+  /*
+   * #287, finding 3: this was `wash` at op 0.55 over the gradient, and by 0.82 down the gradient
+   * is `dayMid` at full strength - so the river composited to #9e969a, a dead neutral grey, from
+   * a clear blue (#6f93c7) over a warm orange (#d99a62). The two cancelled each other exactly.
+   *
+   * A paper-cut layer is a piece of cut paper laid on another, not a glaze over it, so the river
+   * is its own colour now. The ripple strokes below keep their opacity - those are ink ON the
+   * water, which is a different thing from the water.
+   */
+  items.push(rect(box.x, riverY, box.w, box.y + box.h - riverY, { fill: P.wash }));
   const ripple = new PathData();
   for (let i = 0; i < 2; i++) { const ry = riverY + (box.y + box.h - riverY) * (0.32 + i * 0.34); ripple.M(box.x + box.w * 0.1, ry).L(box.x + box.w * 0.9, ry); }
   items.push(path(String(ripple), { stroke: P.card, sw: 0.6, op: 0.3 }));
@@ -357,7 +388,9 @@ function archPage(ctx, page, { label, frame, words, sillLamps = 2 }) {
   const items = [paperGround(ctx, ctx.family.title), sanjhiBand(ctx, seed)];
   // The haveli facade the jharokha sits in (round 2, finding 2): drawn first, so the window is
   // built into a wall rather than floating on bare paper.
-  items.push(...haveliFacade(ctx, outer, seed));
+  // #287: the vines drape the wall's top corners, and on this variant the wall starts under the
+  // sanjhi band - so the facade is told where the band ends rather than growing up through it.
+  items.push(...haveliFacade(ctx, outer, seed, { clearTop: bandBottom(ctx) + 3 }));
   const opening = openingIn('arch-jharokha', outer);
   items.push(...frame(outer, opening));
   // Lamps on the sill. Nothing on this page counts people, so a lamp here is ornament, which is
@@ -516,6 +549,17 @@ function portraitHero(ctx, page, story) {
   const left = (W - (people.length * width + gap)) / 2;
   const boxes = people.map((p, i) => frameOuter(id, left + i * (width + gap), top, width));
 
+  /*
+   * A departed hero's mala hangs below the frame, never across the person (round 2, finding 1),
+   * so the name stack under it starts further down by the same drop.
+   *
+   * #287: the drop was taken per person, so on a page with one departed partner and one living
+   * one the two name stacks sat about 110 pt apart and the pair looked unfinished. One drop for
+   * the page, taken from whether anyone on it is departed, keeps the two baselines level. Every
+   * box on the page is the same width, so the opening is the same size in each.
+   */
+  const drop = arches && people.some((p) => p?.deceased) ? MALA_DROP * openingIn(id, boxes[0]).w : 0;
+
   let lowest = top;
   let noted = false;
   people.forEach((p, i) => {
@@ -524,17 +568,19 @@ function portraitHero(ctx, page, story) {
     // Round 2, finding 14: two arches side by side used to be a mirror of each other - the same
     // view, the same sun's side, the same cusping. The second person's whole frame (the jharokha's
     // own cusped silhouette included) turns around its own box, and its view is its own seed.
+    //
+    // #287, finding 14: the view is drawn unmirrored and the group flip below does the turning.
+    // Passing `mirror` here as well put the sun on the left and then the flip put it back, so the
+    // two negations cancelled and both suns landed on the same side - the copy-and-paste the
+    // round 2 fix was for, still there behind a mirror that mirrored nothing.
     const mirror = arches && i === 1;
     const framed = framedPerson(ctx, p, {
       id: p?.photo && ctx.options.photos && !arches ? 'medallion-carved' : id,
       outer, hero: arches, gen: story.kin.people.get(p?.id)?.gen ?? null, featuredBy: family.byId.get(story.kin.featured)?.by ?? null,
-      view: arches ? view(ctx, opening, { mirror, seed: p?.id ?? `${seed} ${i}` }) : [],
+      view: arches ? view(ctx, opening, { seed: p?.id ?? `${seed} ${i}` }) : [],
     });
     if (mirror) items.push(group(framed, { tf: [-1, 0, 0, 1, 2 * (outer.x + outer.w / 2), 0] }));
     else items.push(...framed);
-    // A departed hero's mala now hangs below the frame, never across the person (round 2, finding
-    // 1) - which means the name stack under it has to start further down, by the same drop.
-    const drop = arches && p?.deceased ? MALA_DROP * opening.w : 0;
     const stack = nameStack(ctx, story, p, { cx: outer.x + outer.w / 2, y: outer.y + outer.h + (arches ? 30 : 40) + drop, width: width + gap / 2, featuredName });
     items.push(...stack.items);
     lowest = Math.max(lowest, stack.bottom);
@@ -572,6 +618,9 @@ const noteFor = (ctx, page, person) => page.chapters.map((c) => noteCaption(c, c
 
 const MISSING = 'Is someone missing?';
 const SCAN = 'Scan to get f-tree';
+const CAP_SIZE = 9.5;   // the QR caption
+const CAP_DROP = 17;    // its baseline, below the plate's foot
+const CAP_GAP = 5;      // and the clear air between it and the folio row
 
 function closing(ctx, page, story) {
   const { P, tpl, family } = ctx;
@@ -604,15 +653,25 @@ function closing(ctx, page, story) {
     const qr = sky.at('qr');
     const plate = Math.max(40, Math.min(92, qr.w, qr.h - 26));
     const x = qr.x + (qr.w - plate) / 2;
-    // Round 2 (finding 12 fallout): the folio now alternates sides by page parity, so the credit
-    // can land under a QR zone that sits low on the page. Room for the plate, the caption under
-    // it and a clear footer row all have to fit above the folio, not just the plate alone.
-    const y = Math.min(qr.y + Math.max(0, (qr.h - plate - 24) / 2), H - plate - 46);
+    /*
+     * Round 2 (finding 12 fallout): the folio now alternates sides by page parity, so the credit
+     * can land under a QR zone that sits low on the page. Room for the plate, the caption under
+     * it and a clear footer row all have to fit above the folio, not just the plate alone.
+     *
+     * #287: that room was a hand-counted `H - plate - 46`, and it was about 7 pt short. The
+     * caption ran to y=814.9 while the folio lamp starts at y=813.5, so on every odd page - where
+     * the folio sits on the same side the caption ends - the lamp overlapped the caption's last
+     * word by 2.4 x 1.4 pt, and on even pages the caption reached the credit. The caption gets its
+     * own row now, measured off the folio rather than counted: its baseline sits `plate + CAP_DROP`
+     * below the plate's top, and its descender and a clear gap have to fall above `folioTop`.
+     */
+    const foot = folioTop(ctx) - CAP_GAP - CAP_SIZE * 0.25 - CAP_DROP - plate;
+    const y = Math.min(qr.y + Math.max(0, (qr.h - plate - 24) / 2), foot);
     items.push(rect(x + 1.7, y + 2.3, plate, plate, { fill: P.ink, op: 0.28 }));
     items.push(rect(x, y, plate, plate, { r: 8, fill: P.card }));
     items.push(rect(x, y, plate, plate, { r: 8, stroke: P.gold, sw: 1.4 }));
     items.push(qrPath(SITE_QR, x + 8, y + 8, plate - 16, P.deep));
-    items.push(ctx.line(x + plate / 2, y + plate + 17, SCAN, 'text', 9.5, P.card, { align: 'middle', width: Math.max(plate + 40, 130), kind: 'caption' }));
+    items.push(ctx.line(x + plate / 2, y + plate + CAP_DROP, SCAN, 'text', CAP_SIZE, P.card, { align: 'middle', width: Math.max(plate + 40, 130), kind: 'caption' }));
   }
   // Round 2 (finding 15): the folio credit used to print in `flame` - already the palette's
   // lightest warm token - which still read as near-invisible against a night page. `card` is the

@@ -31,7 +31,7 @@ import { planStory, VARIANTS } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { openingLine } from './copy.js';
 import { PAGES, lampRows, MIN_LAMP, rowsToWarm } from './pages/hero.js';
-import { SAFE, bandTint, paperGround, tailpiece } from './pages/parts/page.js';
+import { SAFE, paperGround } from './pages/parts/page.js';
 import { MALA_DROP, joinFrames, yearsCaption } from './pages/parts/people.js';
 import { heroTint } from './avatars.js';
 import { countWords } from '../blocks/words.js';
@@ -386,17 +386,33 @@ test('the closing sets its farewell and invitation in the book\'s own hand, not 
   assert.equal(farewell.font, 'hand', 'the farewell is not set in the book\'s own hand');
 });
 
-test('nothing on the closing page is drawn over the QR code', async () => {
-  const { report, book } = await compose('story-eldest');
-  const page = pageOf(report, 'closing');
-  const items = book.pages[page.page - 1].items;
-  const plate = items.find((it) => it.t === 'rect' && it.r !== undefined);
-  assert.ok(plate, 'the QR sits on a plate');
-  const over = (b) => Math.min(b.x + b.w, plate.x + plate.w) - Math.max(b.x, plate.x) > 0.5
-    && Math.min(b.y + b.h, plate.y + plate.h) - Math.max(b.y, plate.y) > 0.5;
-  for (const b of texts(report, page.page)) assert.ok(!over(b), `"${b.s}" prints across the QR code`);
-  // The folio's own lamp is art, not text, and it sits in the same corner of the page.
-  for (const b of whereUsed(items, 'pc-diya-small')) assert.ok(!over(b), 'the folio lamp sits on the QR code');
+test('nothing on the closing page is drawn over the QR code, or over the folio', async () => {
+  /*
+   * #287: this only ever guarded the PLATE. The caption under the plate was placed against a
+   * hand-counted margin that came up about 7 pt short, so it ran to y=814.9 while the folio lamp
+   * begins at y=813.5 - and on an odd page, where the folio sits on the side the caption ends,
+   * the two overlapped by 2.4 x 1.4 pt. Both parities are checked, because the folio alternates
+   * sides and only one of them collides.
+   */
+  for (const fixture of ['story-eldest', 'sample']) {
+    const { report, book } = await compose(fixture);
+    const page = pageOf(report, 'closing');
+    const items = book.pages[page.page - 1].items;
+    const plate = items.find((it) => it.t === 'rect' && it.r !== undefined);
+    assert.ok(plate, 'the QR sits on a plate');
+    const hits = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5
+      && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+    for (const b of texts(report, page.page)) assert.ok(!hits(b, plate), `"${b.s}" prints across the QR code`);
+    // The folio's own lamp is art, not text, and it sits in the same corner of the page.
+    const lamps = whereUsed(items, 'pc-diya-small');
+    for (const b of lamps) assert.ok(!hits(b, plate), 'the folio lamp sits on the QR code');
+    // Nothing above the folio row may reach down into it.
+    for (const b of texts(report, page.page)) {
+      for (const lamp of lamps) {
+        assert.ok(!hits(b, lamp), `${fixture} p${page.page}: "${b.s}" runs into the folio lamp`);
+      }
+    }
+  }
 });
 
 /* ------------------------------------------------------------------ the variants */
@@ -460,15 +476,75 @@ test('finding 3: the arch view is a scene - a skyline and a river - not a gradie
   assert.ok(all.some((it) => it.t === 'path' && it.fill === PAPERCUT_PALETTE.stone), 'no skyline silhouette in the view');
 });
 
-test('finding 4: lamp rows tilt and interleave, and the near rows light the leaf-boat lamp', () => {
+test('finding 4: every lamp row bends visibly, at the sizes where the field used to band', () => {
+  /*
+   * #287, finding 4. The tilt was `(rand() - 0.5) * w * 0.5`, and `w` is the LAMP width, which is
+   * capped by the lamp spacing - so it shrinks as the family grows. The bend disappeared exactly
+   * where the banding appeared. This asserted `rows.some((r) => r.y1 !== r.y2)` at 96 people: one
+   * row bending by any amount at all passed it, including the 0.2 pt that reads as a ruled line.
+   *
+   * It is EVERY row now, at the sizes that actually band, against a threshold expressed as a
+   * fraction of the row's own span - which is the width the bend is seen at. 1.5% of a 300 pt row
+   * is 4.5 pt end to end: shallow, but a bend. Against the old code the 400-person field tilted
+   * as little as 0.07% of its span.
+   */
   const box = { x: 240, y: 514, w: 345, h: 216 };
-  const rows = lampRows(96, box);
-  assert.ok(rows.some((r) => r.y1 !== r.y2), 'every row is still a flat, ruled line');
-  assert.ok(rows.some((r) => r.boat), 'no row lights the leaf-boat variant');
-  for (const r of rows) {
-    assert.ok(r.y1 >= box.y - 1e-6 && r.y1 <= box.y + box.h + 1e-6, `a tilted row's near end (${r.y1}) runs outside the lamps zone`);
-    assert.ok(r.y2 >= box.y - 1e-6 && r.y2 <= box.y + box.h + 1e-6, `a tilted row's far end (${r.y2}) runs outside the lamps zone`);
+  for (const n of [96, 200, 400]) {
+    for (const r of lampRows(n, box)) {
+      const span = Math.abs(r.x2 - r.x1);
+      const bend = Math.abs(r.y2 - r.y1);
+      assert.ok(bend / span >= 0.015,
+        `${n}: a row of ${r.count} bends ${bend.toFixed(2)} pt across ${span.toFixed(0)} pt (${(100 * bend / span).toFixed(2)}%) - a ruled line`);
+      assert.ok(r.y1 >= box.y - 1e-6 && r.y1 <= box.y + box.h + 1e-6, `${n}: a tilted row's near end (${r.y1}) runs outside the lamps zone`);
+      assert.ok(r.y2 >= box.y - 1e-6 && r.y2 <= box.y + box.h + 1e-6, `${n}: a tilted row's far end (${r.y2}) runs outside the lamps zone`);
+    }
   }
+  const rows = lampRows(96, box);
+  assert.ok(rows.some((r) => r.boat), 'no row lights the leaf-boat variant');
+  // A row that bent by the same amount every time would be its own kind of ruled - they differ,
+  // and they do not all lean the same way.
+  const signed = lampRows(400, box).map((r) => (r.y2 - r.y1) / Math.abs(r.x2 - r.x1));
+  assert.ok(new Set(signed.map((v) => v.toFixed(3))).size > 1, 'every row bends by exactly the same amount');
+  assert.ok(signed.some((v) => v > 0) && signed.some((v) => v < 0), 'every row leans the same way, so the field shears');
+});
+
+test('#287: the haveli vines drape below the sanjhi band, never up through it', async () => {
+  /*
+   * The vine starts at the wall's top corner, and a peepal hangs some 32 pt ABOVE its own anchor.
+   * On the `arch` variant the wall begins at y=46 while the band reaches y=31.55, so the first
+   * leaf crossed 18-20 pt into the band and cut across its motifs. The `window` variant puts the
+   * wall at y=268 and never collided, which is why this showed on only half the arch pages - so
+   * the assertion is over whatever the fixtures actually draw, not over one page known to break.
+   */
+  const yspan = (it) => {
+    const vb = LIBRARY.symbols[it.ref.replace(/^pc-/, '')].vb;
+    return [it.tf[5] + it.tf[3] * vb[1], it.tf[5] + it.tf[3] * (vb[1] + vb[3])];
+  };
+  let checked = 0;
+  for (const fixture of ['sample', 'story-eldest', 'large']) {
+    const { book } = await compose(fixture);
+    for (const page of book.pages) {
+      const items = flatItems(page.items);
+      const band = items.filter((it) => it.t === 'use' && it.ref === 'pc-band-sanjhi');
+      const leaves = items.filter((it) => it.t === 'use' && it.ref === 'pc-peepal');
+      if (!band.length || !leaves.length) continue;
+      const bottom = Math.max(...band.map((b) => yspan(b)[1]));
+      const top = Math.min(...leaves.map((l) => yspan(l)[0]));
+      assert.ok(top >= bottom, `${fixture} "${page.label}": a peepal leaf reaches y=${top.toFixed(1)}, ${(bottom - top).toFixed(1)} pt up into a band that ends at y=${bottom.toFixed(1)}`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 0, 'no page drew both a band and a vine, so this asserted nothing');
+});
+
+test('#287: a vine is one growing thing - a stem runs through its leaves', async () => {
+  // Three leaves with nothing joining them read as three lollipops stuck on the brickwork.
+  const { book } = await compose('sample');
+  const withVine = book.pages.find((pg) => flatItems(pg.items).some((it) => it.ref === 'pc-peepal'));
+  assert.ok(withVine, 'no page drew a vine');
+  const stems = flatItems(withVine.items).filter((it) => it.t === 'path' && it.stroke === PAPERCUT_PALETTE.leafDeep);
+  assert.equal(stems.length, 2, 'each of the two vines carries one stem through its leaves');
+  for (const st of stems) assert.ok(/^M.*Q.*Q.*Q/.test(st.d), `a stem that does not bend through all three leaves: ${st.d}`);
 });
 
 test('finding 5: the ghat figures read as separate people, not a row of bollards', async () => {
@@ -531,17 +607,19 @@ test('finding 9: heroTint varies an adult or elder hero’s cloth by a stable ha
   assert.equal(heroTint({ id: 'child', by: 2020 }, stage), null, 'a child hero - whose figure a plain overlay cannot line up with - still gets retinted');
 });
 
-test('finding 11: the Sanjhi band’s colour varies by chapter, and the tailpiece takes more than one form', () => {
-  const tints = new Set(['opening', 'parents', 'siblings', 'spouses', 'children', 'courtyards'].map((c) => bandTint(`Test Family ${c}`)));
-  assert.ok(tints.size >= 2, 'every chapter still gets the same band colour');
-
-  const fakeArt = { place: (id) => ({ t: 'use', ref: `pc-${id}` }) };
-  const forms = new Set();
-  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) {
-    forms.add(tailpiece({ art: fakeArt }, 100, 200, seed).map((it) => it.ref).join(','));
-  }
-  assert.ok(forms.size >= 2, 'the tailpiece still closes every page with the same two shapes at the same spot');
-});
+/*
+ * #287, finding 11 - a reopening of round 2's own finding 11.
+ *
+ * The test that stood here asserted that six DIFFERENT chapters produce at least two band tints,
+ * and that ten different seeds produce at least two tailpiece forms. Both are true of the bug: the
+ * chapter seed does make different chapters differ. What it never constrained is NEIGHBOURS, and
+ * `sample` page 2 and page 3 shared a peacock band and a lotus tailpiece the whole time.
+ *
+ * It has moved into `qa/invariants.mjs`, onto `consecutivePagesVary` - which is
+ * `book-design-system.md`'s Variety rule itself, and which runs over every fixture x template x
+ * featured choice rather than six hand-written strings. `describePage` carries `band` and
+ * `tailpiece` for it, the same way #285 gave it `chapters` and `copyKey`.
+ */
 
 test('finding 13: the handmade paper’s clouds composite as one layer, not one blend per overlap', () => {
   const g = paperGround({ P: PAPERCUT_PALETTE }, 'Test Family');
@@ -550,14 +628,43 @@ test('finding 13: the handmade paper’s clouds composite as one layer, not one 
   assert.ok(g.items.every((it) => it.op === undefined), 'a cloud still carries its own opacity, which compounds where two overlap');
 });
 
-test('finding 14: a two-person portrait hero draws its two arches as a pair, not a mirror of itself', async () => {
+test('finding 14: the two arches turn to face each other, so the suns do not land on the same side', async () => {
+  /*
+   * Round 2 turned the second arch's whole group AND passed `mirror` into its view. The two
+   * negations cancelled - the sun moved left, the flip put it back - so both suns sat on the same
+   * side of their arches and the pair still read as a copy and a paste. The old test here asserted
+   * only that *some* group carried tf[0] === -1, which the bug passed, so it never said anything.
+   *
+   * The view is drawn unmirrored now and the group flip alone does the turning, which puts the two
+   * suns symmetrically about the page's spine. That is the property worth pinning: it is false the
+   * moment either half of the mirroring comes back.
+   */
   const { family } = await compose('story-eldest');
   const two = family.people.filter((p) => p.name).slice(0, 2).map((p) => p.id);
   const pages = insteadOf('gathering', 'portrait-hero', { variant: 'arch', density: 'hero', people: two });
   const { book, report } = await compose('story-eldest', {}, pages);
-  const page = pageOf(report, 'portrait-hero');
-  const mirrored = book.pages[page.page - 1].items.some((it) => it.t === 'group' && it.tf && it.tf[0] === -1);
-  assert.ok(mirrored, 'neither arch is mirrored - the pair still reads as a copy and a paste');
+  const page = book.pages[pageOf(report, 'portrait-hero').page - 1];
+
+  assert.ok(page.items.some((it) => it.t === 'group' && it.tf && it.tf[0] === -1),
+    'neither arch is mirrored - the pair still reads as a copy and a paste');
+
+  /*
+   * Every sun on the page in page coordinates. A flipped group maps x to (e - x), where e is the
+   * transform's own translate. The suns are the flame discs the views draw; the faint flame circles
+   * at the spine are the diya's halo between a couple, which is why opacity tells them apart.
+   */
+  const suns = [];
+  const walk = (items, flip) => {
+    for (const it of items ?? []) {
+      if (it.t === 'group') walk(it.items, it.tf && it.tf[0] === -1 ? it.tf[4] : flip);
+      else if (it.t === 'circle' && it.fill === PAPERCUT_PALETTE.flame && it.op > 0.5) suns.push(flip === null ? it.cx : flip - it.cx);
+    }
+  };
+  walk(page.items, null);
+  assert.equal(suns.length, 2, `expected one sun in each arch, found ${suns.length}`);
+
+  const off = Math.abs((suns[0] + suns[1]) / 2 - PAGE.w / 2);
+  assert.ok(off < 3, `the two suns sit ${off.toFixed(1)} pt off the page's spine, so both are on the same side of their own arch`);
 });
 
 test('finding 16: the sill diyas have a darker halo to sit against, not pale flame on a pale wall', async () => {
