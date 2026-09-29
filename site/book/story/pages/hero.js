@@ -33,7 +33,7 @@ import { qrPath } from '../../blocks/art.js';
 import { diyaRow, rangoli, toran } from '../../art/procedural/index.js';
 import { seeded } from '../../art/seed.js';
 import { chapterCopy, pageVars, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine, withCountWords } from '../copy.js';
-import { SAFE, folio, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
+import { SAFE, bandBottom, folio, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
 import { MALA_DROP, frameOuter, framedPerson, joinFrames, nameStack, openingIn, yearsCaption } from './parts/people.js';
 import { haveliFacade } from './parts/haveli.js';
 import { describePage as describe } from './parts/describe.js';
@@ -388,7 +388,9 @@ function archPage(ctx, page, { label, frame, words, sillLamps = 2 }) {
   const items = [paperGround(ctx, ctx.family.title), sanjhiBand(ctx, seed)];
   // The haveli facade the jharokha sits in (round 2, finding 2): drawn first, so the window is
   // built into a wall rather than floating on bare paper.
-  items.push(...haveliFacade(ctx, outer, seed));
+  // #287: the vines drape the wall's top corners, and on this variant the wall starts under the
+  // sanjhi band - so the facade is told where the band ends rather than growing up through it.
+  items.push(...haveliFacade(ctx, outer, seed, { clearTop: bandBottom(ctx) + 3 }));
   const opening = openingIn('arch-jharokha', outer);
   items.push(...frame(outer, opening));
   // Lamps on the sill. Nothing on this page counts people, so a lamp here is ornament, which is

@@ -108,6 +108,12 @@ export const BAND_TILES = 18;
 const BAND_TINTS = Object.freeze(['clay', 'peacock', 'rani', 'wash']);
 export const bandTint = (seed) => BAND_TINTS[Math.floor(seeded(`${seed} band`)() * BAND_TINTS.length)];
 
+/**
+ * How far down the page the sanjhi band reaches - what a page drawing at the head has to keep
+ * clear of. #287: the haveli's vines did not, and grew up through the band on the `arch` variant.
+ */
+export const bandBottom = (ctx) => ctx.art.box('band-sanjhi', { x: 0, y: 0, anchor: 'top-left', w: W / BAND_TILES }).h;
+
 export function sanjhiBand(ctx, seed = 'sanjhi') {
   const tint = bandTint(seed);
   const w = W / BAND_TILES;

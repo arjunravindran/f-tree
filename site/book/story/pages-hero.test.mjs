@@ -492,6 +492,45 @@ test('finding 4: every lamp row bends visibly, at the sizes where the field used
   assert.ok(signed.some((v) => v > 0) && signed.some((v) => v < 0), 'every row leans the same way, so the field shears');
 });
 
+test('#287: the haveli vines drape below the sanjhi band, never up through it', async () => {
+  /*
+   * The vine starts at the wall's top corner, and a peepal hangs some 32 pt ABOVE its own anchor.
+   * On the `arch` variant the wall begins at y=46 while the band reaches y=31.55, so the first
+   * leaf crossed 18-20 pt into the band and cut across its motifs. The `window` variant puts the
+   * wall at y=268 and never collided, which is why this showed on only half the arch pages - so
+   * the assertion is over whatever the fixtures actually draw, not over one page known to break.
+   */
+  const yspan = (it) => {
+    const vb = LIBRARY.symbols[it.ref.replace(/^pc-/, '')].vb;
+    return [it.tf[5] + it.tf[3] * vb[1], it.tf[5] + it.tf[3] * (vb[1] + vb[3])];
+  };
+  let checked = 0;
+  for (const fixture of ['sample', 'story-eldest', 'large']) {
+    const { book } = await compose(fixture);
+    for (const page of book.pages) {
+      const items = flatItems(page.items);
+      const band = items.filter((it) => it.t === 'use' && it.ref === 'pc-band-sanjhi');
+      const leaves = items.filter((it) => it.t === 'use' && it.ref === 'pc-peepal');
+      if (!band.length || !leaves.length) continue;
+      const bottom = Math.max(...band.map((b) => yspan(b)[1]));
+      const top = Math.min(...leaves.map((l) => yspan(l)[0]));
+      assert.ok(top >= bottom, `${fixture} "${page.label}": a peepal leaf reaches y=${top.toFixed(1)}, ${(bottom - top).toFixed(1)} pt up into a band that ends at y=${bottom.toFixed(1)}`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 0, 'no page drew both a band and a vine, so this asserted nothing');
+});
+
+test('#287: a vine is one growing thing - a stem runs through its leaves', async () => {
+  // Three leaves with nothing joining them read as three lollipops stuck on the brickwork.
+  const { book } = await compose('sample');
+  const withVine = book.pages.find((pg) => flatItems(pg.items).some((it) => it.ref === 'pc-peepal'));
+  assert.ok(withVine, 'no page drew a vine');
+  const stems = flatItems(withVine.items).filter((it) => it.t === 'path' && it.stroke === PAPERCUT_PALETTE.leafDeep);
+  assert.equal(stems.length, 2, 'each of the two vines carries one stem through its leaves');
+  for (const st of stems) assert.ok(/^M.*Q.*Q.*Q/.test(st.d), `a stem that does not bend through all three leaves: ${st.d}`);
+});
+
 test('finding 5: the ghat figures read as separate people, not a row of bollards', async () => {
   const { book } = await compose('story-eldest');
   const figureUses = flatItems(book.pages[0].items).filter((it) => it.t === 'use' && it.ref?.startsWith('pc-hero-') && it.fill);
