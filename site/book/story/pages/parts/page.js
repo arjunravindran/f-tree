@@ -129,6 +129,13 @@ export function sanjhiBand(ctx, seed = 'sanjhi') {
  * (book-design-system.md, "Folio"). `ctx.footer` owns the words and the page number; this adds the
  * lamp beside them, clear of the number's own column.
  */
+/**
+ * The top of the folio row - its lamp is the tallest thing in it. #287: the closing's QR caption
+ * was placed against a hand-counted margin instead, and came up 7 pt short, so the caption and the
+ * folio lamp overlapped on every odd page. A page that draws above the folio asks for this.
+ */
+export const folioTop = (ctx) => ctx.art.box('diya-small', { x: 0, y: H - 17, w: 11 }).y;
+
 export function folio(ctx, ink) {
   // Round 2, finding 12: the lamp sits beside wherever `ctx.footer` (compose.js) put the page
   // number - the outer foot, alternating with page parity at format 2 - never a fixed corner.

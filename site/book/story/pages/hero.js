@@ -33,7 +33,7 @@ import { qrPath } from '../../blocks/art.js';
 import { diyaRow, rangoli, toran } from '../../art/procedural/index.js';
 import { seeded } from '../../art/seed.js';
 import { chapterCopy, pageVars, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine, withCountWords } from '../copy.js';
-import { SAFE, bandBottom, folio, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
+import { SAFE, bandBottom, folio, folioTop, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
 import { MALA_DROP, frameOuter, framedPerson, joinFrames, nameStack, openingIn, yearsCaption } from './parts/people.js';
 import { haveliFacade } from './parts/haveli.js';
 import { describePage as describe } from './parts/describe.js';
@@ -618,6 +618,9 @@ const noteFor = (ctx, page, person) => page.chapters.map((c) => noteCaption(c, c
 
 const MISSING = 'Is someone missing?';
 const SCAN = 'Scan to get f-tree';
+const CAP_SIZE = 9.5;   // the QR caption
+const CAP_DROP = 17;    // its baseline, below the plate's foot
+const CAP_GAP = 5;      // and the clear air between it and the folio row
 
 function closing(ctx, page, story) {
   const { P, tpl, family } = ctx;
@@ -650,15 +653,25 @@ function closing(ctx, page, story) {
     const qr = sky.at('qr');
     const plate = Math.max(40, Math.min(92, qr.w, qr.h - 26));
     const x = qr.x + (qr.w - plate) / 2;
-    // Round 2 (finding 12 fallout): the folio now alternates sides by page parity, so the credit
-    // can land under a QR zone that sits low on the page. Room for the plate, the caption under
-    // it and a clear footer row all have to fit above the folio, not just the plate alone.
-    const y = Math.min(qr.y + Math.max(0, (qr.h - plate - 24) / 2), H - plate - 46);
+    /*
+     * Round 2 (finding 12 fallout): the folio now alternates sides by page parity, so the credit
+     * can land under a QR zone that sits low on the page. Room for the plate, the caption under
+     * it and a clear footer row all have to fit above the folio, not just the plate alone.
+     *
+     * #287: that room was a hand-counted `H - plate - 46`, and it was about 7 pt short. The
+     * caption ran to y=814.9 while the folio lamp starts at y=813.5, so on every odd page - where
+     * the folio sits on the same side the caption ends - the lamp overlapped the caption's last
+     * word by 2.4 x 1.4 pt, and on even pages the caption reached the credit. The caption gets its
+     * own row now, measured off the folio rather than counted: its baseline sits `plate + CAP_DROP`
+     * below the plate's top, and its descender and a clear gap have to fall above `folioTop`.
+     */
+    const foot = folioTop(ctx) - CAP_GAP - CAP_SIZE * 0.25 - CAP_DROP - plate;
+    const y = Math.min(qr.y + Math.max(0, (qr.h - plate - 24) / 2), foot);
     items.push(rect(x + 1.7, y + 2.3, plate, plate, { fill: P.ink, op: 0.28 }));
     items.push(rect(x, y, plate, plate, { r: 8, fill: P.card }));
     items.push(rect(x, y, plate, plate, { r: 8, stroke: P.gold, sw: 1.4 }));
     items.push(qrPath(SITE_QR, x + 8, y + 8, plate - 16, P.deep));
-    items.push(ctx.line(x + plate / 2, y + plate + 17, SCAN, 'text', 9.5, P.card, { align: 'middle', width: Math.max(plate + 40, 130), kind: 'caption' }));
+    items.push(ctx.line(x + plate / 2, y + plate + CAP_DROP, SCAN, 'text', CAP_SIZE, P.card, { align: 'middle', width: Math.max(plate + 40, 130), kind: 'caption' }));
   }
   // Round 2 (finding 15): the folio credit used to print in `flame` - already the palette's
   // lightest warm token - which still read as near-invisible against a night page. `card` is the

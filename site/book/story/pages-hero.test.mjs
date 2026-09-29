@@ -386,17 +386,33 @@ test('the closing sets its farewell and invitation in the book\'s own hand, not 
   assert.equal(farewell.font, 'hand', 'the farewell is not set in the book\'s own hand');
 });
 
-test('nothing on the closing page is drawn over the QR code', async () => {
-  const { report, book } = await compose('story-eldest');
-  const page = pageOf(report, 'closing');
-  const items = book.pages[page.page - 1].items;
-  const plate = items.find((it) => it.t === 'rect' && it.r !== undefined);
-  assert.ok(plate, 'the QR sits on a plate');
-  const over = (b) => Math.min(b.x + b.w, plate.x + plate.w) - Math.max(b.x, plate.x) > 0.5
-    && Math.min(b.y + b.h, plate.y + plate.h) - Math.max(b.y, plate.y) > 0.5;
-  for (const b of texts(report, page.page)) assert.ok(!over(b), `"${b.s}" prints across the QR code`);
-  // The folio's own lamp is art, not text, and it sits in the same corner of the page.
-  for (const b of whereUsed(items, 'pc-diya-small')) assert.ok(!over(b), 'the folio lamp sits on the QR code');
+test('nothing on the closing page is drawn over the QR code, or over the folio', async () => {
+  /*
+   * #287: this only ever guarded the PLATE. The caption under the plate was placed against a
+   * hand-counted margin that came up about 7 pt short, so it ran to y=814.9 while the folio lamp
+   * begins at y=813.5 - and on an odd page, where the folio sits on the side the caption ends,
+   * the two overlapped by 2.4 x 1.4 pt. Both parities are checked, because the folio alternates
+   * sides and only one of them collides.
+   */
+  for (const fixture of ['story-eldest', 'sample']) {
+    const { report, book } = await compose(fixture);
+    const page = pageOf(report, 'closing');
+    const items = book.pages[page.page - 1].items;
+    const plate = items.find((it) => it.t === 'rect' && it.r !== undefined);
+    assert.ok(plate, 'the QR sits on a plate');
+    const hits = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5
+      && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+    for (const b of texts(report, page.page)) assert.ok(!hits(b, plate), `"${b.s}" prints across the QR code`);
+    // The folio's own lamp is art, not text, and it sits in the same corner of the page.
+    const lamps = whereUsed(items, 'pc-diya-small');
+    for (const b of lamps) assert.ok(!hits(b, plate), 'the folio lamp sits on the QR code');
+    // Nothing above the folio row may reach down into it.
+    for (const b of texts(report, page.page)) {
+      for (const lamp of lamps) {
+        assert.ok(!hits(b, lamp), `${fixture} p${page.page}: "${b.s}" runs into the folio lamp`);
+      }
+    }
+  }
 });
 
 /* ------------------------------------------------------------------ the variants */
