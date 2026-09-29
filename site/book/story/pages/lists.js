@@ -117,10 +117,6 @@ const rectPath = (x, y, w, h) => `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h
  * round 3 found it standing in for one anyway (`houseHole`, below). */
 const SKY_WASH_DEPTH = 296;
 
-/** The `haveli-lane` scene's own doorstep zones' bottom edge, read off its authored SVG - a house's
- * own hole or wash still reaches this far down (round 3, part 2 tightens it to the doorstep zone's
- * own *top* edge instead, so the otla and the street beneath a house survive its own cut). */
-const HOUSE_STEP_Y = 594;
 const HOUSE_HOLE_PAD = 8;
 
 /** Each of the lane's four houses' own wall height - `tools/book_scenes.mjs`'s `haveliLane`'s own
@@ -146,14 +142,25 @@ function houseNumber(zoneName) {
   return n;
 }
 
-/** The hole a blank house slot punches in the lane scene, or the box its wash tints (`lane`,
- * below): this one house's plate, board and doorstep zones' combined width, padded a little, from a
- * little above that particular house's own roofline down to the doorstep zones' own bottom edge. */
+/**
+ * The hole a blank house slot punches in the lane scene, or the box its wash tints (`lane`, below):
+ * this one house's plate, board and doorstep zones' combined width, padded a little, from a little
+ * above that particular house's own roofline down to the doorstep zone's own *top* edge - the
+ * ground line where a house's wall and door stop and its otla and the lane's street both begin, so
+ * neither is swept in with it.
+ *
+ * Round 3, part 2: this used to reach the doorstep zone's own padded bottom instead - past the otla
+ * and nearly the whole way through the street beneath it, so punching out an unused house (a full
+ * lane page's own two blank slots) took the street and the doorstep down with it, leaving a bare
+ * panel where the sky, the street and the skyline were meant to survive (the same promise the
+ * reference technique on #257's `courtyards`, `cutHouse`, keeps for the sky and the ground there).
+ */
 function houseHole(plate, board, doorstep) {
   const x0 = Math.min(plate.x, board.x, doorstep.x) - HOUSE_HOLE_PAD;
   const x1 = Math.max(plate.x + plate.w, board.x + board.w, doorstep.x + doorstep.w) + HOUSE_HOLE_PAD;
-  const y0 = doorstep.y - HOUSE_WALL_HEIGHT[houseNumber(board.name)] - HOUSE_HOLE_PAD;
-  return { x: x0, y: y0, w: x1 - x0, h: HOUSE_STEP_Y - y0 };
+  const y1 = doorstep.y;
+  const y0 = y1 - HOUSE_WALL_HEIGHT[houseNumber(board.name)] - HOUSE_HOLE_PAD;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
 /**

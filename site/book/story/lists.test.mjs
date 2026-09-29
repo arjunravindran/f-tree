@@ -13,7 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { composeWithPages } from '../compose.js';
-import { PAGE } from '../format.js';
+import { PAGE, pathPoints } from '../format.js';
 import { createArt } from '../art/draw.js';
 import { LIBRARY } from '../art/index.js';
 import { measure } from '../text.js';
@@ -318,6 +318,36 @@ test('a lane house\'s own wash follows that house\'s own roof', async () => {
       assert.ok(Math.abs(wash.y - expectedTop) <= 1, `page ${page.pageNo}, house ${n}: the wash starts at y ${wash.y}, expected close to its own roof at ${expectedTop}`);
     }
   }
+});
+
+/*
+ * Round 3, part 2: the empty-house cut (`houseHole`, `laneClip`) reached the doorstep zone's own
+ * padded bottom, so punching out an unused house on `story-large`'s p10 (slot 3) took the street
+ * and the otla in front of it down with it, leaving a bare panel from well above the roofline to
+ * well below the doorstep. Round 1's own promise for the reference technique (#257's `cutHouse`, on
+ * the `courtyards` scene) was that the sky, the street and the skyline survive a house's own cut -
+ * this checks the hole actually punched stops at the house itself, against the scene's own authored
+ * geometry, not against `houseHole`'s own numbers.
+ */
+test('the empty-house cut leaves the street and the skyline behind, taking only the house', async () => {
+  const { book: b, plan } = await book('story-large');
+  const short = plan.pages.find((p) => p.archetype === 'lane' && p.groups.length < DENSITY.houses);
+  assert.ok(short, 'story-large was expected to have a lane page with an empty house');
+  const zones = laneZones(short.variant === 'lane-mirrored');
+  const page = b.pages[short.pageNo - 1];
+  const clipped = page.items.find((it) => it.t === 'group' && it.clip);
+  assert.ok(clipped, `page ${short.pageNo}: expected the scene picture to be clipped for its empty house`);
+  const points = pathPoints(clipped.clip);
+  assert.ok(points, `page ${short.pageNo}: the clip path did not parse`);
+  const hole = points.slice(4); // the page's own outer ring is always the clip's first four points
+  const holeMinX = Math.min(...hole.map(([x]) => x)), holeMaxX = Math.max(...hole.map(([x]) => x));
+  const holeBottom = Math.max(...hole.map(([, y]) => y));
+  // Which of the lane's four houses this is, and, independent of the fix, exactly where its own
+  // doorstep - and beneath it, the street - begins.
+  const [, emptyDoorstep] = [...zones.entries()]
+    .find(([name, z]) => name.startsWith('doorstep-') && z.x + z.w / 2 >= holeMinX && z.x + z.w / 2 <= holeMaxX) ?? [];
+  assert.ok(emptyDoorstep, `page ${short.pageNo}: could not tell which of the lane's houses the cut removed`);
+  assert.equal(holeBottom, emptyDoorstep.y, `page ${short.pageNo}: the cut reaches y ${holeBottom}, past its own doorstep's top edge at ${emptyDoorstep.y} - it took the otla and the street with the house`);
 });
 
 /* ------------------------------------------------------------------ still to be found */
