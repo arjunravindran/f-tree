@@ -69,8 +69,8 @@ export function composeBook(doc, options, template, allowance = {}) {
  *   - `artZones`: `[{ page, kind: 'text' | 'face' | 'busy', x, y, w, h }]`, recorded by the art
  *     with `ctx.zone(kind, box)` in page coordinates. Format-1 art records none.
  *   - `minSize`: the smallest printed text size in the book, or null for a book with no text.
- *   - `pages`: `[{ page, label, archetype, variant, people, density }]`. A story page describes
- *     itself with `ctx.describePage(...)`; a format-1 page has nulls there.
+ *   - `pages`: `[{ page, label, archetype, variant, people, density, chapters, copyKey }]`. A
+ *     story page describes itself with `ctx.describePage(...)`; a format-1 page has nulls there.
  */
 export function composeWithReport(doc, options, template, allowance = {}) {
   const rec = recorder();
@@ -348,11 +348,13 @@ function context(family, options, tpl, allowance, now, rec) {
     },
     /**
      * What this page is: its archetype, the variant it took (its art placement), the people it is
-     * about, and which of the design system's density rows limits it - 'hero' (1-2 people),
-     * 'family' (8), 'gathering' (12), 'lane' (4 houses of 8) or 'register' (48 rows).
+     * about, which of the design system's density rows limits it - 'hero' (1-2 people),
+     * 'family' (8), 'gathering' (12), 'lane' (4 houses of 8) or 'register' (48 rows) - and the
+     * chapters it carries next to the `copy` entry its words came from, which a merged page
+     * (#285) is the only thing that can make disagree.
      */
     describePage(info = {}) {
-      if (rec) rec.pages.set(ctx.pageNo, { ...PAGE_INFO, ...info, people: [...(info.people ?? [])] });
+      if (rec) rec.pages.set(ctx.pageNo, { ...PAGE_INFO, ...info, people: [...(info.people ?? [])], chapters: [...(info.chapters ?? [])] });
     },
 
     measure: (s, role, size) => measure(s, metricsOf(role), size),
@@ -461,7 +463,7 @@ export function reportFromBook(book) {
 const recorder = () => ({ shown: new Map(), zones: [], kinds: new WeakMap(), pages: new Map() });
 
 /** What `ctx.describePage` records, and what a page that never called it reports. */
-const PAGE_INFO = Object.freeze({ archetype: null, variant: null, people: [], density: null });
+const PAGE_INFO = Object.freeze({ archetype: null, variant: null, people: [], density: null, chapters: [], copyKey: null });
 
 function finishReport(book, rec) {
   const textBoxes = [];

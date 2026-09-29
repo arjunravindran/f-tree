@@ -18,6 +18,7 @@ import { chapterVars, countInCircle, kinCaption, nameOf, noteCaption, numberFact
 import { diyaRow, rangoli } from '../../art/procedural/index.js';
 import { seeded } from '../../art/seed.js';
 import { SAFE, familySeed, lifeDates, motif, sanjhiBand, scene, titleBlock } from './parts/furniture.js';
+import { describePage } from './parts/describe.js';
 import { ROW, duplicateRegisterNames, personRow, sectionHeading, splitColumns } from './parts/register-rows.js';
 
 /** A chapter's own words, filled from what the family and the circles know (`copy.js`). */
@@ -251,7 +252,7 @@ function laneTint(ctx, story, page, what) {
 function lane(ctx, page, story) {
   const { P, family } = ctx;
   const { kin } = story;
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const s = scene(ctx, 'haveli-lane', { mirrored: page.variant === 'lane-mirrored' });
   const copy = copyFor(ctx, story, page);
 
@@ -414,7 +415,7 @@ export function figureVignette(ctx, id, cx, cy, size, count = 0) {
  */
 function numbers(ctx, page, story) {
   const { P, family } = ctx;
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const banded = page.variant === 'vignettes-mirrored';
   const copy = copyFor(ctx, story, page);
   const items = banded ? sanjhiBand(ctx, { tint: 'clay' }) : corners(ctx);
@@ -498,7 +499,7 @@ function registerColumns(page, carried) {
  */
 function register(ctx, page, story) {
   const { P } = ctx;
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const banded = page.variant === 'columns';
   const copy = copyFor(ctx, story, page);
   const items = banded ? sanjhiBand(ctx, { tint: 'clay' }) : corners(ctx);
@@ -618,7 +619,7 @@ function nicheOrnament(ctx, cx, bottomY, height) {
 function stillToBeFound(ctx, page, story) {
   const { P, family } = ctx;
   const { kin } = story;
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const s = scene(ctx, 'remembrance-night', { mirrored: page.variant === 'lamps-mirrored' });
   // The chapter's `{n}` is how many lamps the book actually lights, which is the plan's own count
   // of the people it put on these pages.
@@ -750,7 +751,7 @@ function handCard(ctx, words, cx, top, w) {
 function legacy(ctx, page, story) {
   const { P, family } = ctx;
   const { kin } = story;
-  ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
+  describePage(ctx, page);
   const mirrored = page.variant === 'line-mirrored';
   // The lamps this page lights: one a generation behind F, and F's own (below). The copy is told
   // the total so it can say it in the singular where F's is the only one (decision 8).
