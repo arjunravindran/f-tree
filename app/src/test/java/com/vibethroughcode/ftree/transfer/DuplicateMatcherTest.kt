@@ -325,7 +325,7 @@ class DuplicateMatcherTest {
     @Test
     fun `Devanagari keys keep their vowel signs and match the JavaScript exactly`() {
         // The same table as matching.test.js, so the two shells cannot drift apart on who is the
-        // same person (#113). Escaped rather than typed so the source cannot be re-encoded away.
+        // same person (#113): change the key on either side and that side's table fails.
         val ram = "राम"
         val rama = "रामा"
         val kumar = "कुमार"
