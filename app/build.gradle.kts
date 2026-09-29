@@ -123,6 +123,21 @@ android {
         }
     }
 
+    /*
+     * Which build type the instrumented tests run against. Debug by default; #260 needs a release
+     * run too, because R8 is a real risk to the reflective paths the book leans on (kotlinx
+     * serialization, the staged WebView composer) - #297 was exactly that kind of break reaching a
+     * phone unnoticed.
+     *
+     * Opt-in through a property rather than switched here, because a release build keeps the real
+     * applicationId - no ".debug" suffix, since that is what ships - so a release instrumented run
+     * installs OVER the app somebody already has. Run it on an emulator, or on a device whose tree
+     * you are willing to lose:
+     *
+     *   ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedReleaseAndroidTest -Pftree.testBuildType=release
+     */
+    testBuildType = (project.findProperty("ftree.testBuildType") as String?) ?: "debug"
+
     buildTypes {
         /*
          * A debug build installs as its OWN app, beside the real one, never over it.
@@ -147,6 +162,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Test-only keeps, never in the shipping APK. See the file's own comment.
+            testProguardFiles("proguard-test-rules.pro")
         }
     }
 
