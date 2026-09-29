@@ -90,9 +90,15 @@ export function titleBlock(ctx, page, { title, line }, box) {
  * The folio the design system asks for: a small lit diya beside the page number, and the credit
  * opposite it. `ctx.footer` writes both lines; this only hangs the lamp, clear of the number's own
  * box, so every family page's foot reads the same.
+ *
+ * `ctx.footer` (compose.js) alternates the number and the credit to the outer edge by page parity
+ * (a format-2 book's recto/verso pages, #256 round 2 finding 12) - odd right, even left. This has
+ * to read the same parity, not re-decide it, or the lamp is stranded on the fixed side while the
+ * number moves out from under it on every even page (#257 round 3, regression 2).
  */
 export function folio(ctx) {
-  return [ctx.art.place('diya-small', { x: PAGE.w - 62, y: PAGE.h - 15, w: 17 }), ...ctx.footer(ctx.P.inkSoft)];
+  const numberRight = ctx.tpl.format !== 2 || ctx.pageNo % 2 === 1;
+  return [ctx.art.place('diya-small', { x: numberRight ? PAGE.w - 62 : 62, y: PAGE.h - 15, w: 17 }), ...ctx.footer(ctx.P.inkSoft)];
 }
 
 /**

@@ -586,3 +586,27 @@ test('a half-sibling group is drawn as its own household, not merged into one ro
   const gaps = row.slice(1).map((z, i) => z.x - row[i].x);
   assert.ok(Math.max(...gaps) > Math.min(...gaps) + 1, 'every frame is evenly spaced: the households do not read apart');
 });
+
+/* ------------------------------------------------------------------ the folio */
+
+test('the folio diya always stands beside the page number, on both parities (#257 round 3, regression 2)', async () => {
+  // `ctx.footer` (compose.js) alternates the number and the credit to the outer foot by page
+  // parity - odd right, even left. `folio()` (parts/paper.js) used to hang the lamp at a fixed x,
+  // so it read correctly on an odd page and sat stranded under "Made with f-tree" on an even one.
+  const { book, report } = await compose('story-large');
+  const mine = report.pages.filter((p) => MINE.includes(p.archetype));
+  const odd = mine.find((p) => p.page % 2 === 1);
+  const even = mine.find((p) => p.page % 2 === 0);
+  assert.ok(odd && even, 'the fixture does not draw a family page of each parity to test with');
+  for (const info of [odd, even]) {
+    const items = book.pages[info.page - 1].items;
+    const diya = [...allUses(items)].find((it) => it.ref === 'pc-diya-small');
+    assert.ok(diya, `page ${info.page}: no folio diya was drawn`);
+    const diyaRight = diya.tf[4] > PAGE.w / 2;
+    const numberBox = report.textBoxes.find((b) => b.page === info.page && b.kind === 'folio' && /^\d+$/.test(b.s));
+    assert.ok(numberBox, `page ${info.page}: no page-number folio text was found`);
+    const numberRight = numberBox.x + numberBox.w / 2 > PAGE.w / 2;
+    assert.equal(diyaRight, numberRight,
+      `page ${info.page}: the diya is on the ${diyaRight ? 'right' : 'left'} but the page number is on the ${numberRight ? 'right' : 'left'}`);
+  }
+});
