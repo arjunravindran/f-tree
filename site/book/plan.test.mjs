@@ -91,6 +91,10 @@ const GOLDEN = {
     'still-to-be-found still-to-be-found 3', 'legacy legacy 1', 'closing closing 0'],
   'story-leaf': ['cover cover 0', 'opening opening-hero 1', 'courtyards courtyards 4', 'parents gathering 4', 'siblings portrait-hero 1', 'lane lane 2', 'numbers numbers 0', 'register register 10', 'legacy legacy 1', 'closing closing 0'],
   'story-notes': ['cover cover 0', 'opening opening-hero 1', 'spouses+children gathering 4', 'register register 5', 'legacy legacy 1', 'closing closing 0'],
+  // Four recorded generations above F (great-grandparents on both sides), built so the planner
+  // reaches far enough to ask for a `banyan` page at all - #257 round 2, "the banyan is
+  // unreviewed": no other fixture's roots chapter went deep enough to need one on its own.
+  'story-roots': ['cover cover 0', 'opening opening-hero 1', 'roots banyan 5', 'courtyards courtyards 4', 'parents+siblings+spouses+children gathering 6', 'numbers numbers 0', 'register register 16', 'still-to-be-found still-to-be-found 1', 'legacy legacy 1', 'closing closing 0'],
   'story-three-spouses': ['cover cover 0', 'opening opening-hero 1', 'parents portrait-hero 1', 'spouses gathering 3', 'children gathering 4', 'numbers numbers 0', 'register register 9', 'legacy legacy 1', 'closing closing 0'],
   'story-tiny': ['cover cover 0', 'opening opening-hero 1', 'parents portrait-hero 2', 'register register 3', 'legacy legacy 1', 'closing closing 0'],
   'story-twelve-siblings': ['cover cover 0', 'opening opening-hero 1', 'parents portrait-hero 2', 'siblings gathering 5', "siblings' gathering 6", 'numbers numbers 0', 'register register 14', 'legacy legacy 1', 'closing closing 0'],

@@ -1,0 +1,345 @@
+{
+ "format": "f-tree",
+ "version": 1,
+ "people": [
+  {
+   "id": "gggf-p",
+   "name": "Bhola Nath Rawat",
+   "gender": "MALE",
+   "birthDate": "1861",
+   "deathDate": "1930",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "ggf-p",
+   "name": "Devi Ram Rawat",
+   "gender": "MALE",
+   "birthDate": "1891",
+   "deathDate": "1958",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "ggm-p",
+   "name": null,
+   "gender": "FEMALE",
+   "birthDate": "1894",
+   "deathDate": "1969",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "ggf-m",
+   "name": "Harnam Singh Bisht",
+   "gender": "MALE",
+   "birthDate": "1889",
+   "deathDate": "1960",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "ggm-m",
+   "name": "Kamla Bisht",
+   "gender": "FEMALE",
+   "birthDate": "1892",
+   "deathDate": "1965",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "pgf",
+   "name": "Trilok Rawat",
+   "gender": "MALE",
+   "birthDate": "1921",
+   "deathDate": "1994",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "pgm",
+   "name": "Sarla Rawat",
+   "gender": "FEMALE",
+   "birthDate": "1924",
+   "deathDate": "1999",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "mgf",
+   "name": "Ishwar Bisht",
+   "gender": "MALE",
+   "birthDate": "1919",
+   "deathDate": "1988",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "mgm",
+   "name": "Vimla Bisht",
+   "gender": "FEMALE",
+   "birthDate": "1923",
+   "deathDate": "2002",
+   "deceased": true,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "father",
+   "name": "Mohan Rawat",
+   "gender": "MALE",
+   "birthDate": "1949",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "mother",
+   "name": "Kunti Rawat",
+   "gender": "FEMALE",
+   "birthDate": "1952",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "f",
+   "name": "Deepa Rawat",
+   "gender": "FEMALE",
+   "birthDate": "1978",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "f-sib",
+   "name": "Naveen Rawat",
+   "gender": "MALE",
+   "birthDate": "1981",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "f-husband",
+   "name": "Karan Bhatt",
+   "gender": "MALE",
+   "birthDate": "1976",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "f-kid0",
+   "name": "Ira Bhatt",
+   "gender": "FEMALE",
+   "birthDate": "2008",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  },
+  {
+   "id": "f-kid1",
+   "name": "Vivaan Bhatt",
+   "gender": "MALE",
+   "birthDate": "2011",
+   "deathDate": null,
+   "deceased": false,
+   "photo": null,
+   "notes": null,
+   "origins": []
+  }
+ ],
+ "relationships": [
+  {
+   "id": "r0",
+   "from": "gggf-p",
+   "to": "ggf-p",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r1",
+   "from": "ggf-p",
+   "to": "ggm-p",
+   "type": "SPOUSE",
+   "subtype": "WIDOWED"
+  },
+  {
+   "id": "r2",
+   "from": "ggf-m",
+   "to": "ggm-m",
+   "type": "SPOUSE",
+   "subtype": "WIDOWED"
+  },
+  {
+   "id": "r3",
+   "from": "ggf-p",
+   "to": "pgf",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r4",
+   "from": "ggm-p",
+   "to": "pgf",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r5",
+   "from": "pgf",
+   "to": "pgm",
+   "type": "SPOUSE",
+   "subtype": "WIDOWED"
+  },
+  {
+   "id": "r6",
+   "from": "ggf-m",
+   "to": "mgf",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r7",
+   "from": "ggm-m",
+   "to": "mgf",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r8",
+   "from": "mgf",
+   "to": "mgm",
+   "type": "SPOUSE",
+   "subtype": "WIDOWED"
+  },
+  {
+   "id": "r9",
+   "from": "pgf",
+   "to": "father",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r10",
+   "from": "pgm",
+   "to": "father",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r11",
+   "from": "mgf",
+   "to": "mother",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r12",
+   "from": "mgm",
+   "to": "mother",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r13",
+   "from": "father",
+   "to": "mother",
+   "type": "SPOUSE",
+   "subtype": "MARRIED"
+  },
+  {
+   "id": "r14",
+   "from": "father",
+   "to": "f",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r15",
+   "from": "mother",
+   "to": "f",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r16",
+   "from": "father",
+   "to": "f-sib",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r17",
+   "from": "mother",
+   "to": "f-sib",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r18",
+   "from": "f",
+   "to": "f-husband",
+   "type": "SPOUSE",
+   "subtype": "MARRIED"
+  },
+  {
+   "id": "r19",
+   "from": "f",
+   "to": "f-kid0",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r20",
+   "from": "f-husband",
+   "to": "f-kid0",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r21",
+   "from": "f",
+   "to": "f-kid1",
+   "type": "PARENT",
+   "subtype": null
+  },
+  {
+   "id": "r22",
+   "from": "f-husband",
+   "to": "f-kid1",
+   "type": "PARENT",
+   "subtype": null
+  }
+ ]
+}
