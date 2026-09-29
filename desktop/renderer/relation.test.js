@@ -51,6 +51,20 @@ test('a relative of the person somebody married is named through them', () => {
   );
 });
 
+test('a marriage that ended is not called a marriage (#271)', () => {
+  /*
+   * The chain's first step is the marriage, and it is the only thing that knows the marriage
+   * ended. Before #271 this sentence said "wife" for a woman the record says he divorced.
+   */
+  assert.strictEqual(
+    said(sentenceFor(
+      { kind: 'related', ofSpouse: { term: 'mother', spouse: wife }, path: [{ id: 'wife', via: 'spouse', subtype: 'DIVORCED' }] },
+      ankit, priya,
+    )),
+    'Priya Sharma is the *mother* of Ankit Kumar’s former wife.',
+  );
+});
+
 test('where no word fits, there is no sentence', () => {
   /*
    * The case worth pinning. "Connected only through marriage" was tried and was worse than

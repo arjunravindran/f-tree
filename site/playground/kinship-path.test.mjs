@@ -269,5 +269,18 @@ test('the subject’s own spouse is its own kind', () => {
     ],
     relationships: [{ from: 'me', to: 'wife', type: 'SPOUSE' }],
   });
-  assert.deepStrictEqual(relate(graph, 'me', 'wife').kinship.term, { kind: 'spouse' });
+  assert.deepStrictEqual(relate(graph, 'me', 'wife').kinship.term, { kind: 'spouse', subtype: null });
+});
+
+test('the subject’s own spouse carries whether the marriage ended, in the word and in the term', () => {
+  const graph = buildGraph({
+    people: [
+      { id: 'me', name: 'Me', gender: 'MALE' },
+      { id: 'ex', name: 'Ex', gender: 'FEMALE' },
+    ],
+    relationships: [{ from: 'me', to: 'ex', type: 'SPOUSE', subtype: 'DIVORCED' }],
+  });
+  const r = relate(graph, 'me', 'ex');
+  assert.strictEqual(r.term, 'former wife');
+  assert.deepStrictEqual(r.kinship.term, { kind: 'spouse', subtype: 'DIVORCED' });
 });

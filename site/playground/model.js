@@ -283,16 +283,26 @@ export function siblingLabel(sibling, half) {
   return half ? `Half-${base}` : capitalise(base);
 }
 
+/**
+ * Current, former or late: the app's one rule for whether a marriage ended. DIVORCED is former,
+ * and WIDOWED is late only for the partner who actually died - the edge is symmetric and cannot
+ * say which. `spouseLabel` here and `kin.js`'s circles both answer from this, so they cannot drift.
+ */
+export function spouseStatus(spouse, subtype) {
+  if (subtype === 'DIVORCED') return 'former';
+  if (subtype === 'WIDOWED' && spouse?.deceased) return 'late';
+  return 'current';
+}
+
 export function spouseLabel(spouse, subtype) {
-  if (subtype === 'DIVORCED') return byGender(spouse, 'Former husband', 'Former wife', 'Former partner');
-  // WIDOWED sits on a symmetric edge and cannot say which of the two died, so the deceased flag
-  // decides. Calling a living spouse "late" because their partner died states the opposite of
-  // what happened.
-  if (subtype === 'WIDOWED' && spouse?.deceased) {
-    return byGender(spouse, 'Late husband', 'Late wife', 'Late partner');
-  }
+  // PARTNER is a different axis from status (it says nothing about whether the marriage ended),
+  // so it is answered before the status is asked.
   if (subtype === 'PARTNER') return 'Partner';
-  return byGender(spouse, 'Husband', 'Wife', 'Spouse');
+  switch (spouseStatus(spouse, subtype)) {
+    case 'former': return byGender(spouse, 'Former husband', 'Former wife', 'Former partner');
+    case 'late': return byGender(spouse, 'Late husband', 'Late wife', 'Late partner');
+    default: return byGender(spouse, 'Husband', 'Wife', 'Spouse');
+  }
 }
 
 /** Every recorded relationship of one person, grouped and named the way the app names them. */
@@ -697,8 +707,8 @@ function affinalTerm(graph, fromId, toId, path, standIns) {
   // Married to the subject themselves: one step, and its own kind rather than a wrapper.
   if (path.length === 1) {
     return {
-      term: spouseLabel(to, null).toLowerCase(),
-      kinship: { term: { kind: 'spouse' }, ascent: [], descent: [], seniority: 'UNKNOWN',
+      term: spouseLabel(to, path[0].subtype).toLowerCase(),
+      kinship: { term: { kind: 'spouse', subtype: path[0].subtype }, ascent: [], descent: [], seniority: 'UNKNOWN',
         side: 'UNSPECIFIED', link: 'UNSPECIFIED' },
     };
   }
@@ -838,7 +848,7 @@ function shortestPath(graph, fromId, toId) {
     else label = siblingLabel(person, step.half).toLowerCase();
     // `via` is carried through: a chart needs to know which steps are sibling ones, because those
     // are the steps with no edge of their own to draw.
-    return { id: step.id, label, via: step.via };
+    return { id: step.id, label, via: step.via, subtype: step.subtype };
   });
 }
 

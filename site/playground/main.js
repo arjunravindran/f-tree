@@ -463,8 +463,11 @@ function renderRelation() {
     sentence = `${nameHtml(to)} is married to ${nameHtml(from)}'s `
       + `<b>${escape(result.marriedTo.term)}</b>.`;
   } else if (result.ofSpouse) {
+    // The chain's first step is the marriage, and it knows whether it ended: "the mother of
+    // Ankit's former wife" is not "the mother of Ankit's wife".
+    const married = spouseLabel(result.ofSpouse.spouse, result.path?.[0]?.subtype ?? null);
     sentence = `${nameHtml(to)} is the <b>${escape(result.ofSpouse.term)}</b> of `
-      + `${nameHtml(from)}'s ${escape(spouseLabel(result.ofSpouse.spouse, null).toLowerCase())}.`;
+      + `${nameHtml(from)}'s ${escape(married.toLowerCase())}.`;
   }
 
   box.innerHTML = `
