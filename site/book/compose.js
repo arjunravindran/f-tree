@@ -236,8 +236,13 @@ export function estimateBytes(book, { lossless }) {
  * constant here drops below what they need. A layer measured as free: its cost is in what it holds.
  *
  * Format-1 books keep the old estimate, whose per-page constant already covers their starfields.
- * Android's PdfDocument cannot draw format 2 until #246: #246 and #259 must measure it there too
- * and raise these if Android writes more.
+ *
+ * Fitted on Chromium, and measured on Android too (#245, 2026-09-29, moto g05): PdfDocument writes
+ * less than Chromium on every book tried, so these coefficients cover both and did not need
+ * raising. `BookPdfTest` and `BookFormat2PdfTest` keep it that way - they print real books through
+ * PdfDocument and fail if one comes out above what the estimate allowed. `BookEstimate.kt` is the
+ * Kotlin twin of this function, `artStats` and `artTerm`, and `BookEstimateTest` runs this module
+ * in node to hold the two to the same counts.
  */
 export const ART_PDF = Object.freeze({ bytes: 0.75, translucent: 1050, layers: 0, gradients: 5800, clips: 1600 });
 /** What `artStats` counts, priced by a set of coefficients: `ART_PDF` unless measuring new ones. */
