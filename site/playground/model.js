@@ -706,8 +706,8 @@ function affinalTerm(graph, fromId, toId, path, standIns) {
   // Married to the subject themselves: one step, and its own kind rather than a wrapper.
   if (path.length === 1) {
     return {
-      term: spouseLabel(to, null).toLowerCase(),
-      kinship: { term: { kind: 'spouse' }, ascent: [], descent: [], seniority: 'UNKNOWN',
+      term: spouseLabel(to, path[0].subtype).toLowerCase(),
+      kinship: { term: { kind: 'spouse', subtype: path[0].subtype }, ascent: [], descent: [], seniority: 'UNKNOWN',
         side: 'UNSPECIFIED', link: 'UNSPECIFIED' },
     };
   }
@@ -847,7 +847,7 @@ function shortestPath(graph, fromId, toId) {
     else label = siblingLabel(person, step.half).toLowerCase();
     // `via` is carried through: a chart needs to know which steps are sibling ones, because those
     // are the steps with no edge of their own to draw.
-    return { id: step.id, label, via: step.via };
+    return { id: step.id, label, via: step.via, subtype: step.subtype };
   });
 }
 
