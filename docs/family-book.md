@@ -489,7 +489,7 @@ progress is announced, and every control is reachable by keyboard and screen rea
 
 ## Working on it
 
-- `node --test site/book/*.test.mjs` runs the tests. Regenerate the goldens with `UPDATE_GOLDEN=1`
+- `node --test "site/book/*.test.mjs" "site/book/story/*.test.mjs"` runs the tests. Regenerate the goldens with `UPDATE_GOLDEN=1`
   once a change is meant.
 - Serve the repository root (`python3 -m http.server`) and open `/site/book/preview.html` to see
   every template with every fixture, painted by the SVG painter the desktop prints with.

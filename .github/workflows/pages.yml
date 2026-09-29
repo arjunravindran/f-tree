@@ -62,8 +62,12 @@ jobs:
       # The policy switch (#156) is the same story: `site/book/policy.js` is ported to Kotlin as
       # `entitlement/Entitlements.kt`, sharing `policy-cases.json` with it, and this is the one
       # workflow that runs the JavaScript side without also needing a desktop or Android build.
+      # Both globs: `site/book/*.test.mjs` does not match `site/book/story/`, so every test the
+      # storybook issues wrote (#250-#258) - the register's completeness guarantee, the page
+      # references, the living-age check, the lane's density - ran only on contributors' machines
+      # and never here. That was 148 of the book's 709 tests, including the whole of #258.
       - name: The family book's composer and policy rules
-        run: node --test "site/book/*.test.mjs"
+        run: node --test "site/book/*.test.mjs" "site/book/story/*.test.mjs"
 
       # Pillow, because `make_sample_tree.py` now refuses to run without it. It used to carry on and
       # write a fixture with no photographs in it, which no runner has ever had the library to draw --

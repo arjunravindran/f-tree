@@ -549,7 +549,7 @@ gate (#240), which has passed.
 
 ## Verification
 
-- **JS tests:** `node --test site/book/*.test.mjs`. Heirloom goldens stay identical. Diwali is
+- **JS tests:** `node --test "site/book/*.test.mjs" "site/book/story/*.test.mjs"` - both globs, because the first does not match `story/`, where every page archetype's own tests live. Heirloom goldens stay identical. Diwali is
   regenerated once, at issue 20.
 - **Invariants,** over every fixture × 3 featured choices (most connected, eldest, a leaf):
   - everyone in scope is shown;
