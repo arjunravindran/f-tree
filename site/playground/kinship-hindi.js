@@ -18,6 +18,8 @@
  * engine; the engine never reads the vocabulary.
  */
 
+import { hindiWord } from './kinship-hi.js';
+
 /** The male word, the female word, or null: Hindi has no neuter kinship term to fall back on. */
 function byGender(gender, male, female) {
   if (gender === 'MALE') return male;
@@ -231,4 +233,21 @@ export function hindiTerm(kinship, subject, target) {
     default:
       return null;
   }
+}
+
+/**
+ * The Hindi word for an answer, with its gloss, or null where Hindi has none.
+ *
+ * `word (gloss)` is how bilingual families actually speak, and it is what lets a younger relative
+ * who does not know फूफा still read the answer. The gloss is more precise than English's own kinship
+ * words on purpose: English says "uncle" five ways and the gloss says which one.
+ *
+ * Null everywhere Hindi genuinely has no word -- a second cousin, a relative through two marriages
+ * -- and the panel then says the English sentence it would have said anyway. That is the same thing
+ * a Hindi speaker does mid-conversation, and better than a Devanagari compound nobody says.
+ */
+export function hindiFor(result, from, to) {
+  const term = hindiTerm(result?.kinship, from?.gender ?? 'UNSPECIFIED', to?.gender ?? 'UNSPECIFIED');
+  const entry = hindiWord(term);
+  return entry ? { ...entry, term } : null;
 }

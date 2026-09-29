@@ -96,8 +96,8 @@
  *     `model.js` - `parentLabel`, `spouseLabel`, `childLabel`, `siblingLabel` - which know the
  *     edge's subtype (step, former, late, half) that a bare kinship term cannot. No relate() call.
  *   - Everyone else: `relate(graph, F, id)` - its `term` is `kinshipLabel(termFor(u, d))` for
- *     blood relatives and the app's in-law words for the rest - and the Hindi from `hindiTerm` +
- *     `hindiWord`, exactly as the desktop's relation panel does.
+ *     blood relatives and the app's in-law words for the rest - and the Hindi from `hindiFor`,
+ *     exactly as the desktop's relation panel does.
  *   - Parents' Hindi words are पिताजी / माँ, the approved book wording (docs/storybook-plan.md),
  *     not the vocabulary's पिता / माता; a step-parent keeps सौतेला पिता / सौतेली माता.
  *   - A former spouse and a partner get no Hindi word: पत्नी/पति would state a marriage that
@@ -116,7 +116,7 @@ import { relate, branchFrom, parentLabel, spouseLabel, spouseStatus, childLabel,
 
 // Re-exported: the book's tests and medallions read the rule from here, but it lives in model.js.
 export { spouseStatus };
-import { hindiTerm } from '../../playground/kinship-hindi.js';
+import { hindiFor } from '../../playground/kinship-hindi.js';
 import { hindiWord } from '../../playground/kinship-hi.js';
 import { sortKey, byKey } from '../family.js';
 
@@ -364,8 +364,11 @@ function wordsOf({ graph, F, edges, people, lang, relateFn }) {
       // "married to Ankit's first cousin", "the mother of Ankit's wife".
       if (!en && r?.marriedTo) through = Object.freeze({ kind: 'married-to', term: r.marriedTo.term, id: r.marriedTo.person.id });
       if (!en && r?.ofSpouse) through = Object.freeze({ kind: 'of-spouse', term: r.ofSpouse.term, id: r.ofSpouse.spouse.id });
-      term = hindiTerm(r?.kinship, graph.people.get(F).gender ?? 'UNSPECIFIED', to.gender ?? 'UNSPECIFIED');
+      const hindi = hindiFor(r, graph.people.get(F), to);
+      term = hindi?.term ?? null;
+      hi = hindi?.word ?? null;
     }
+    // The one-step circles name a term but leave the word to the vocabulary.
     if (hi === null) hi = hindiWord(term)?.word ?? null;
     return Object.freeze({ en, hi, term: term ?? null, word: lang === 'hi' ? (hi ?? en) : en, through });
   };
