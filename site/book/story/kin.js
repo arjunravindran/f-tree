@@ -112,7 +112,10 @@
  * page actually shows. Nothing here calls `ageOf` - a partition has no reason to read the clock.
  */
 
-import { relate, branchFrom, parentLabel, spouseLabel, childLabel, siblingLabel } from '../../playground/model.js';
+import { relate, branchFrom, parentLabel, spouseLabel, spouseStatus, childLabel, siblingLabel } from '../../playground/model.js';
+
+// Re-exported: the book's tests and medallions read the rule from here, but it lives in model.js.
+export { spouseStatus };
 import { hindiTerm } from '../../playground/kinship-hindi.js';
 import { hindiWord } from '../../playground/kinship-hi.js';
 import { sortKey, byKey } from '../family.js';
@@ -141,16 +144,6 @@ export const ROLES = Object.freeze({
 
 const SIDE_RANK = { paternal: 0, maternal: 1, none: 2 };
 const sideOf = (person) => (person?.gender === 'MALE' ? 'paternal' : person?.gender === 'FEMALE' ? 'maternal' : 'none');
-
-/**
- * Current, former or late, by the app's own rule (`spouseLabel`): DIVORCED is former, and WIDOWED
- * is late only for the partner who actually died - the edge is symmetric and cannot say which.
- */
-export function spouseStatus(spouse, subtype) {
-  if (subtype === 'DIVORCED') return 'former';
-  if (subtype === 'WIDOWED' && spouse?.deceased) return 'late';
-  return 'current';
-}
 
 const NO_WORDS = Object.freeze({ en: null, hi: null, term: null, word: null, through: null });
 

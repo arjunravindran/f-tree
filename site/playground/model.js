@@ -283,16 +283,25 @@ export function siblingLabel(sibling, half) {
   return half ? `Half-${base}` : capitalise(base);
 }
 
+/**
+ * Current, former or late, by the app's own rule (`spouseLabel`): DIVORCED is former, and WIDOWED
+ * is late only for the partner who actually died - the edge is symmetric and cannot say which.
+ */
+export function spouseStatus(spouse, subtype) {
+  if (subtype === 'DIVORCED') return 'former';
+  if (subtype === 'WIDOWED' && spouse?.deceased) return 'late';
+  return 'current';
+}
+
 export function spouseLabel(spouse, subtype) {
-  if (subtype === 'DIVORCED') return byGender(spouse, 'Former husband', 'Former wife', 'Former partner');
-  // WIDOWED sits on a symmetric edge and cannot say which of the two died, so the deceased flag
-  // decides. Calling a living spouse "late" because their partner died states the opposite of
-  // what happened.
-  if (subtype === 'WIDOWED' && spouse?.deceased) {
-    return byGender(spouse, 'Late husband', 'Late wife', 'Late partner');
-  }
+  // PARTNER is a different axis from status (it says nothing about whether the marriage ended),
+  // so it is answered before the status is asked.
   if (subtype === 'PARTNER') return 'Partner';
-  return byGender(spouse, 'Husband', 'Wife', 'Spouse');
+  switch (spouseStatus(spouse, subtype)) {
+    case 'former': return byGender(spouse, 'Former husband', 'Former wife', 'Former partner');
+    case 'late': return byGender(spouse, 'Late husband', 'Late wife', 'Late partner');
+    default: return byGender(spouse, 'Husband', 'Wife', 'Spouse');
+  }
 }
 
 /** Every recorded relationship of one person, grouped and named the way the app names them. */
