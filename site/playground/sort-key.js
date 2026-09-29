@@ -4,7 +4,7 @@
  * distinct names together, the very bug #113 records for duplicate matching.
  */
 export function sortKey(name) {
-  return name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
 export const byKey = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
