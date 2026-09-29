@@ -5,7 +5,9 @@ import com.vibethroughcode.ftree.nearby.wire.DeviceId
 import com.vibethroughcode.ftree.nearby.wire.NearbyPlatform
 import com.vibethroughcode.ftree.nearby.wire.NearbyProtocol
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -137,5 +139,31 @@ class PeerTableTest {
         table.seen(beacon(a), "192.168.1.5", 1000)
         assertEquals("192.168.1.5", table[a.hex()]?.address)
         assertNull(table[b.hex()])
+    }
+
+    @Test
+    fun `a device on another protocol version is listed, and says so`() {
+        // #191: this used to be dropped before it reached the table, so the other device simply
+        // never appeared and the only symptom was "I can't see it".
+        val table = PeerTable()
+        val other = beacon(a).copy(maxVersion = 9, minVersion = 9)
+        table.seen(other, "192.168.1.5", 1000)
+        table.seen(beacon(b), "192.168.1.6", 1000)
+
+        val listed = table.list().associateBy { it.key }
+        assertEquals(2, listed.size)
+        assertFalse(listed.getValue(a.hex()).speakable)
+        assertTrue(listed.getValue(a.hex()).needsThisDeviceUpdated)
+        assertTrue(listed.getValue(b.hex()).speakable)
+    }
+
+    @Test
+    fun `a device on an older protocol version asks for the other one to be updated`() {
+        val table = PeerTable()
+        // A build that only ever spoke version 0: this one is the newer of the two.
+        table.seen(beacon(a).copy(maxVersion = 0, minVersion = 0), "192.168.1.5", 1000)
+        val peer = table.list().single()
+        assertFalse(peer.speakable)
+        assertFalse(peer.needsThisDeviceUpdated)
     }
 }

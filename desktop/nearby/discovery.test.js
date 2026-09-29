@@ -18,11 +18,14 @@ const beaconWire = require('./beacon');
 const { PeerTable, Discovery } = require('./discovery');
 const { NearbyIdentity } = require('./identity');
 
-function beaconFor(deviceId, { name = 'Quiet Heron', port = 4000, type = protocol.BEACON_ANNOUNCE } = {}) {
+function beaconFor(deviceId, {
+  name = 'Quiet Heron', port = 4000, type = protocol.BEACON_ANNOUNCE,
+  maxVersion = protocol.VERSION, minVersion = protocol.MIN_VERSION,
+} = {}) {
   return {
     messageType: type,
-    maxVersion: protocol.VERSION,
-    minVersion: protocol.MIN_VERSION,
+    maxVersion,
+    minVersion,
     platform: beaconWire.PLATFORM.ANDROID,
     flags: protocol.FLAG_ACCEPTS_TREE,
     tcpPort: port,
@@ -126,6 +129,31 @@ test('two devices are two rows, sorted for a list somebody reads', () => {
   table.seen(beaconFor(A, { name: 'Quiet Heron' }), '192.168.1.5', 1000);
   table.seen(beaconFor(B, { name: 'Amber Otter' }), '192.168.1.6', 1000);
   assert.deepEqual(table.list().map((p) => p.displayName), ['Amber Otter', 'Quiet Heron']);
+});
+
+test('a device on another protocol version is listed, and marked as one', () => {
+  // #191: this used to be dropped before it reached the table, so the other device simply never
+  // appeared and the only symptom was "I can't see it" -- the hardest case to work out remotely.
+  const table = new PeerTable();
+  table.seen(beaconFor(A, { name: 'Quiet Heron', maxVersion: 9, minVersion: 9 }), '192.168.1.5', 1000);
+  table.seen(beaconFor(B, { name: 'Amber Otter' }), '192.168.1.6', 1000);
+
+  const listed = new Map(table.list().map((peer) => [peer.displayName, peer]));
+  assert.equal(listed.size, 2);
+  assert.equal(listed.get('Quiet Heron').speakable, false);
+  assert.equal(listed.get('Amber Otter').speakable, true);
+});
+
+test('a device that becomes speakable is a change, not a second device', () => {
+  // The other end being updated while this screen is open: the row has to stop being greyed.
+  const table = new PeerTable();
+  const changed = [];
+  table.on('changed', (peer) => changed.push(peer));
+  table.seen(beaconFor(A, { maxVersion: 9, minVersion: 9 }), '192.168.1.5', 1000);
+  table.seen(beaconFor(A), '192.168.1.5', 2000);
+
+  assert.equal(table.list().length, 1);
+  assert.deepEqual(changed.map((peer) => peer.speakable), [true]);
 });
 
 test('two copies on one machine find each other', async (t) => {

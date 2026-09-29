@@ -3,6 +3,7 @@ package com.vibethroughcode.ftree.nearby
 import com.vibethroughcode.ftree.nearby.wire.Beacon
 import com.vibethroughcode.ftree.nearby.wire.DeviceId
 import com.vibethroughcode.ftree.nearby.wire.NearbyPlatform
+import com.vibethroughcode.ftree.nearby.wire.NearbyProtocol
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -22,9 +23,26 @@ data class NearbyPeer(
     val flags: Int,
     val keyFingerprint: ByteArray,
     val lastSeenAt: Long,
+    /** The protocol range the beacon announced, kept so [speakable] can be worked out here. */
+    val maxVersion: Int = NearbyProtocol.VERSION,
+    val minVersion: Int = NearbyProtocol.MIN_VERSION,
 ) {
     /** Stable across a rename or a change of address, which is what the trusted list is keyed on. */
     val key: String get() = deviceId.hex()
+
+    /**
+     * Whether this build and that one can hold a conversation at all.
+     *
+     * False for a device announcing a protocol version this build does not know. Such a device used
+     * to be dropped, so it simply never appeared and the only symptom was "I can't see it" -- the
+     * hardest thing to work out over the phone with a relative. It is listed and said to be on
+     * another version instead (#191).
+     */
+    val speakable: Boolean
+        get() = minVersion <= NearbyProtocol.VERSION && maxVersion >= NearbyProtocol.MIN_VERSION
+
+    /** True when the other device is the newer one, which decides which of them to tell to update. */
+    val needsThisDeviceUpdated: Boolean get() = minVersion > NearbyProtocol.VERSION
 
     override fun equals(other: Any?): Boolean =
         this === other || (
@@ -36,7 +54,9 @@ data class NearbyPeer(
                 platform == other.platform &&
                 flags == other.flags &&
                 keyFingerprint.contentEquals(other.keyFingerprint) &&
-                lastSeenAt == other.lastSeenAt
+                lastSeenAt == other.lastSeenAt &&
+                maxVersion == other.maxVersion &&
+                minVersion == other.minVersion
             )
 
     override fun hashCode(): Int {
@@ -47,7 +67,9 @@ data class NearbyPeer(
         result = 31 * result + platform.hashCode()
         result = 31 * result + flags
         result = 31 * result + keyFingerprint.contentHashCode()
-        return 31 * result + lastSeenAt.hashCode()
+        result = 31 * result + lastSeenAt.hashCode()
+        result = 31 * result + maxVersion
+        return 31 * result + minVersion
     }
 }
 

@@ -168,7 +168,10 @@ class NearbyRepository(
         transport.startDiscovery { beacon, address ->
             if (beacon.messageType == NearbyProtocol.BEACON_GOODBYE) {
                 peerTable.gone(beacon.deviceId)
-            } else if (beacon.speakable && isAllowed(beacon)) {
+            } else if (isAllowed(beacon)) {
+                // Including a beacon this build cannot speak to. It is listed, greyed, and said to
+                // be on another version, rather than dropped into silence (#191). The trusted-only
+                // filter still applies: that is a choice about what to list, not about diagnosis.
                 peerTable.seen(beacon, address, clock())
             }
             _peers.value = peerTable.list()
@@ -279,6 +282,14 @@ class NearbyRepository(
      * across a network for minutes.
      */
     fun send(peer: NearbyPeer, outgoing: OutgoingFile, pairingToken: ByteArray = Handshake.NO_TOKEN) {
+        // The list now includes devices on a protocol version this build cannot speak (#191), shown
+        // greyed. Refusing here as well means the same answer whether the row was reachable or not.
+        if (!peer.speakable) {
+            _state.value = NearbyState.Failed(
+                if (peer.needsThisDeviceUpdated) NearbyProblem.PROTOCOL_TOO_NEW else NearbyProblem.PROTOCOL_TOO_OLD,
+            )
+            return
+        }
         startSending(
             address = peer.address,
             port = peer.port,

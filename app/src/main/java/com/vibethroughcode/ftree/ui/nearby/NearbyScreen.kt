@@ -50,9 +50,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -210,16 +212,19 @@ private fun Browse(
 
     // One polite line rather than an announcement per device: a screen reader interrupted every
     // time somebody's phone joins the Wi-Fi is a screen reader that cannot finish a sentence.
-    val status = if (peers.isEmpty()) {
+    // Only the devices that can actually be sent to are counted: "2 devices nearby" over a list
+    // where one of them is greyed out and cannot be picked would be a promise the list breaks.
+    val reachable = peers.count { it.speakable }
+    val status = if (reachable == 0) {
         stringResource(R.string.nearby_looking)
     } else {
-        pluralStringResource(R.plurals.nearby_found_count, peers.size, peers.size)
+        pluralStringResource(R.plurals.nearby_found_count, reachable, reachable)
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (peers.isEmpty() || preparing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        if (reachable == 0 || preparing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
         Text(
             status,
             style = MaterialTheme.typography.titleSmall,
@@ -245,23 +250,52 @@ private fun Browse(
     TypedAddress(enabled = !preparing, onSendTo = onSendTo)
 }
 
+/**
+ * One device.
+ *
+ * A device on a version of f-tree this one cannot speak to is shown rather than left out (#191): a
+ * row that is never drawn reads as a network fault, and "I can't see it" is the hardest thing to
+ * work out over the phone with a relative. It is the same row, dimmed, with no click to give and a
+ * line saying what to do about it -- and it is marked disabled so TalkBack says so too.
+ */
 @Composable
 private fun PeerRow(peer: NearbyPeer, enabled: Boolean, onClick: () -> Unit) {
+    val dim = !peer.speakable
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            .then(
+                if (dim) {
+                    Modifier.semantics { disabled() }
+                } else {
+                    Modifier.clickable(enabled = enabled, onClick = onClick)
+                },
+            )
             .padding(vertical = 14.dp)
             .testTag(NearbyPeerTag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        val tint = MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
             if (peer.platform == NearbyPlatform.ANDROID) Icons.Default.PhoneAndroid else Icons.Default.Computer,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (dim) tint.copy(alpha = 0.5f) else tint,
         )
-        Text(peer.displayName, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(
+                peer.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (dim) tint else Color.Unspecified,
+            )
+            if (dim) {
+                Text(
+                    stringResource(R.string.nearby_other_version),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tint,
+                )
+            }
+        }
     }
 }
 

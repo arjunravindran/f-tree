@@ -61,12 +61,17 @@ class PeerTable extends EventEmitter {
       keyFingerprint: beacon.keyFingerprint,
       maxVersion: beacon.maxVersion,
       minVersion: beacon.minVersion,
+      // Whether this build and that one can hold a conversation at all. Kept on the peer rather
+      // than filtered out, so a device on another version of f-tree can be shown and said to be
+      // on another version, instead of simply never appearing (#191).
+      speakable: beaconWire.speakable(beacon),
       lastSeen: atMillis,
     };
     this.peers.set(key, peer);
 
     if (!existing) this.emit('appeared', peer);
-    else if (existing.displayName !== peer.displayName || existing.address !== peer.address) {
+    else if (existing.displayName !== peer.displayName || existing.address !== peer.address
+      || existing.speakable !== peer.speakable) {
       this.emit('changed', peer);
     }
     return peer;
@@ -331,7 +336,8 @@ class Discovery extends EventEmitter {
       this.peers.gone(beacon.deviceId);
       return;
     }
-    if (!beaconWire.speakable(beacon)) return;
+    // A beacon this build cannot speak to is still recorded. Dropping it meant the other device
+    // never appeared, and "I can't see it" is the hardest thing to diagnose over the phone (#191).
     this.peers.seen(beacon, remote.address, this.clock());
   }
 

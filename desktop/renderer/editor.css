@@ -1609,8 +1609,21 @@
   transition: background .12s, border-color .12s;
 }
 
-.editor .nearby-peer:hover { background: var(--bone-dim); border-color: var(--forest); }
+.editor .nearby-peer:hover:not(:disabled) { background: var(--bone-dim); border-color: var(--forest); }
 .editor .nearby-peer:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/*
+ * A device on a version of f-tree this one cannot speak to (#191). Shown, because a row that is
+ * never drawn reads as a network fault -- and set back rather than raised: the page's own ground
+ * instead of the raised plate, the faint rule instead of the strong one. It keeps its place in the
+ * list and gives up its affordance, so it reads as something to know rather than something to press.
+ */
+.editor .nearby-peer:disabled {
+  color: var(--ink-faint);
+  background: none;
+  border-color: var(--rule);
+  cursor: default;
+}
 
 .editor .nearby-peer-name {
   font-family: var(--serif);
@@ -1623,8 +1636,9 @@
 .editor .nearby-peer-where {
   display: flex;
   gap: 10px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   font-size: 12px;
+  line-height: 1.45;
   color: var(--ink-faint);
 }
 
