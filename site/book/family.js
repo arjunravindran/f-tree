@@ -10,6 +10,7 @@
 
 import { buildGraph, branchFrom, restrictedGraph, displayDate } from '../playground/model.js';
 import { layoutArchive } from '../playground/layout.js';
+import { sortKey, byKey } from '../playground/sort-key.js';
 
 const year = (value) => {
   const m = /^(\d{4})/.exec(value ?? '');
@@ -18,16 +19,7 @@ const year = (value) => {
 
 const DEVANAGARI = /[\u0900-\u097F]/;
 
-/**
- * A key for alphabetical order that is the same on every engine. Latin diacritics fold away
- * (É files with E); Devanagari is left exactly as written - stripping its vowel signs would file
- * distinct names together, the very bug #113 records for duplicate matching.
- */
-export function sortKey(name) {
-  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
-export const byKey = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+export { sortKey, byKey } from '../playground/sort-key.js';
 
 /**
  * What a page may say about when somebody lived.

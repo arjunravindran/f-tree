@@ -19,6 +19,8 @@
  * Positions are in layout units. The renderer scales them; nothing here knows about pixels.
  */
 
+import { sortKey, byKey } from './sort-key.js';
+
 export const METRICS = {
   NODE_W: 188,
   NODE_H: 64,
@@ -142,7 +144,7 @@ const byBirth = (graph) => (a, b) => {
   if (ya && yb && ya !== yb) return Number(ya) - Number(yb);
   if (ya && !yb) return -1;
   if (!ya && yb) return 1;
-  return (pa.name ?? '￿').localeCompare(pb.name ?? '￿');
+  return byKey(sortKey(pa.name ?? '￿'), sortKey(pb.name ?? '￿'));
 };
 
 /**
