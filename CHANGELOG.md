@@ -10,6 +10,18 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+**Hindi names that differ by a vowel sign are no longer treated as one name (#113).**
+
+- **Import could offer to merge two different people.** When you import a file, f-tree compares
+  names to decide who is already in your tree, and it ignored Devanagari vowel signs while doing so,
+  so राम (Ram) and रामा (Rama), or कुमार and कमार, looked identical. With a shared relative that was enough to
+  merge them without asking. Vowel signs now count as part of the name, on Android and on the
+  desktop, and accents on Latin letters are still ignored as before.
+- **This changes which people an import offers to merge, and it is stricter.** Two names that
+  differed only in a vowel sign used to be matched and now are not. The failure mode moves from
+  "two different people merged" to "a merge not offered"; the second is a tidy-up you can do by
+  hand, the first cannot be undone. Nothing already in your tree changes.
+
 **The Diwali book is a storybook now (#239, #256-#260).**
 
 - **A family book built around one person (0.11.0-beta.1, desktop 0.9.0-beta.1).** Diwali is no

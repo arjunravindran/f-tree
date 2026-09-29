@@ -268,62 +268,61 @@ test('a name is reduced to form, never to content', () => {
 });
 
 /*
- * Devanagari, pinned as it actually behaves rather than as it ought to.
+ * Devanagari, and every script whose vowels are marks rather than letters.
  *
- * `[^\p{L}\p{N}]+` replaces everything that is not a letter or a number with a space, and a
- * Devanagari vowel sign is category Mc -- a mark, not a letter. So the matras are stripped and
- * "\u0930\u093e\u092e" reduces to "\u0930 \u092e". Distinct names then collide: see #113.
+ * A Devanagari vowel sign is a mark, not a letter, and the key used to throw marks away, so
+ * "राम" reduced to "र म" and distinct names collided: see #113. The key now strips
+ * only the Latin combining accents and keeps every other mark as part of the word. The issue
+ * suggested keeping category Mc as well, but that does not work: U+0941 is Mn, so
+ * "कुमार" and "कमार" would still have collided.
  *
- * This is not a bug introduced by the port. The Kotlin does exactly the same thing, verified by
- * running `java.text.Normalizer` over the same inputs and comparing output character for
- * character. These assertions therefore pin the *shared* behaviour: if either side is fixed, this
- * fails and forces the other to be fixed with it, rather than the two silently drifting apart on
- * the question of who is the same person.
+ * The Kotlin does exactly the same thing, and `DuplicateMatcherTest` carries the same table, checked
+ * by running both `java.text.Normalizer` and Node over the same inputs and comparing output
+ * character for character. If either side changes, that table fails on that side and forces the
+ * other to change with it, rather than the two silently drifting apart on who is the same person.
  */
-test('Devanagari keys match the Kotlin exactly, including where that is lossy', () => {
-  // Verified against java.text.Normalizer under JDK 25; these are its outputs.
+test('Devanagari keys keep their vowel signs, and match the Kotlin exactly', () => {
   const asKotlin = {
-    '\u0936\u094d\u092f\u093e\u092e': '\u0936\u092f \u092e',
-    '\u0936\u092f\u093e\u092e': '\u0936\u092f \u092e',
-    '\u0930\u093e\u092e \u0915\u0941\u092e\u093e\u0930': '\u0930 \u092e \u0915\u092e \u0930',
-    '\u0936\u094d\u092f\u093e\u092e \u0915\u0941\u092e\u093e\u0930': '\u0936\u092f \u092e \u0915\u092e \u0930',
+    'राम': 'राम',
+    'रामा': 'रामा',
+    'कुमार': 'कुमार',
+    'कमार': 'कमार',
+    'श्याम': 'श्याम',
+    'शयाम': 'शयाम',
+    'राम कुमार': 'राम कुमार',
   };
   for (const [name, expected] of Object.entries(asKotlin)) {
     assert.strictEqual(nameKey(name), expected, `${name} keyed differently from the Kotlin`);
   }
+  // Latin accents are still stripped; only the range NFD leaves for them is.
+  assert.strictEqual(nameKey('José'), 'jose');
+  assert.strictEqual(nameKey('Ángel'), 'angel');
+  assert.strictEqual(nameKey('Đặng'), 'đang');
 });
 
-test('a Devanagari collision can only ever be a weak match on its own', () => {
-  /*
-   * The mitigation, and the reason #113 is a defect rather than an emergency. Two distinct names
-   * that key alike are still only "the same name and nothing contradicting it", which does not
-   * merge by default and has to be asked for.
-   *
-   * It stops being a mitigation as soon as a relative matches -- see the next case.
-   */
+test('names that differ only in a Devanagari vowel sign are no longer the same name', () => {
   const result = match({
-    imported: [{ id: 'i1', name: '\u0930\u093e\u092e' }],       // Ram
-    local: [{ id: 'l1', name: '\u0930\u093e\u092e\u093e' }],   // Rama, a different name
+    imported: [{ id: 'i1', name: 'राम' }],       // Ram
+    local: [{ id: 'l1', name: 'रामा' }],   // Rama, a different name
   });
-  assert.strictEqual(nameKey('\u0930\u093e\u092e'), nameKey('\u0930\u093e\u092e\u093e'),
-    'the premise of this test is that these two collide');
-  assert.strictEqual(result.get('i1').tier, MatchTier.WEAK);
+  assert.notStrictEqual(nameKey('राम'), nameKey('रामा'));
+  assert.strictEqual(result.get('i1').tier, MatchTier.NONE);
   assert.ok(!mergesByDefault(result.get('i1')));
 });
 
-test('but a Devanagari collision with a shared relative would merge by default', () => {
-  // The case that makes #113 worth fixing rather than noting. Nothing here is wrong per the
-  // rules; the rules are being fed two names that are not the same name.
+test('a shared relative can no longer merge two different Devanagari names', () => {
+  // The case that made #113 worth fixing: the rules were fed two names that are not the same name,
+  // and a shared child then took them to STRONG, which merges without asking.
   const result = match({
-    imported: [{ id: 'iA', name: '\u0930\u093e\u092e' }, { id: 'iKid', name: 'Shared Child' }],
-    local: [{ id: 'lA', name: '\u0930\u093e\u092e\u093e' }, { id: 'lKid', name: 'Shared Child' }],
+    imported: [{ id: 'iA', name: 'राम' }, { id: 'iKid', name: 'Shared Child' }],
+    local: [{ id: 'lA', name: 'रामा' }, { id: 'lKid', name: 'Shared Child' }],
     importedGraph: graph(['iA', 'iKid']),
     localGraph: graph(['lA', 'lKid']),
     origins: [['their-tree', 'iKid', 'lKid']],
   });
-  assert.strictEqual(result.get('iA').tier, MatchTier.STRONG);
-  assert.ok(mergesByDefault(result.get('iA')),
-    'two different Hindi names would merge without being asked about');
+  assert.notStrictEqual(result.get('iA').tier, MatchTier.STRONG);
+  assert.ok(!mergesByDefault(result.get('iA')),
+    'two different Hindi names must not merge without being asked about');
 });
 
 test('a strange file cannot make the matcher run long', () => {
