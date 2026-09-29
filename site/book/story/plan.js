@@ -59,7 +59,8 @@
  *     pageNo,      // 1-based, final
  *     chapter,     // the chapter id the page belongs to (the first, for a household page)
  *     chapters,    // every chapter on the page: one, or several on a household page
- *     copyKey,     // the template `copy` entry the page's words come from (#252): its chapter
+ *     copyKey,     // the template `copy` entry the page's words come from (#252): its chapter, or
+               //   'household' where a page merges several (template.js's NON_CHAPTER_COPY, #285)
  *     archetype, variant,   // what draws it, and which art placement (ctx.describePage)
  *     density,     // the design system's density row, or null for a page without people
  *     people,      // ids, in the order the page shows them
@@ -274,7 +275,10 @@ export function planStory(kin, template, family, options = {}) {
       const people = run.flatMap((c) => c.pages.flatMap((p) => p.people));
       const groups = run.flatMap((c) => c.pages.flatMap((p) => p.groups));
       merged.push({
-        chapter: run[0].chapter, chapters: run.map((c) => c.chapter), kind: 'household',
+        // The page belongs to every chapter in the run, so no single chapter's words are true of
+        // it: it takes them from `copy.household` instead (#285). `chapter` stays the first one,
+        // because the art seeds and the variant walk are keyed on it and must not move.
+        chapter: run[0].chapter, chapters: run.map((c) => c.chapter), kind: 'household', copyKey: 'household',
         pages: splitBalanced(people, DENSITY.family).map((ids) => ({ people: ids, groups: regroup(groups, ids) })),
       });
       i = j;
@@ -314,6 +318,7 @@ export function planStory(kin, template, family, options = {}) {
       const archetype = archetypeOf(c.kind, pg.people.length);
       plans.push(page(c.chapter, archetype, pg.people, {
         chapters, groups: pg.groups, continued: i > 0,
+        copyKey: c.copyKey ?? c.chapter,
         density: DENSITY_OF[archetype] ?? null,
       }));
     });
