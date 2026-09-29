@@ -10,6 +10,32 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+**The Diwali book is a storybook now (#239, #256-#260).**
+
+- **A family book built around one person (0.11.0-beta.1, desktop 0.9.0-beta.1).** Diwali is no
+  longer a grid of portraits: it opens on a ghat at night with one lamp lit for each person in the
+  family, then tells the story outward from whoever the book is about - their parents, the people
+  they grew up with, the family that joined, the lane of households - and closes on everyone by
+  name, who is still to be found, and a line of light. The art is paper-cut, drawn as vector shapes
+  by the app itself rather than shipped as pictures, so a book of 23 people is about a megabyte.
+- **Whose story it tells is yours to choose,** on both shells, and Heirloom still says plainly that
+  it does not feature one person rather than hiding the control.
+- **Heirloom is untouched.** It prints byte-for-byte what it always did.
+
+**A Diwali book could not be opened on Android at all (#297).**
+
+- Every gradient the art library owns reached the phone with a malformed colour stop, and the app
+  refused the whole book rather than draw it wrong. Desktop and the web viewer had always accepted
+  it, so nothing noticed until a release build was put on a real phone. Fixed, and the composer now
+  refuses what the phone refuses, so the two cannot disagree again.
+
+**A former spouse is no longer called पत्नी (#291).**
+
+- The relation panel, the person page and the chain between two people all said "wife" - and, in
+  Hindi, पत्नी - about a marriage the record says has ended. They now say "former wife" and offer no
+  Hindi word, because पति and पत्नी assert a marriage. A late spouse keeps the word: that marriage
+  was a marriage. The desktop app and the website already did this; Android had been left behind.
+
 **The family book on Android draws book format 2, and never drops a line of text in silence (#246).**
 
 - **Clipped arches, reusable art and paper shadows** — the drawing vocabulary the coming storybook
