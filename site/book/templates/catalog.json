@@ -3,6 +3,12 @@
   "templates": [
     { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
     {
+      "id": "diwali-story",
+      "name": "Diwali, the storybook",
+      "format": 2,
+      "tier": "free"
+    },
+    {
       "id": "diwali",
       "name": "Diwali",
       "format": 1,

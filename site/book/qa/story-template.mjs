@@ -1,12 +1,17 @@
 /*
  * The storybook template every wave-3 test composes against.
  *
- * The real template ships as `templates/diwali-story.json` when there is something to ship: a file
- * in `templates/` must be in the catalogue (`catalog.test.mjs`), and a catalogue entry at format 2
- * must be drawable (`invariants.test.mjs`), so the template arrives with the last archetype, not
- * before it. Until then this is the same document, in one place, so that the archetype issues
- * (#256-#258) all draw against the same palette, chapters and copy instead of three inline
- * near-copies that drift.
+ * The real template now ships as `templates/diwali-story.json`: a file in `templates/` must be in
+ * the catalogue (`catalog.test.mjs`), and a catalogue entry at format 2 must be drawable
+ * (`invariants.test.mjs`), so the template arrived with the last archetype (#258), not before it.
+ * It is listed at format 2 while the app reads format 1 (`template.js`'s `TEMPLATE_FORMAT`), which
+ * is what keeps it hidden from the picker without a flag of its own - `catalog.js`'s `available`
+ * drops an entry newer than this app draws. #259 is the swap that shows it.
+ *
+ * This file stays the authored copy, because JSON cannot carry the reasons: every line below was
+ * argued over in a design-critic round, and the notes are the record of what was tried and why it
+ * changed. `invariants.test.mjs` holds the shipped JSON to this document exactly, so the two are
+ * one source and cannot drift; edit here, then regenerate the file.
  *
  * The palette is the one the approved style frames were rendered from
  * (`art/style-frames/motifs.mjs`), which is what `docs/book-design-system.md` documents and what

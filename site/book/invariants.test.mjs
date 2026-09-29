@@ -18,6 +18,7 @@ import { BOOK_FIXTURES, STORYBOOK_MANIFEST, TEMPLATES, NOW, loadFixture } from '
 import { withStubs } from './qa/stub-pages.mjs';
 import { STORY_TEMPLATE } from './qa/story-template.mjs';
 import { DENSITY } from './story/plan.js';
+import { TEMPLATE_FORMAT } from './template.js';
 import {
   INVARIANTS, everyoneShown, sizes, noTextOverlap, noTextInBusyArt, consecutivePagesVary, peoplePerPage,
   pageCount, jsonBudget, pdfBudget, noLivingAge, pageBounds,
@@ -116,6 +117,22 @@ const storyReason = STORY.length
 test('storybook: every invariant runs over it, the story-only ones included', { skip: STORY_DRAWABLE.length ? false : storyReason }, () => {
   // The loop above already includes every drawable format-2 template; this marks that it did.
   assert.ok(STORY_DRAWABLE.length > 0);
+});
+
+test('storybook: the shipped template is the authored one, byte for byte', () => {
+  // `qa/story-template.mjs` stays the authored copy, because JSON cannot carry the reasons: each
+  // line of its copy was argued over in a design-critic round and the notes are the record. The
+  // file that ships is generated from it, so the two must be one document - a fix made in one and
+  // not the other would ship a book nobody reviewed.
+  const shipped = JSON.parse(readFileSync(path.join(here, 'templates', 'diwali-story.json'), 'utf8'));
+  assert.deepEqual(shipped, JSON.parse(JSON.stringify(STORY_TEMPLATE)));
+  // It ships hidden: listed at format 2 while the app reads format 1, which is what keeps it out
+  // of the picker without a flag of its own (`catalog.js`'s `available`). #259 is the swap.
+  const catalog = JSON.parse(readFileSync(path.join(here, 'templates/catalog.json'), 'utf8'));
+  const entry = catalog.templates.find((e) => e.id === 'diwali-story');
+  assert.ok(entry, 'the shipped template must be in the catalogue (catalog.test.mjs)');
+  assert.equal(entry.format, 2);
+  assert.ok(entry.format > TEMPLATE_FORMAT, 'a format this app reads would show the storybook before #259 swaps it in');
 });
 
 test('storybook: a story composer cannot land without the suite covering it', async () => {

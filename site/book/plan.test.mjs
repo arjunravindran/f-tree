@@ -16,7 +16,8 @@ import { kinOf } from './story/kin.js';
 import { readFamily, byKey } from './family.js';
 import { resolveFeatured } from './story/featured.js';
 import { validateTemplate, REQUIRED_CHAPTERS, PAPERCUT_PALETTE_KEYS, HAND_FONT_KEY } from './template.js';
-import { composeBook } from './compose.js';
+import { composeBook, composeWithPages, missingArchetypes, DRAWABLE_FORMATS } from './compose.js';
+import { PAGES as PAGES_FOR_TEST } from './story/pages/index.js';
 import { BOOK_FIXTURES, NOW, loadFixture } from './qa/book-fixtures.mjs';
 import { DENSITY_CAPS, pageBounds } from './qa/invariants.mjs';
 
@@ -343,10 +344,22 @@ test('a tree with people but nobody named to feature still lists everyone, in th
 
 /* ------------------------------------------------------------------ the composer */
 
-test('compose.js routes a format-2 template through the planner, then refuses to draw it by name', async () => {
+test('compose.js routes a format-2 template through the planner and now draws it', async () => {
   const doc = await loadFixture('story-large');
-  assert.throws(() => composeBook(doc, { now: NOW, featured: 'f' }, TEMPLATE),
-    /"diwali-story" is a format-2 storybook template: its 25 pages are planned, but the archetypes? .*(is|are) not built yet/);
+  // #258 built the last archetypes, so the refusal this test used to assert is gone: the composer
+  // draws the storybook, and `DRAWABLE_FORMATS` flips with it - which is what lets the invariant
+  // suite and the catalogue carry a format-2 template at all.
+  assert.deepEqual(missingArchetypes(), []);
+  assert.deepEqual([...DRAWABLE_FORMATS], [1, 2]);
+  const book = composeBook(doc, { now: NOW, featured: 'f' }, TEMPLATE);
+  assert.equal(book.format, 2);
+  assert.equal(book.pages.length, 25);
+  // The refusal itself still guards a table that really is missing an archetype - the seam
+  // `composeWithPages` composes through - so a half-built composer can never print a book with
+  // holes in it.
+  const noLane = Object.fromEntries(Object.entries(PAGES_FOR_TEST).filter(([a]) => a !== 'lane'));
+  assert.throws(() => composeWithPages(doc, { now: NOW, featured: 'f' }, TEMPLATE, noLane),
+    /"diwali-story" is a format-2 storybook template: its 25 pages are planned, but the archetype "?lane"? is not built yet/);
   // The planner, not a blanket refusal, is what runs: a chapter it does not know fails there.
   assert.throws(() => composeBook(doc, { now: NOW }, storyTemplate([...CHAPTERS, 'fireworks'])), /does not know the chapter "fireworks"/);
 });

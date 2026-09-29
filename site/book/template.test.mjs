@@ -148,11 +148,15 @@ test('a format this app does not know, newer than 1 or 2, is refused before any 
   assert.throws(() => validateTemplate({ format: 3, id: 'x' }), /format 3 - this app reads format 1 or 2/);
 });
 
-test('the format-1 composer refuses a storybook template by name, not with a crash', async () => {
+test('a format-1 document draws a format-2 storybook, rather than being refused by name', async () => {
+  // Until #258 built the last archetypes this refused by name, on purpose, so a half-built
+  // composer could not print a book with holes in it. The document's own format is not the
+  // template's: a plain `.ftree` is what every storybook is drawn from.
   const { composeBook } = await import('./compose.js');
   const doc = { format: 1, people: [{ id: 'a', name: 'Asha' }] };
-  assert.throws(() => composeBook(doc, { now: '2026-09-21' }, papercutTemplate()),
-    /"diwali-story" is a format-2 storybook template/);
+  const book = composeBook(doc, { now: '2026-09-21' }, papercutTemplate());
+  assert.equal(book.format, 2);
+  assert.ok(book.pages.length > 0, 'a storybook with somebody in it draws pages');
 });
 
 test('a broken placeholder is refused, not printed with its braces', () => {

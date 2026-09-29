@@ -79,15 +79,16 @@ test('a storybook page nobody has drawn yet is refused by name, not printed empt
   });
 });
 
-test('coverOnly draws the cover alone, and so needs only the cover to exist', async (t) => {
-  if (!missingArchetypes().length) return t.skip('every archetype is built');
+test('coverOnly draws the cover alone', async () => {
+  // While the archetypes were being built (#256-#258) this could only check which of them the
+  // refusal asked for. Every archetype exists now, so it checks the thing itself: the option
+  // (#244) that draws the chat thumbnail without composing the whole book.
   const doc = await loadFixture('story-eldest');
-  const whole = (() => { try { composeBook(doc, { now: NOW }, STORY_TEMPLATE); return ''; } catch (e) { return e.message; } })();
-  const cover = (() => { try { composeBook(doc, { now: NOW, coverOnly: true }, STORY_TEMPLATE); return ''; } catch (e) { return e.message; } })();
-  if (!cover) return;   // the cover archetype exists: coverOnly drew it, which is the point
-  assert.ok(cover.length < whole.length, 'coverOnly still asks for every archetype the whole book would');
-  assert.match(cover, /\bcover\b/);
-  assert.ok(!/\bregister\b/.test(cover), 'coverOnly asked for the register');
+  const whole = composeBook(doc, { now: NOW }, STORY_TEMPLATE);
+  const cover = composeBook(doc, { now: NOW, coverOnly: true }, STORY_TEMPLATE);
+  assert.equal(cover.pages.length, 1, 'coverOnly drew more than the cover');
+  assert.ok(whole.pages.length > 1, 'the fixture is meant to make a whole book to contrast with');
+  assert.deepEqual(cover.pages[0].label, whole.pages[0].label, 'coverOnly drew a different first page');
 });
 
 /* ------------------------------------------------------------------ the shared template */
