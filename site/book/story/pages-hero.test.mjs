@@ -31,7 +31,7 @@ import { planStory, VARIANTS } from './plan.js';
 import { resolveFeatured } from './featured.js';
 import { openingLine } from './copy.js';
 import { PAGES, lampRows, MIN_LAMP, rowsToWarm } from './pages/hero.js';
-import { SAFE, bandTint, paperGround, tailpiece } from './pages/parts/page.js';
+import { SAFE, paperGround } from './pages/parts/page.js';
 import { MALA_DROP, joinFrames, yearsCaption } from './pages/parts/people.js';
 import { heroTint } from './avatars.js';
 import { countWords } from '../blocks/words.js';
@@ -607,17 +607,19 @@ test('finding 9: heroTint varies an adult or elder hero’s cloth by a stable ha
   assert.equal(heroTint({ id: 'child', by: 2020 }, stage), null, 'a child hero - whose figure a plain overlay cannot line up with - still gets retinted');
 });
 
-test('finding 11: the Sanjhi band’s colour varies by chapter, and the tailpiece takes more than one form', () => {
-  const tints = new Set(['opening', 'parents', 'siblings', 'spouses', 'children', 'courtyards'].map((c) => bandTint(`Test Family ${c}`)));
-  assert.ok(tints.size >= 2, 'every chapter still gets the same band colour');
-
-  const fakeArt = { place: (id) => ({ t: 'use', ref: `pc-${id}` }) };
-  const forms = new Set();
-  for (const seed of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']) {
-    forms.add(tailpiece({ art: fakeArt }, 100, 200, seed).map((it) => it.ref).join(','));
-  }
-  assert.ok(forms.size >= 2, 'the tailpiece still closes every page with the same two shapes at the same spot');
-});
+/*
+ * #287, finding 11 - a reopening of round 2's own finding 11.
+ *
+ * The test that stood here asserted that six DIFFERENT chapters produce at least two band tints,
+ * and that ten different seeds produce at least two tailpiece forms. Both are true of the bug: the
+ * chapter seed does make different chapters differ. What it never constrained is NEIGHBOURS, and
+ * `sample` page 2 and page 3 shared a peacock band and a lotus tailpiece the whole time.
+ *
+ * It has moved into `qa/invariants.mjs`, onto `consecutivePagesVary` - which is
+ * `book-design-system.md`'s Variety rule itself, and which runs over every fixture x template x
+ * featured choice rather than six hand-written strings. `describePage` carries `band` and
+ * `tailpiece` for it, the same way #285 gave it `chapters` and `copyKey`.
+ */
 
 test('finding 13: the handmade paper’s clouds composite as one layer, not one blend per overlap', () => {
   const g = paperGround({ P: PAPERCUT_PALETTE }, 'Test Family');
