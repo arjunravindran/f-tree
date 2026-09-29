@@ -138,7 +138,11 @@ jobs:
           # transfer must end in the import review with the tree untouched -- and the page must still
           # be unable to open a socket of its own. The complement of FTREE_SMOKE_NETWORK above.
           FTREE_SMOKE_NEARBY: '1'
-        run: xvfb-run -a npx electron . --no-sandbox
+          # Double-clicking a .ftree (#190): the tree named on the command line must be the one the
+          # app opens at start, not the last one in session.json. It is the launch's trailing
+          # argument below, and a different tree from FTREE_SMOKE so the assertion can tell them apart.
+          FTREE_SMOKE_ARGV: ${{ runner.temp }}/fixtures/a-cousins-tree.ftree
+        run: xvfb-run -a npx electron . --no-sandbox "$RUNNER_TEMP/fixtures/a-cousins-tree.ftree"
 
   package:
     name: Package (${{ matrix.os }})
@@ -222,9 +226,12 @@ jobs:
           # And nearby sharing against the package: the only run that proves `nearby/` and the
           # vendored QR encoder were packaged at all.
           FTREE_SMOKE_NEARBY: '1'
+          # And the file-on-the-command-line path against the package, where argv has no app folder
+          # in it: the offset that differs between `electron .` and a packaged launch (#190).
+          FTREE_SMOKE_ARGV: ${{ runner.temp }}/fixtures/a-cousins-tree.ftree
         run: |
           python3 ../tools/make_sample_tree.py "$RUNNER_TEMP/fixtures"
-          xvfb-run -a ./dist/linux-unpacked/f-tree-desktop --no-sandbox
+          xvfb-run -a ./dist/linux-unpacked/f-tree-desktop --no-sandbox "$RUNNER_TEMP/fixtures/a-cousins-tree.ftree"
 
       - uses: actions/upload-artifact@v4
         with:

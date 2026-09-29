@@ -321,4 +321,54 @@ class DuplicateMatcherTest {
         assertEquals(first.mapValues { it.value.tier }, second.mapValues { it.value.tier })
         assertTrue(first.values.all { it.tier == MatchTier.CERTAIN })
     }
+
+    @Test
+    fun `Devanagari keys keep their vowel signs and match the JavaScript exactly`() {
+        // The same table as matching.test.js, so the two shells cannot drift apart on who is the
+        // same person (#113): change the key on either side and that side's table fails.
+        val ram = "राम"
+        val rama = "रामा"
+        val kumar = "कुमार"
+        val kamar = "कमार"
+        val shyam = "श्याम"
+        val shayam = "शयाम"
+        val expected = mapOf(
+            ram to ram,
+            rama to rama,
+            kumar to kumar,
+            kamar to kamar,
+            shyam to shyam,
+            shayam to shayam,
+            "$ram $kumar" to "$ram $kumar",
+            "José" to "jose",
+            "Ángel" to "angel",
+            "Đặng" to "đang",
+            "  josé   O'BRIEN " to "jose o brien",
+        )
+        expected.forEach { (name, key) -> assertEquals("key of $name", key, nameKey(name)) }
+        assertFalse(nameKey(ram) == nameKey(rama))
+        assertFalse(nameKey(kumar) == nameKey(kamar))
+        assertFalse(nameKey(shyam) == nameKey(shayam))
+    }
+
+    @Test
+    fun `a shared relative cannot merge two different Devanagari names`() {
+        // Before #113 these two names keyed alike, and a shared child took them to STRONG.
+        val result = match(
+            imported = listOf(
+                PersonRecord(id = "iA", name = "राम"),
+                PersonRecord(id = "iKid", name = "Shared Child"),
+            ),
+            local = listOf(
+                Person(id = "lA", name = "रामा"),
+                Person(id = "lKid", name = "Shared Child"),
+            ),
+            importedGraph = graph("iA" to "iKid"),
+            localGraph = graph("lA" to "lKid"),
+            originIndex = mapOf(("their-tree" to "iKid") to "lKid"),
+        )
+
+        assertEquals(MatchTier.NONE, result.getValue("iA").tier)
+        assertFalse(result.getValue("iA").mergesByDefault)
+    }
 }
