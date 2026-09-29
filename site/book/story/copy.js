@@ -30,7 +30,7 @@
  */
 
 import { PLACEHOLDER } from '../template.js';
-import { andList, countWords, ORDINALS } from '../blocks/words.js';
+import { andList, countWords, fromFamily, ORDINALS } from '../blocks/words.js';
 import { byKey } from '../family.js';
 import { CHAPTERS, NO_NOTES } from './plan.js';
 
@@ -229,11 +229,16 @@ function birthOrderPhrase(featured, siblings) {
 
 /**
  * The Opening chapter's composed sentence: "Ankit was born in 1995, the eldest of three children
- * of Rajesh and Sunita. This is the family behind Ankit." Every clause is optional but the
- * featured person's own name, which `resolveFeatured` (or `namedBy`, `nameOf`) always supplies -
- * a missing birth year drops the year clause, a missing or absent-parent record drops "of Rajesh
- * and Sunita", and with neither parent named the birth-order fragment is dropped too, since
- * "the eldest of three children" with nobody to be a child of reads as a fact about nobody.
+ * of Rajesh and Sunita. The rest of this book carries the story onward." Every clause is optional
+ * but the featured person's own name, which `resolveFeatured` (or `namedBy`, `nameOf`) always
+ * supplies - a missing birth year drops the year clause, a missing or absent-parent record drops
+ * "of Rajesh and Sunita", and with neither parent named the birth-order fragment is dropped too,
+ * since "the eldest of three children" with nobody to be a child of reads as a fact about nobody.
+ *
+ * Round 2 (finding 21): the closing clause used to repeat the featured person's own name a second
+ * time ("This is the family behind Ankit."), doubling up with the opening page's own title
+ * ("This is Ankit's story"). A forward-looking close that never says the name again reads as one
+ * thought rather than the same fact stated twice.
  */
 export function openingLine(family, kin) {
   const featured = family.byId.get(kin.featured);
@@ -261,7 +266,7 @@ export function openingLine(family, kin) {
   else if (ofParents) sentence = `${featuredName} is ${ofParents}.`;
   else sentence = `${featuredName}.`;
 
-  return `${sentence} This is the family behind ${featuredName}.`;
+  return `${sentence} The rest of this book carries the story onward.`;
 }
 
 /**
@@ -321,8 +326,8 @@ const CHAPTER_COUNT = {
 /**
  * The `vars` any chapter's `copy` line may draw on, filled with whatever `family` and `kin`
  * actually know: `featured`/`featured-first` and `year` only when the featured person is
- * nameable, `family` from the family's own title, `n` only for a chapter `CHAPTER_COUNT` knows
- * how to count. A var this chapter has nothing to say is left out of the object entirely, so
+ * nameable, `family` and `from-family` from the family's own title, `n` only for a chapter
+ * `CHAPTER_COUNT` knows how to count. A var this chapter has nothing to say is left out of the object entirely, so
  * `fillPlaceholders` drops its token rather than printing a blank.
  */
 export function chapterVars(chapterId, family, kin) {
@@ -335,7 +340,12 @@ export function chapterVars(chapterId, family, kin) {
     const year = family.byId.get(kin.featured)?.by;
     if (year !== null && year !== undefined) vars.year = year;
   }
-  if (family.title) vars.family = family.title;
+  if (family.title) {
+    vars.family = family.title;
+    // The same title as the line a cover prints under the greeting. `blocks/words.js` owns the
+    // phrasing, including the Hindi one, so format 1 and format 2 say it the same way.
+    vars['from-family'] = fromFamily(family.title);
+  }
   const n = CHAPTER_COUNT[chapterId]?.(family, kin);
   if (n !== undefined) vars.n = n;
   return vars;

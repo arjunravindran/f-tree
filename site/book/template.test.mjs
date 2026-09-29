@@ -108,7 +108,7 @@ test('an unknown placeholder is refused, in copy and in the cover alike', () => 
 
 test('every known placeholder is accepted', () => {
   const t = papercutTemplate();
-  t.copy.opening.line = '{featured} {featured-first} {family} {n} {year}';
+  t.copy.opening.line = '{featured} {featured-first} {family} {from-family} {n} {year}';
   assert.doesNotThrow(() => validateTemplate(t));
 });
 

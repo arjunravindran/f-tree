@@ -264,6 +264,24 @@ test('a name-not-known lamp uses #253\'s lamp-unknown symbol, not a plain lit di
   assert.deepEqual(validateBook(book), []);
 });
 
+test('a row may choose which lamp lights a person, and which lights a name nobody knows', () => {
+  // A cover lights the whole family at once, and at that size the lamps' own glow discs are both
+  // invisible and the biggest thing in the page's budget; the scene lays one glow over the row
+  // instead. The count is what may never change: one lamp is one person, whichever drawing it is.
+  const { art, defs } = kit();
+  const row = diyaRow(art, 0, 0, 100, 0, 3, 'seed', {
+    w: 12, unknownAt: new Set([1]), lamp: 'diya-small', unknownLamp: 'diya-unknown',
+  });
+  assert.deepEqual(usesIn(row).map((u) => u.ref), ['pc-diya-small', 'pc-diya-unknown', 'pc-diya-small']);
+  assert.deepEqual(validateBook(bookOf([row], defs, art)), []);
+
+  const plain = kit();
+  const lit = diyaRow(plain.art, 0, 0, 100, 0, 3, 'seed', { w: 12 });
+  assert.deepEqual(usesIn(lit).map((u) => u.ref), ['pc-diya', 'pc-diya', 'pc-diya'], 'the default is the lit lamp');
+  assert.ok(cost(bookOf([row], defs, art)) < cost(bookOf([lit], plain.defs, plain.art)) * 0.6,
+    'a glowless row is what makes a two-hundred-lamp cover affordable');
+});
+
 test('diyaRow is deterministic', () => {
   const { art: art1 } = kit();
   const { art: art2 } = kit();
