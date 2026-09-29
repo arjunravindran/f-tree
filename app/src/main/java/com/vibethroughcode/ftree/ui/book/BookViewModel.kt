@@ -427,9 +427,12 @@ class BookViewModel(
         const val FEATURE = "book.export"
 
         /**
-         * A storybook (template format 2) tells one person's story; format-1 templates (Heirloom,
-         * today's Diwali) don't yet. Decided from the template itself, the way the desktop's
-         * `featuresPerson` does, so a new template needs no list kept by hand on either shell.
+         * A storybook (template format 2) tells one person's story; format-1 templates don't.
+         * Decided from the template itself, the way the desktop's `featuresPerson` does, so a new
+         * template needs no list kept by hand on either shell.
+         *
+         * Since #259 swapped the storybook in, Diwali is format 2 and answers true; Heirloom is the
+         * only template left that does not, which is what `book_featured_heirloom_hint` explains.
          */
         fun featuresOnePerson(template: JsonObject): Boolean =
             runCatching { template["format"]?.jsonPrimitive?.intOrNull == 2 }.getOrDefault(false)

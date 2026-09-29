@@ -124,6 +124,24 @@ android {
     }
 
     buildTypes {
+        /*
+         * A debug build installs as its OWN app, beside the real one, never over it.
+         *
+         * Without this they share `com.vibethroughcode.ftree`, so installing a debug build over a
+         * release one fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE (the signatures differ) and the
+         * documented way out is `adb uninstall` - which silently destroys the family tree on the
+         * device, because Android deletes app-private data with the app. That is a real tree on a
+         * real phone, and no test is worth it. With a suffixed id the instrumented tests install,
+         * run and uninstall a package the real app has never heard of.
+         *
+         * Everything that needs the id already reads it: the two providers' authorities are
+         * `${applicationId}.…` placeholders, and the tests use `context.packageName`.
+         */
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true

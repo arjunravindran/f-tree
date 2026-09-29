@@ -175,7 +175,9 @@ test('a book carries exactly the symbols it used, their parts, and nothing else 
   assert.equal(symbols['pc-box'].items[1].ref, 'pc-box--dot');
   assert.deepEqual(symbols['pc-box--dot'].items[0].fill, { ref: 'pc-box-g0' });
   assert.equal(symbols['pc-box--dot'].items[0].stroke, P.ink);
-  assert.deepEqual(defs['pc-box-g0'].stops, [[0, P.gold], [1, P.gold, 0]]);
+  // A stop is always [offset, colour, opacity] - an art gradient that states no opacity means 1,
+  // and says so, because Android's reader refuses a two-part stop (docs/family-book.md).
+  assert.deepEqual(defs['pc-box-g0'].stops, [[0, P.gold, 1], [1, P.gold, 0]]);
   assert.ok(Object.keys(symbols).every((k) => k.startsWith(SYMBOL_PREFIX)));
   // the library itself is never written to
   assert.equal(LIB.symbols.box.items[0].fill, 'clay');

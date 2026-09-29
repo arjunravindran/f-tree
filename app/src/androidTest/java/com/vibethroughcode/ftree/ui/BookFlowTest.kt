@@ -202,10 +202,10 @@ class BookFlowTest {
     }
 
     /**
-     * Neither template the release ships tells one person's story yet - `featuresOnePerson` reads
-     * that off the template's own `format` (2, the storybook's, once one ships), not a hand-written
-     * list - so on Heirloom, "Whose story" and "Include notes" explain themselves with a hint
-     * rather than hiding, exactly as the issue's acceptance criteria ask.
+     * Heirloom is the one template left that does not tell a person's story - `featuresOnePerson`
+     * reads that off the template's own `format`, not a hand-written list - so there "Whose story"
+     * and "Include notes" explain themselves with a hint rather than hiding, exactly as the issue's
+     * acceptance criteria ask.
      */
     @Test
     fun heirloomExplainsWhyWhoseStoryDoesNothingThereYet() {
@@ -219,5 +219,41 @@ class BookFlowTest {
         }
         rule.onNodeWithTag(BookFeaturedRowTag).assertExists()
         rule.onNodeWithTag(BookNotesTag).assertExists()
+    }
+
+    /**
+     * #260: the other half of that, on the template that actually ships the storybook.
+     *
+     * Until #259 swapped it in, no shipped template answered `featuresOnePerson`, so the only thing
+     * this flow could be held to was the hint. Diwali is format 2 now, so the hint must be *gone*
+     * there and the picker must really choose somebody - which is the difference between "Whose
+     * story" being a live control and being an explained no-op.
+     *
+     * Diwali is selected by name rather than relied on as the default: it is the featured template
+     * only inside its own season (2026-10-18 to 11-15, `catalog.json`), and this test has to pass
+     * on either side of that date.
+     */
+    @Test
+    fun theStorybookReallyFeaturesOnePerson() {
+        rule.waitUntil(10_000) { rule.onAllNodesWithTag(TreeBookTag).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag(TreeBookTag).performClick()
+        waitForBook()
+
+        rule.onNodeWithText("Diwali").performClick()
+        waitForBook()
+        rule.waitUntil(5_000) {
+            rule.onAllNodesWithText("Heirloom doesn't feature one person yet.").fetchSemanticsNodes().isEmpty()
+        }
+
+        rule.onNodeWithTag(BookFeaturedRowTag).performScrollTo().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag(BookFeaturedSearchTag).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag(BookFeaturedSearchTag).performTextInput("Aarav")
+        val row = hasText("Aarav Sharma") and hasAnyAncestor(hasTestTag(BookFeaturedListTag))
+        rule.waitUntil(5_000) { rule.onAllNodes(row).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNode(row).performClick()
+
+        val chosen = hasTestTag(BookFeaturedRowTag) and hasText("Aarav Sharma")
+        rule.waitUntil(5_000) { rule.onAllNodes(chosen).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag(BookFeaturedResetTag).assertExists()
     }
 }

@@ -299,7 +299,7 @@ const SHADOWED = {
 };
 const shadowBook = (u) => book({
   format: FORMAT_MAX,
-  defs: { band: { type: 'linear', x1: 0, y1: 0, x2: 1, y2: 0, stops: [[0, '#17122e'], [1, '#3a2352']] } },
+  defs: { band: { type: 'linear', x1: 0, y1: 0, x2: 1, y2: 0, stops: [[0, '#17122e', 1], [1, '#3a2352', 1]] } },
   symbols: SHADOWED,
   pages: page(u),
 });

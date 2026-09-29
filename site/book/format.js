@@ -348,7 +348,17 @@ export function validateBook(book) {
     if (g.units !== undefined && g.units !== 'item') problems.push(`gradient ${id}: units ${g.units}`);
     if (g.units === 'item' && g.type !== 'radial') problems.push(`gradient ${id}: only radial gradients can be item-relative`);
     if (!Array.isArray(g.stops) || g.stops.length < 2) problems.push(`gradient ${id}: stops`);
-    for (const s of g.stops ?? []) if (!COLOUR.test(s[1])) problems.push(`gradient ${id}: stop colour ${s[1]}`);
+    for (const s of g.stops ?? []) {
+      if (!COLOUR.test(s[1])) problems.push(`gradient ${id}: stop colour ${s[1]}`);
+      /*
+       * A stop is `[offset, colour, opacity]`, all three (docs/family-book.md). This only checked
+       * the colour, so a two-part stop passed here and was refused by Android's reader, which does
+       * check - and the two painters are meant to be twins. A book that cannot be opened on a
+       * phone should fail here, where the composer's own tests can see it.
+       */
+      if (!Array.isArray(s) || s.length !== 3) problems.push(`gradient ${id}: a stop is [offset, colour, opacity], got ${JSON.stringify(s)}`);
+      else if (typeof s[2] !== 'number' || s[2] < 0 || s[2] > 1) problems.push(`gradient ${id}: stop opacity ${s[2]}`);
+    }
   }
   return problems;
 }

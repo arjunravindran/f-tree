@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds install beside the real app (`applicationIdSuffix` in build.gradle.kts), so they
+  need their own name on the launcher - two icons both reading "f-tree" is how somebody opens the
+  test build, adds a person to it, and loses the afternoon wondering where it went.
+-->
+<resources>
+    <string name="app_name">f-tree (debug)</string>
+</resources>

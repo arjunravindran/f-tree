@@ -85,31 +85,69 @@ class BookPdfTest {
 
     @Test
     fun makesAnA4PdfThatLooksLikeItsPreview() = runBlocking {
-        val started = System.nanoTime()
-        val book = composer.compose(input())
-        val composed = (System.nanoTime() - started) / 1_000_000
+        val book = writeAndCheck("heirloom", "book-test.pdf", "heirloom")
         assertEquals("Cover", book.pages.first().label)
+    }
+
+    /**
+     * #260: the same structural and preview checks against the template that actually ships.
+     *
+     * Everything above ran on `heirloom` - one format-1 book of portraits on plain paper - while
+     * `diwali` only had to compose. The storybook is the harder case by every measure this test
+     * makes: format 2, so the PDF carries symbols and clipped groups rather than flat paths; eleven
+     * page archetypes instead of a repeating grid; and far more vector art per page, which is what
+     * the 10 MB budget and the preview-parity check are actually for. A release gate that exercises
+     * the easy template and composes the hard one is not a gate.
+     *
+     * Every page is compared with its preview here, not a sample: the storybook's pages are all
+     * different from each other, so a sample says nothing about the ones it skipped.
+     */
+    @Test
+    fun theStorybookMakesAnA4PdfThatLooksLikeItsPreviewToo() = runBlocking {
+        val book = writeAndCheck("diwali", "storybook-test.pdf", "storybook", everyPage = true)
+        assertTrue("the storybook is the featured person's, not a grid", book.pages.size >= 5)
+        assertTrue(book.fileName.endsWith("Diwali Book.pdf"))
+    }
+
+    /**
+     * Writes one template's book to a PDF and holds it to the release bar: A4 throughout, embedded
+     * TrueType rather than Type3 outlines, inside the chat-app budget, and each page matching the
+     * preview the app drew from the same Book.
+     */
+    private suspend fun writeAndCheck(
+        templateId: String,
+        fileName: String,
+        tag: String,
+        everyPage: Boolean = false,
+    ): com.vibethroughcode.ftree.book.Book {
+        val started = System.nanoTime()
+        val book = composer.compose(input(templateId))
+        val composed = (System.nanoTime() - started) / 1_000_000
         assertTrue("photographs asked for", book.photos.isNotEmpty())
 
         val photos = book.photos.associate { it.id to portrait() }
-        val file = File(app.cacheDir, "book-test.pdf")
+        val file = File(app.cacheDir, fileName)
         file.outputStream().use { printer.writePdf(book, photos, it) }
         val written = (System.nanoTime() - started) / 1_000_000
-        android.util.Log.i("BookPdfTest", "composed in $composed ms, written in $written ms, ${file.length()} bytes, ${book.pages.size} pages")
+        android.util.Log.i(
+            "BookPdfTest",
+            "$tag: composed in $composed ms, written in $written ms, ${file.length()} bytes, ${book.pages.size} pages",
+        )
 
-        assertTrue("under the chat-app budget: ${file.length()}", file.length() < 10_000_000)
+        assertTrue("$tag under the chat-app budget: ${file.length()}", file.length() < 10_000_000)
         val bytes = file.readBytes().toString(Charsets.ISO_8859_1)
-        assertTrue("fonts embedded as TrueType", "/FontFile2" in bytes)
-        assertTrue("no Type3 outlines", "/Type3" !in bytes)
+        assertTrue("$tag fonts embedded as TrueType", "/FontFile2" in bytes)
+        assertTrue("$tag no Type3 outlines", "/Type3" !in bytes)
 
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
             PdfRenderer(fd).use { pdf ->
                 assertEquals(book.pages.size, pdf.pageCount)
+                var worst = 0.0
                 for (i in 0 until pdf.pageCount) {
                     pdf.openPage(i).use { page ->
-                        assertEquals(595, page.width)
-                        assertEquals(842, page.height)
-                        if (i == 0 || book.pages[i].label.startsWith("Generations")) {
+                        assertEquals("$tag page ${i + 1} width", 595, page.width)
+                        assertEquals("$tag page ${i + 1} height", 842, page.height)
+                        if (everyPage || i == 0 || book.pages[i].label.startsWith("Generations")) {
                             val fromPdf = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
                             fromPdf.eraseColor(Color.WHITE)
                             page.render(fromPdf, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
@@ -117,13 +155,19 @@ class BookPdfTest {
                             fromPainter.eraseColor(Color.WHITE)
                             BookPainter(printer.fonts) { photos[it] }.paint(Canvas(fromPainter), book, i)
                             val diff = meanDifference(fromPdf, fromPainter)
-                            save(app, fromPdf, "book-page-$i.png")
-                            assertTrue("page ${i + 1} differs from its preview by $diff", diff < 6.0)
+                            if (diff > worst) worst = diff
+                            save(app, fromPdf, "$tag-page-$i.png")
+                            assertTrue(
+                                "$tag page ${i + 1} (${book.pages[i].label}) differs from its preview by $diff",
+                                diff < 6.0,
+                            )
                         }
                     }
                 }
+                android.util.Log.i("BookPdfTest", "$tag: worst page/preview difference $worst")
             }
         }
+        return book
     }
 
     @Test
@@ -137,12 +181,6 @@ class BookPdfTest {
         }
     }
 
-    @Test
-    fun theDiwaliTemplateComposesToo() = runBlocking {
-        val book = composer.compose(input("diwali"))
-        assertTrue(book.fileName.endsWith("Diwali Book.pdf"))
-        assertTrue(book.pages.size >= 5)
-    }
 
     @Test
     fun theComposerCanReachNothingButTheAppsAssets() {
