@@ -23,7 +23,7 @@ import { validateTemplate } from '../template.js';
 import { withStubs } from '../qa/stub-pages.mjs';
 import { STORY_TEMPLATE } from '../qa/story-template.mjs';
 import { BOOK_FIXTURES, NOW, loadFixture } from '../qa/book-fixtures.mjs';
-import { noLivingAge, noTextInBusyArt } from '../qa/invariants.mjs';
+import { noLivingAge, noTextInBusyArt, noTextOverlap } from '../qa/invariants.mjs';
 import { kinOf, CIRCLES } from './kin.js';
 import { planStory, DENSITY } from './plan.js';
 import { resolveFeatured } from './featured.js';
@@ -318,6 +318,52 @@ test('a lane house\'s own wash follows that house\'s own roof', async () => {
       assert.ok(Math.abs(wash.y - expectedTop) <= 1, `page ${page.pageNo}, house ${n}: the wash starts at y ${wash.y}, expected close to its own roof at ${expectedTop}`);
     }
   }
+});
+
+/*
+ * Round 4 (#245's invariant suite, the day a format-2 template shipped for it to run over): round
+ * 2's finding-9 fix - a house holding two of the same name keeps its dates even when crowded -
+ * forced the dates on and then divided the house's height by however many people stood in it. A
+ * house of eight got a slot of about 12 pt to hold a name at 9 and a date line at 18.5, so every
+ * date line printed over the next person's name: 74 `noTextOverlap` violations across the fixture
+ * set, none of them visible to the tests this page had of its own.
+ *
+ * The room decides now (`datedInHouse`): everyone's dates if they fit, otherwise only the people
+ * who need them to be told apart from a namesake, otherwise none. This checks the text actually
+ * drawn on every lane page of every storybook fixture, through the same invariant the suite runs,
+ * so it fails the same way the suite did rather than restating `datedInHouse`'s own arithmetic.
+ */
+test('no lane page prints a date line over the next person\'s name', async () => {
+  for (const fixture of STORY) {
+    const { book: b, report, plan } = await book(fixture);
+    const lanePages = new Set(plan.pages.filter((p) => p.archetype === 'lane').map((p) => p.pageNo));
+    if (!lanePages.size) continue;
+    const onLane = report.textBoxes.filter((t) => lanePages.has(t.page));
+    assert.ok(onLane.length, `${fixture}: lane pages drew no text at all`);
+    assert.deepEqual(noTextOverlap({ book: b, report: { ...report, textBoxes: onLane } }), [],
+      `${fixture}: a lane page overlaps its own text`);
+  }
+});
+
+/*
+ * The other half of the same fix: it must not buy the overlap back by simply dropping every date.
+ * A house that holds two of the same name is exactly the case finding 9 was raised for - the
+ * register's page reference alone cannot tell those two apart - so those people keep their dates
+ * even where a crowded house cannot give them to everybody.
+ */
+test('a house holding two of the same name still dates them', async () => {
+  const { family, report, plan } = await book('story-large');
+  let checked = 0;
+  for (const page of plan.pages.filter((p) => p.archetype === 'lane')) {
+    for (const house of page.groups) {
+      const names = house.people.map((id) => family.byId.get(id)?.name).filter(Boolean);
+      if (new Set(names).size === names.length) continue;   // no namesakes in this house
+      checked += 1;
+      const dated = linesOn(report, page.pageNo, 'lifespan').length;
+      assert.ok(dated >= 2, `page ${page.pageNo}: a house holds two of the same name, and the page printed ${dated} date lines`);
+    }
+  }
+  assert.ok(checked > 0, 'story-large was expected to put two of the same name in one house');
 });
 
 /*

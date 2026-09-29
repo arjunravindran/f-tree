@@ -68,18 +68,73 @@ function houseBranch(kin, people) {
   return people[0];
 }
 
-/** Whether two of a house's own named people share a name - the register's page reference alone
- * cannot tell them apart there, so the lane owes them their dates even in a crowded house
- * (round 2, finding 9). */
-function hasDuplicateName(family, people) {
-  const seen = new Set();
+/** The house's own named people who share a name with somebody else in the same house - the
+ * register's page reference alone cannot tell them apart there, so the lane owes exactly these
+ * their dates even in a crowded house (round 2, finding 9). */
+function duplicateNames(family, people) {
+  const byName = new Map();
   for (const id of people) {
     const n = family.byId.get(id)?.name;
     if (!n) continue;
-    if (seen.has(n)) return true;
-    seen.add(n);
+    if (!byName.has(n)) byName.set(n, []);
+    byName.get(n).push(id);
   }
-  return false;
+  return new Set([...byName.values()].filter((ids) => ids.length > 1).flat());
+}
+
+/** A name's own line within one person's slot, and the line of dates under it. */
+const NAME_DROP = 9;
+const DATES_DROP = 18.5;
+
+/*
+ * What one person's slot in a house costs, and the least it can be given.
+ *
+ * Measured off what the page actually draws, not chosen: a 9 pt name box sits 1.9 below its own
+ * slot's top and stands 9 tall, and the 8.4 pt date line under it ends 20.2 below that top. So a
+ * dated slot must be taller than 18.3 for the line below to clear it, and a plain one taller than
+ * 9. `want` is the room the approved frames give them; `min` is the least that still cannot
+ * collide, with the rounding left over.
+ */
+const DATED = { want: 23, min: 19 };
+const PLAIN = { want: 13.5, min: 10 };
+
+/**
+ * How a house lays its people out: who prints their dates, and how tall each one's slot is.
+ *
+ * Round 2's finding 9 stopped one crowded house suppressing dates for every house on the page, and
+ * made a house holding two of the same name keep them - the register's page reference alone cannot
+ * tell namesakes apart. It did that by forcing the dates on and then dividing the house's height by
+ * however many people stood in it, so a house of eight got about 12 pt to hold a name at 9 and a
+ * date line at 18.5, and every date line printed over the next person's name. #245's invariant
+ * suite found 74 of those the day a format-2 template shipped for it to run over.
+ *
+ * The room decides instead, and it gives up as little as it has to: everyone's dates if they fit,
+ * else only the namesakes who need them, else none. Within whichever of those the house can afford,
+ * the slots shrink from `want` towards `min` together rather than any of them being dropped - a
+ * house of seven with two namesakes keeps those two dated and simply sets a little tighter. Only a
+ * person the record gives no years at all is never counted as dated, because their slot would
+ * reserve room for a line nobody can draw.
+ */
+function laneRows(family, people, room) {
+  const datable = new Set(people.filter((id) => lifeDates(family.byId.get(id))));
+  const namesakes = new Set([...duplicateNames(family, people)].filter((id) => datable.has(id)));
+  const wanted = people.length <= 4 || namesakes.size > 0;
+
+  const ladder = [];
+  if (wanted && datable.size) ladder.push(datable);
+  if (wanted && namesakes.size && namesakes.size < datable.size) ladder.push(namesakes);
+  ladder.push(new Set());
+
+  for (const dated of ladder) {
+    const slot = (id) => (dated.has(id) ? DATED : PLAIN);
+    const least = people.reduce((sum, id) => sum + slot(id).min, 0);
+    if (least > room && dated !== ladder[ladder.length - 1]) continue;
+    const want = people.reduce((sum, id) => sum + slot(id).want, 0);
+    // How far from `min` towards `want` the house can afford to set, the same for every slot in it.
+    const ease = want <= room ? 1 : Math.max(0, (room - least) / (want - least));
+    return { dated, height: (id) => slot(id).min + ease * (slot(id).want - slot(id).min) };
+  }
+  return { dated: new Set(), height: () => PLAIN.min };   // unreachable: the density cap is 8 people
 }
 
 /**
@@ -252,15 +307,15 @@ function lane(ctx, page, story) {
     const word = kinCaption(kin, family, houseBranch(kin, house.people), featuredName);
     if (word) items.push(ctx.line(cx, board.y + 9, word, 'hand', ctx.fit(word, 'hand', 9.5, board.w, 8), P.clay, { align: 'middle', width: board.w, kind: 'caption' }));
 
-    const withDates = house.people.length <= 4 || hasDuplicateName(family, house.people);
-    const unit = Math.min(withDates ? 23 : 13.5, (board.h - 18) / Math.max(1, house.people.length));
-    house.people.forEach((id, j) => {
+    // The room this house has for its people, and what it can afford to tell about each of them.
+    const rows = laneRows(family, house.people, board.h - 18);
+    let top = board.y + 18;
+    house.people.forEach((id) => {
       ctx.show(id);
-      const top = board.y + 18 + j * unit;
       const { own, name: who } = whoIs(ctx, story, id);
-      items.push(ctx.line(cx, top + 9, who, own ? 'strong' : 'hand', ctx.fit(who, own ? 'strong' : 'hand', 9.5, board.w, 9), own ? P.ink : P.brass, { align: 'middle', width: board.w, kind: 'name' }));
-      const dates = withDates ? lifeDates(family.byId.get(id)) : '';
-      if (dates) items.push(ctx.line(cx, top + 18.5, dates, 'text', 8.4, P.inkSoft, { align: 'middle', width: board.w, kind: 'lifespan' }));
+      items.push(ctx.line(cx, top + NAME_DROP, who, own ? 'strong' : 'hand', ctx.fit(who, own ? 'strong' : 'hand', 9.5, board.w, 9), own ? P.ink : P.brass, { align: 'middle', width: board.w, kind: 'name' }));
+      if (rows.dated.has(id)) items.push(ctx.line(cx, top + DATES_DROP, lifeDates(family.byId.get(id)), 'text', 8.4, P.inkSoft, { align: 'middle', width: board.w, kind: 'lifespan' }));
+      top += rows.height(id);
     });
   });
 
