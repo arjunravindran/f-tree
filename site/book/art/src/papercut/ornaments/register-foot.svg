@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 70" data-anchor="bottom-center">
+<desc>The register's one foot vignette (finding 1, #258 round 2): a tulsi in its pot on the left, a
+small deepstambh with three lamps on the right, a lotus between them, on the courtyard floor - drawn
+once and reused on every register page, never a picture per row. Original f-tree work, MIT.</desc>
+
+<path d="M6 67L112 67" fill="none" stroke="#f2b84b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.01 5.4"/>
+<path d="M228 67L334 67" fill="none" stroke="#f2b84b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.01 5.4"/>
+<path d="M14 67L104 67" fill="none" stroke="#e8762b" stroke-width="0.9" stroke-linecap="round" stroke-dasharray="0.01 5"/>
+<path d="M236 67L326 67" fill="none" stroke="#e8762b" stroke-width="0.9" stroke-linecap="round" stroke-dasharray="0.01 5"/>
+
+<!-- tulsi vrindavan -->
+<path d="M40 67L96 67L91 60L45 60Z" fill="#d9a77a"/>
+<path d="M50 60L86 60L81 39L55 39Z" fill="#b5562a"/>
+<path d="M53 39L83 39L79 34L57 34Z" fill="#d9a77a"/>
+<path d="M68 34L68 24" fill="none" stroke="#2f5a2a" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M68 24C74 22 76 11 68 3C60 11 62 22 68 24Z" fill="#5a8a3c"/>
+<path d="M57 36L48 29" fill="none" stroke="#2f5a2a" stroke-width="1" stroke-linecap="round"/>
+<path d="M48 29C53 25 51 15 44 10C38 17 42 26 48 29Z" fill="#5a8a3c"/>
+<path d="M79 36L89 29" fill="none" stroke="#2f5a2a" stroke-width="1" stroke-linecap="round"/>
+<path d="M89 29C84 25 86 15 93 10C99 17 95 26 89 29Z" fill="#5a8a3c"/>
+
+<!-- the lotus between them -->
+<path d="M150 65Q170 71 190 65Q170 68 150 65Z" fill="#5a8a3c"/>
+<path d="M170 65C177 59 175 47 170 40C165 47 163 59 170 65Z" fill="#d6336c"/>
+<path d="M170 65C163 60 158 51 160 43C167 47 172 57 170 65Z" fill="#f2a71b"/>
+<path d="M170 65C177 60 182 51 180 43C173 47 168 57 170 65Z" fill="#f2a71b"/>
+<circle cx="170" cy="63" r="2.6" fill="#f2b84b"/>
+
+<!-- deepstambh -->
+<path d="M246 67L294 67L289 59L251 59Z" fill="#d9a77a"/>
+<path d="M251 59L289 59L284 46L256 46Z" fill="#b5562a"/>
+<path d="M257 46L283 46L279 33L261 33Z" fill="#d9a77a"/>
+<path d="M263 33L277 33L274 20L266 20Z" fill="#b5562a"/>
+<circle cx="270" cy="15.5" r="3.4" fill="#f2b84b"/>
+<path d="M257 46L253 51L253 46 257 42Z" fill="#ffe7a6"/>
+<path d="M283 46L287 51L287 46 283 42Z" fill="#ffe7a6"/>
+<path d="M267 20L263 26L270 22 277 26 273 20Z" fill="#ffe7a6"/>
+
+</svg>

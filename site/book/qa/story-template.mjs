@@ -76,8 +76,8 @@ export const STORY_TEMPLATE = Object.freeze({
     children: { title: 'The next lamps', line: { one: 'The lamp lit after {featured-first}.', other: 'The lamps lit after {featured-first}.' } },
     lane: { title: 'Our lane', line: 'A house for every branch of the family.' },
     numbers: { title: 'In numbers', line: 'This family, counted from where {featured-first} stands.' },
-    register: { title: 'Everyone', line: { one: '{n} person, and where to find them.', other: 'All {n} of us, and where to find each one.' } },
-    'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{n} lamps are lit for names nobody has written down yet.' } },
+    register: { title: 'Everyone in our family', line: { one: '{Count-words} person, and where to find them.', other: 'All {count-words} of us, and where to find each one.' } },
+    'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{Count-words} lamps are lit for names nobody has written down yet.' } },
     legacy: { title: 'One line of light', line: 'One lamp for every generation behind {featured-first}.' },
     // Round 2, finding 19: the closing used to repeat the cover's own greeting and its
     // "from the X family" line word for word, with no `hand` face anywhere on the page. Its own

@@ -94,7 +94,21 @@ export function pickLine(line, n) {
  */
 export function renderCopy(entry, vars = {}) {
   if (!entry) return null;
-  return { title: fillPlaceholders(entry.title, vars), line: fillPlaceholders(pickLine(entry.line, vars.n), vars) };
+  const withCounts = withCountWords(vars);
+  return { title: fillPlaceholders(entry.title, withCounts), line: fillPlaceholders(pickLine(entry.line, vars.n), withCounts) };
+}
+
+/**
+ * `vars` with `{count-words}`/`{Count-words}` (template.js) derived from its own `n` - `n` spelled
+ * out, lower case and capitalised, for a line a hand-set voice can carry without a bare digit in
+ * it. Every caller's `n` reaches the two forms through here - a chapter's own count
+ * (`chapterVars`), a page's override (still-to-be-found's lamp count), and the cover's own count
+ * (`pages/hero.js`, which fills `tpl.cover`'s text directly rather than through `renderCopy`) -
+ * so the arithmetic lives once. Returns `vars` untouched where there is no count to spell.
+ */
+export function withCountWords(vars = {}) {
+  if (vars.n === undefined || vars.n === null) return vars;
+  return { ...vars, 'count-words': countWords(vars.n), 'Count-words': countWords(vars.n, true) };
 }
 
 /* ------------------------------------------------------------------ names */
@@ -177,17 +191,42 @@ export function countInCircle(kin, circle, role = null) {
 }
 
 /**
+ * The constructions a number-of-something sentence may take, past the first: the numbers page
+ * (#258 round 2, finding 23) put six of these in a row, all "{featured} has {n} {noun}.", which
+ * once is a fact and six times is a report - the one thing this book exists not to be. The first
+ * fact still names the featured person in full (`numberFact`'s own `index === 0`); every fact
+ * after that drops to their first name, the way a second sentence about the same person does in
+ * speech, and reaches for a different shape than the one before it.
+ */
+const NUMBER_CONSTRUCTIONS = [
+  (first, count, words) => `${countWords(count, true)} ${words} ${count === 1 ? 'stands' : 'stand'} behind ${first}.`,
+  (first, count, words) => `And ${countWords(count)} ${words}.`,
+  (first, count, words) => `${first} counts ${countWords(count)} ${words}, too.`,
+  (first, count, words) => `${countWords(count, true)} ${words}, besides.`,
+];
+
+/**
  * "Ankit has 23 cousins.", or `null` when there is nothing to say - a zero-count fact is not a
  * fact. `noun` is either a plain string, regularly pluralised ("cousin" -> "cousins"), or an
  * explicit `{ one, many }` pair for a noun that isn't ("child" -> "children"): a naive `${noun}s`
  * would print "childs", so a caller with an irregular noun must say both forms itself.
+ *
+ * `index` is which fact this is among several about the same person on the same page (`0` for the
+ * first): `0` reads as it always has, and each `index` after it draws a different construction
+ * from `NUMBER_CONSTRUCTIONS`, cycling once there are more facts than shapes, so a page that lists
+ * several counts never reads as the same sentence repeated with a new number dropped in.
  */
-export function numberFact(family, kin, n, noun) {
+export function numberFact(family, kin, n, noun, index = 0) {
   if (!n) return null;
   const featuredName = nameOf(family, kin, kin.featured);
   if (!featuredName) return null;
   const word = typeof noun === 'string' ? { one: noun, many: `${noun}s` } : noun;
-  return `${featuredName} has ${countWords(n)} ${n === 1 ? word.one : word.many}.`;
+  const words = n === 1 ? word.one : word.many;
+  if (index <= 0) return `${featuredName} has ${countWords(n)} ${words}.`;
+  const own = family.byId.get(kin.featured)?.name;
+  const first = own ? own.trim().split(/\s+/)[0] : featuredName;
+  const shape = NUMBER_CONSTRUCTIONS[(index - 1) % NUMBER_CONSTRUCTIONS.length];
+  return shape(first, n, words);
 }
 
 /* ------------------------------------------------------------------ sentence composition */

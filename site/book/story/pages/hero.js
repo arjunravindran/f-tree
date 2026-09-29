@@ -32,8 +32,7 @@ import { SITE_QR } from '../../qr.js';
 import { qrPath } from '../../blocks/art.js';
 import { diyaRow, rangoli, toran } from '../../art/procedural/index.js';
 import { seeded } from '../../art/seed.js';
-import { countWords } from '../../blocks/words.js';
-import { chapterCopy, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine } from '../copy.js';
+import { chapterCopy, chapterVars, fillPlaceholders, kinCaption, nameOf, noteCaption, openingLine, pickLine, withCountWords } from '../copy.js';
 import { SAFE, folio, glowDiscs, midX, noteCard, paperGround, sanjhiBand, scene, scenePlacement, tailpiece, titleBlock } from './parts/page.js';
 import { MALA_DROP, frameOuter, framedPerson, joinFrames, nameStack, openingIn, yearsCaption } from './parts/people.js';
 import { haveliFacade } from './parts/haveli.js';
@@ -203,8 +202,10 @@ function cover(ctx, page, story) {
   const ids = [...story.kin.people.keys()];
   // Round 2, finding 20: the cover's own count, spelled out and capitalised for the sentence it
   // opens ("Twenty-three lamps..."), the same form templates/diwali.json's format-1 cover already
-  // carries - `{n}` alone would print a bare digit mid-sentence.
-  const vars = { ...chapterVars('cover', family, story.kin), n: ids.length, 'Count-words': countWords(ids.length, true) };
+  // carries - `{n}` alone would print a bare digit mid-sentence. The cover fills `tpl.cover`'s own
+  // text rather than a `copy` chapter, so it reaches the two spelled forms through copy.js's
+  // `withCountWords` directly, which is where `renderCopy` gets them too (#258 round 2).
+  const vars = withCountWords({ ...chapterVars('cover', family, story.kin), n: ids.length });
 
   const items = [ghat.item];
   const top = ghat.at('toran');
