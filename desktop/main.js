@@ -22,6 +22,7 @@ const { chooseUpdate } = require('./update');
 const { writeTreeFile } = require('./atomic');
 const { backUpBefore, folderFor } = require('./backups');
 const { installationId } = require('./identity');
+const { ftreeFromArgv } = require('./open-args');
 // The one file from `nearby/` this shell requires -- see its header. Requiring it binds nothing.
 const {
   Nearby, parseTypedAddress, problemName, IMPORT_PROBLEMS, MAX_OFFER_BYTES,
@@ -281,6 +282,19 @@ async function showBackups() {
 }
 
 let window_ = null;
+
+/*
+ * A tree the app was asked to open before a page was there to be told (#190).
+ *
+ * The page pulls its first tree with `tree:last` once it has finished wiring itself up. Sending
+ * `tree:opened` straight after the window is created would race that: it can arrive before the
+ * page is listening, and the page's own `lastTree()` would then open the previous tree over the
+ * top. So the path waits here and `tree:last` hands it over, once.
+ */
+let pendingOpen = null;
+
+/* What `tree:last` last handed over from the command line. Only the smoke test reads it. */
+let openedFromArgv = null;
 
 async function openInto(win, file) {
   try {
@@ -1155,6 +1169,19 @@ ipcMain.on('tree:dirty', (event, dirty) => {
   win.setDocumentEdited(Boolean(dirty));
 });
 ipcMain.handle('tree:last', async () => {
+  // A file the app was started with beats whatever was open last time.
+  if (pendingOpen) {
+    const file = pendingOpen;
+    pendingOpen = null;
+    try {
+      const tree = await readTree(file);
+      await writeSession({ lastTree: file });
+      openedFromArgv = file;
+      return tree;
+    } catch {
+      // Unreadable: fall through to the last tree, as if nothing had been asked for.
+    }
+  }
   const { lastTree } = await readSession();
   if (!lastTree) return null;
   try {
@@ -3687,6 +3714,22 @@ async function runSmoke(win, file) {
   // the case it was written for, and it is the one section that wants what the edit left behind.
   if (process.env.FTREE_SMOKE_IMPORT) await runImportSmoke(win, check);
 
+  /*
+   * A file the app is started with is the one it opens (#190).
+   *
+   * `runSmoke` opens its own fixture on purpose, later, so what is on screen by now proves
+   * nothing. `tree:last` records the path it handed over at the moment it did, and this compares
+   * that against the file the harness was launched with. The gate names a different tree from
+   * FTREE_SMOKE and the session is empty, so nothing else could have produced it.
+   */
+  if (process.env.FTREE_SMOKE_ARGV) {
+    const wanted = path.resolve(process.env.FTREE_SMOKE_ARGV);
+    check('the tree the app was launched with is the one it opened at start',
+      openedFromArgv === wanted, `opened ${openedFromArgv}, wanted ${wanted}`);
+    check('and it was not the fixture the rest of this run uses',
+      openedFromArgv !== null && openedFromArgv !== file);
+  }
+
   if (process.env.FTREE_SMOKE_COMPACT) {
     await reopenSample();
     await runCompactSmoke(win, check);
@@ -3816,7 +3859,27 @@ async function runSmoke(win, file) {
   app.exit(failures.length === 0 ? 0 : 1);
 }
 
-app.whenReady().then(async () => {
+/*
+ * One app, however many times a tree is double-clicked (#190).
+ *
+ * Without the lock the second double-click starts a second copy of the app, which restores the
+ * last tree and ignores the file. With it, the second launch hands its arguments to the first and
+ * quits, and the first opens the file in the window it already has.
+ */
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) app.quit();
+else pendingOpen = ftreeFromArgv(process.argv, { isPackaged: app.isPackaged, cwd: process.cwd() });
+
+app.on('second-instance', (_event, argv, cwd) => {
+  if (!window_) return;
+  if (window_.isMinimized()) window_.restore();
+  window_.focus();
+  const file = ftreeFromArgv(argv, { isPackaged: app.isPackaged, cwd });
+  if (file) openInto(window_, file);
+});
+
+// Guarded, not returned from: a second instance must not open a window of its own.
+if (gotLock) app.whenReady().then(async () => {
   settings = await readSettings();
   window_ = await createWindow();
 
@@ -3842,5 +3905,7 @@ app.on('window-all-closed', () => {
 /* A .ftree double-clicked in the file manager, once the app is registered for the type. */
 app.on('open-file', (event, file) => {
   event.preventDefault();
+  // Before the window exists this used to be dropped; keep it for `tree:last` instead.
   if (window_) openInto(window_, file);
+  else pendingOpen = file;
 });

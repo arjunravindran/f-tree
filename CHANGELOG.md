@@ -10,6 +10,14 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+**Double-clicking a tree opens that tree on desktop (#190).**
+
+- **The file you opened is the file you get.** Opening a `.ftree` from the file manager, or running
+  `f-tree-desktop path/to/tree.ftree`, used to start the app on the last tree you had open and
+  ignore the one you asked for; only macOS ever passed it on. It now opens the one you asked for,
+  and opening a second tree while the app is running uses the window you already have instead of
+  starting another copy. Unsaved changes are still asked about first.
+
 **The Diwali book is a storybook now (#239, #256-#260).**
 
 - **A family book built around one person (0.11.0-beta.1, desktop 0.9.0-beta.1).** Diwali is no
