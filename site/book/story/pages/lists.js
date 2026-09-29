@@ -752,7 +752,10 @@ function legacy(ctx, page, story) {
   const { kin } = story;
   ctx.describePage({ archetype: page.archetype, variant: page.variant, people: page.people, density: page.density });
   const mirrored = page.variant === 'line-mirrored';
-  const copy = copyFor(ctx, story, page);
+  // The lamps this page lights: one a generation behind F, and F's own (below). The copy is told
+  // the total so it can say it in the singular where F's is the only one (decision 8).
+  const gens = generationsBehind(kin);
+  const copy = copyFor(ctx, story, page, { n: gens + 1 });
   const sky = ctx.gradient('legacy-sky', {
     type: 'radial', cx: PAGE.w / 2, cy: PAGE.h * 0.66, r: PAGE.h * 0.8,
     stops: [[0, P.glow, 1], [0.5, P.night, 1], [1, P.deep, 1]],
@@ -776,7 +779,6 @@ function legacy(ctx, page, story) {
   // fixed numbers that left 250+ pt of unbroken sky above the first lamp for a family with only a
   // couple of generations behind it (finding 20), and generous enough for a long line that a lamp
   // never crowds its neighbour into an unreadable smear (finding 21).
-  const gens = generationsBehind(kin);
   const ROOM_TOP = 168, ROOM_BOTTOM = SAFE.bottom - 8;
   const step = Math.min(70, (ROOM_BOTTOM - ROOM_TOP - 40) / Math.max(1, gens));
   // The column is centred in that room however tall it turns out to be, so a family with two

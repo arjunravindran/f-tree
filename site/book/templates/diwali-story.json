@@ -129,7 +129,10 @@
     },
     "legacy": {
       "title": "One line of light",
-      "line": "One lamp for every generation behind {featured-first}."
+      "line": {
+        "one": "One lamp, and it is {featured-first}’s own.",
+        "other": "One lamp for {featured-first}, and one for every generation behind."
+      }
     },
     "closing": {
       "title": "Until next Diwali",

@@ -83,7 +83,16 @@ export const STORY_TEMPLATE = Object.freeze({
     numbers: { title: 'In numbers', line: 'This family, counted from where {featured-first} stands.' },
     register: { title: 'Everyone in our family', line: { one: '{Count-words} person, and where to find them.', other: 'All {count-words} of us, and where to find each one.' } },
     'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{Count-words} lamps are lit for names nobody has written down yet.' } },
-    legacy: { title: 'One line of light', line: 'One lamp for every generation behind {featured-first}.' },
+    // Ankit's decision 8: the page draws a lamp for every generation behind F *and* a larger one
+    // for F, with their name under it - so a line that counted only the generations behind left
+    // the reader one lamp they could not account for. The line was the wrong half to fix.
+    legacy: {
+      title: 'One line of light',
+      line: {
+        one: 'One lamp, and it is {featured-first}\u2019s own.',
+        other: 'One lamp for {featured-first}, and one for every generation behind.',
+      },
+    },
     // Round 2, finding 19: the closing used to repeat the cover's own greeting and its
     // "from the X family" line word for word, with no `hand` face anywhere on the page. Its own
     // farewell, distinct from the cover's arrival greeting, closes the book instead.

@@ -236,11 +236,36 @@ test('chapters of exactly 2 merge into one household page; a chapter of exactly 
 
 /* ------------------------------------------------------------------ variety */
 
-test('variety: a page takes the first placement that differs from the previous page\'s', () => {
+test('variety: a run of one chapter walks its placements in turn, and never repeats one', () => {
   const { plan: p } = plan(withSiblings(DENSITY.family * 2 + 1), 'f');
   const sib = p.pages.filter((pg) => pg.chapter === 'siblings');
-  assert.deepEqual(sib.map((pg) => pg.variant), ['band', 'doorways', 'band']);
+  assert.deepEqual(sib.map((pg) => pg.variant), ['band', 'doorways', 'steps']);
   for (const [a, list] of Object.entries(VARIANTS)) assert.ok(list.length >= 2, `${a} needs a second placement`);
+});
+
+test('variety: every placement a chapter declares can actually be planned', () => {
+  // `gathering` declares three, and the old rule - the first placement that is not the previous
+  // one - walked band, doorways, band, doorways for ever, so `steps` was drawn and tested in
+  // family.js and no plan could ask for it (Ankit's decision, wave 3). A placement nobody can
+  // reach is dead art, so this holds every list to being reachable rather than only `gathering`.
+  for (const [archetype, list] of Object.entries(VARIANTS)) {
+    const seen = new Set();
+    let previous = null;
+    for (let i = 0; i < list.length; i++) {
+      previous = list[(list.indexOf(previous) + 1) % list.length];
+      if (previous === undefined) previous = list[0];
+      seen.add(previous);
+    }
+    assert.deepEqual([...seen].sort(), [...list].sort(), `${archetype}: a run of ${list.length} pages cannot reach every placement it declares`);
+  }
+});
+
+test('variety: consecutive pages of one chapter never share a placement', () => {
+  const { plan: p } = plan(withSiblings(DENSITY.family * 2 + 1), 'f');
+  for (let i = 1; i < p.pages.length; i++) {
+    const a = p.pages[i - 1], b = p.pages[i];
+    if (a.archetype === b.archetype) assert.notEqual(a.variant, b.variant, `pages ${a.pageNo} and ${b.pageNo} share ${b.variant}`);
+  }
 });
 
 /* ------------------------------------------------------------------ the cap */

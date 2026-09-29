@@ -340,11 +340,26 @@ function page(chapter, archetype, people, extra = {}) {
   return { chapter, chapters: [chapter], copyKey: chapter, archetype, variant: null, density: null, people: [...people], groups: [], continued: false, folds: [], ...extra };
 }
 
+/**
+ * The variant a page takes, given the one the page before it took where that page was the same
+ * chapter: the next one along, wrapping. Every list has at least two, so this always differs from
+ * the page before, which is the variety rule.
+ *
+ * It used to take the first variant that simply was not the previous one, which for a list of two
+ * is the same thing - but `gathering` declares three, and the first-that-differs rule walked
+ * band, doorways, band, doorways for ever. `steps` was written, drawn and tested in `family.js`
+ * (`stepHere`, `rowStepHere`) and no plan could ever ask for it (Ankit's decision, wave 3).
+ */
+function nextVariant(variants, previous) {
+  if (!previous) return variants[0];
+  return variants[(variants.indexOf(previous) + 1) % variants.length];
+}
+
 /** The single pass that makes a plan final: variety, then page numbers, then freezing. */
 function finish(plans) {
   let prev = null;
   return Object.freeze(plans.map((p, i) => {
-    p.variant = VARIANTS[p.archetype].find((v) => !(prev && prev.archetype === p.archetype && prev.variant === v));
+    p.variant = nextVariant(VARIANTS[p.archetype], prev && prev.archetype === p.archetype ? prev.variant : null);
     p.pageNo = i + 1;
     prev = p;
     p.groups = Object.freeze(p.groups.map((g) => Object.freeze({ key: g.key, people: Object.freeze([...g.people]) })));
