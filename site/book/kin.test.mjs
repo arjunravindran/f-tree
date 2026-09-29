@@ -500,11 +500,10 @@ test('relate() is never called by the partition, and at most once per person ask
 
 test('kin.js and everything it imports stay deterministic, and never touch ageOf', () => {
   const files = importClosure(path.join(here, 'story/kin.js'));
-  // The same two reviewed exceptions book.test.mjs grants the composer's closure, reached here
-  // through family.js: ageOf's clock (never called) and byBirth's tie-break in layout.js.
+  // The same one reviewed exception book.test.mjs grants the composer's closure, reached here
+  // through family.js: ageOf's clock (never called).
   const allow = new Map([
     ['site/playground/model.js', [{ banned: 'new Date', fn: 'ageOf' }]],
-    ['site/playground/layout.js', [{ banned: 'localeCompare', fn: 'byBirth' }]],
   ]);
   assert.deepEqual(bannedApiViolations(files, { allow, repoRoot }), []);
   const src = stripComments(readFileSync(path.join(here, 'story/kin.js'), 'utf8'));
