@@ -52,7 +52,7 @@ class LanTransport(
     private var serverSocket: ServerSocket? = null
     private var beaconSocket: MulticastSocket? = null
     @Volatile private var lanForBeacons: Lan? = null
-    private var announcement: Beacon? = null
+    private var announcement: (() -> Beacon)? = null
 
     private val accepting = AtomicBoolean(false)
     private val listening = AtomicBoolean(false)
@@ -174,7 +174,7 @@ class LanTransport(
         multicastLock = null
     }
 
-    override fun startAnnouncing(beacon: Beacon) {
+    override fun startAnnouncing(beacon: () -> Beacon) {
         announcement = beacon
         if (announcing.getAndSet(true)) return
 
@@ -197,8 +197,8 @@ class LanTransport(
         if (!announcing.getAndSet(false)) return
         // Three goodbyes, because one can be lost and a peer that misses it waits out the whole
         // expiry staring at a device that is no longer there.
-        announcement?.let { beacon ->
-            val farewell = beacon.copy(messageType = NearbyProtocol.BEACON_GOODBYE).encode()
+        announcement?.let { source ->
+            val farewell = source().copy(messageType = NearbyProtocol.BEACON_GOODBYE).encode()
             thread(name = "nearby-goodbye", isDaemon = true) {
                 repeat(NearbyProtocol.GOODBYE_COUNT) {
                     send(farewell)
@@ -274,7 +274,7 @@ class LanTransport(
     }
 
     private fun announce() {
-        announcement?.let { send(it.encode()) }
+        announcement?.let { send(it().encode()) }
     }
 
     /**
@@ -285,13 +285,13 @@ class LanTransport(
      * device into an amplifier.
      */
     private fun answerQuery() {
-        val beacon = announcement ?: return
+        val source = announcement ?: return
         val now = System.currentTimeMillis()
         if (now - lastAnsweredQuery < NearbyProtocol.QUERY_ANSWER_MIN_GAP_MS) return
         lastAnsweredQuery = now
         thread(name = "nearby-answer", isDaemon = true) {
             Thread.sleep((Math.random() * NearbyProtocol.QUERY_ANSWER_JITTER_MS).toLong())
-            send(beacon.encode())
+            send(source().encode())
         }
     }
 

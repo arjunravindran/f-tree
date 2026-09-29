@@ -10,6 +10,14 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+**Renaming this device reaches the room straight away (#192).**
+
+- **The name on the wire is the name you just typed.** Renaming this device while a Nearby screen
+  was open kept announcing the old name until the screen was closed and opened again, because the
+  beacon was built once when it started. It is now built afresh on every beat, so the other device
+  sees the new name within a couple of seconds, and the "appears as" line on the screen agrees with
+  what is being broadcast.
+
 **The Diwali book is a storybook now (#239, #256-#260).**
 
 - **A family book built around one person (0.11.0-beta.1, desktop 0.9.0-beta.1).** Diwali is no

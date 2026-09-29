@@ -99,8 +99,14 @@ interface NearbyTransport {
 
     fun stopDiscovery()
 
-    /** Begins announcing. Only a device that has said it wants to be found calls this. */
-    fun startAnnouncing(beacon: Beacon)
+    /**
+     * Begins announcing. Only a device that has said it wants to be found calls this.
+     *
+     * The beacon is supplied per tick rather than passed once, so that renaming this device reaches
+     * the room within a beat. A payload frozen when announcing started meant the new name did not
+     * leave the phone until the screen was closed and opened again (#192).
+     */
+    fun startAnnouncing(beacon: () -> Beacon)
 
     /** Stops announcing and says goodbye, rather than simply going quiet. */
     fun stopAnnouncing()

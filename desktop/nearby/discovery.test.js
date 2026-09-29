@@ -128,6 +128,28 @@ test('two devices are two rows, sorted for a list somebody reads', () => {
   assert.deepEqual(table.list().map((p) => p.displayName), ['Amber Otter', 'Quiet Heron']);
 });
 
+test('the beacon carries the name as it is now, not as it was when advertising started', () => {
+  // #192: the payload used to be built once, in advertise(), so renaming the device kept the old
+  // name going out until the screen was closed and opened again. Built per tick, a rename reaches
+  // the room on the next beat. No socket is needed to see it: the beacon is what would be sent.
+  const identity = { deviceId: Buffer.alloc(16, 0x5a), displayName: 'Quiet Heron' };
+  const discovery = new Discovery({ identity });
+
+  assert.equal(discovery.announcement, null, 'a device that is not advertising has no beacon');
+
+  discovery.advertise({ tcpPort: 4321, keyFingerprint: Buffer.alloc(8, 3) });
+  assert.equal(discovery.announcement.displayName, 'Quiet Heron');
+  assert.equal(discovery.announcement.tcpPort, 4321);
+
+  identity.displayName = 'Amber Otter';
+  assert.equal(discovery.announcement.displayName, 'Amber Otter');
+  assert.equal(discovery.announcement.tcpPort, 4321, 'the port outlives the rename');
+  assert.equal(discovery.announcement.keyFingerprint.toString('hex'), '0303030303030303');
+
+  discovery.close();
+  assert.equal(discovery.announcement, null, 'closing stops the announcement');
+});
+
 test('two copies on one machine find each other', async (t) => {
   // The one socket test. It filters on deviceId rather than on source address, which is exactly
   // what makes this possible: on a machine where both ends share an address, filtering on the
