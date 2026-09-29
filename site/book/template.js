@@ -19,8 +19,21 @@
 
 export const TEMPLATE_FORMAT = 1;
 
-/** The storybook's template format (#243). Hidden from the catalogue until #244 reads it by default. */
-const FORMAT_PAPERCUT = 2;
+/** The storybook's template format (#243): a second schema, not an extension of format 1. */
+export const FORMAT_PAPERCUT = 2;
+
+/**
+ * The highest template format this app can draw, which is what the catalogue filters on
+ * (`catalog.js`'s `available`) - not the same question as `TEMPLATE_FORMAT`, which is format 1's
+ * own schema version and is what `validateTemplate` holds a format-1 template to.
+ *
+ * The two were one constant until #259, and that was only safe while the app drew format 1 alone.
+ * Raising `TEMPLATE_FORMAT` to offer the storybook would have made `validateTemplate` reject every
+ * format-1 template, Heirloom included, because it checks `t.format !== TEMPLATE_FORMAT`. They are
+ * different questions and now have different names. `BookCatalog.MAX_TEMPLATE_FORMAT` mirrors this
+ * one, and `BookCatalogTest` reads this line out of this file to hold the two together.
+ */
+export const MAX_TEMPLATE_FORMAT = 2;
 
 export const BLOCKS = ['cover', 'tree', 'numbers', 'generations', 'find', 'closing'];
 
@@ -78,17 +91,19 @@ export const REQUIRED_CHAPTERS = ['cover', 'opening', 'register', 'closing'];
  * "शर्मा परिवार की ओर से"), which a five-token template cannot build out of `{family}` itself -
  * "from the {family} family" would print "from the The Kumar Family family". Format-1 templates
  * reach the same phrase through `blocks/words.js`'s `fill`, which is where both come from.
- * `{Count-words}` is `n` spelled out and capitalised ("Twenty-three"), for a sentence the cover's
- * own count opens rather than ends (round 2, finding 20: "{Count-words} lamps, one for each of
- * us.", the same form `templates/diwali.json`'s format-1 cover already carries through
- * `blocks/words.js`'s `fill` - a "{n} lamps" a format-2 template could already build reads as a
- * digit before the sentence has begun, not the word the approved cover shows).
+ * `{count-words}`/`{Count-words}` are `{n}` spelled out ("twelve"/"Twelve") rather than printed as
+ * digits, for a line a hand-set voice can carry without it reading as a system message: the
+ * cover's own count opening a sentence (#256, "{Count-words} lamps, one for each of us.") and the
+ * register's and "still to be found"'s copy (#258 round 2, finding 19) both need it, and the
+ * lower-case form is the same two-case convention `blocks/words.js`'s format-1 `fill` already
+ * uses. `copy.js`'s `chapterVars`/`copyFor` derive both from `n` itself, so every chapter reaches
+ * them the same way; this file only has to agree they are spellable.
  * `PLACEHOLDER` (the token syntax) is exported so copy.js (#252) finds a `{token}` the same way
  * this file does, rather than a second parser that could drift from this one. `PLACEHOLDERS`
  * (the accepted names) stays private: a template's copy is already refused at load time if it
  * names anything else, so nothing downstream needs the name set again.
  */
-const PLACEHOLDERS = new Set(['featured', 'featured-first', 'family', 'n', 'year', 'from-family', 'Count-words']);
+const PLACEHOLDERS = new Set(['featured', 'featured-first', 'family', 'n', 'year', 'from-family', 'count-words', 'Count-words']);
 export const PLACEHOLDER = /\{([^{}]*)\}/g;
 
 const ART_KINDS = ['papercut'];

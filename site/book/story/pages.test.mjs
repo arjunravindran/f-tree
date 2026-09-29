@@ -68,7 +68,7 @@ test('a storybook page nobody has drawn yet is refused by name, not printed empt
   const doc = await loadFixture('story-eldest');
   const { plan, archetypes } = await plannedArchetypes('story-eldest');
   assert.throws(() => composeBook(doc, { now: NOW }, STORY_TEMPLATE), (e) => {
-    assert.match(e.message, /"diwali-story" is a format-2 storybook template/);
+    assert.match(e.message, /"diwali" is a format-2 storybook template/);
     assert.ok(e.message.includes(`its ${plan.pages.length} pages are planned`), e.message);
     // Every archetype this book needs and nobody has built is named, and nothing else is.
     for (const a of archetypes) {
@@ -79,15 +79,16 @@ test('a storybook page nobody has drawn yet is refused by name, not printed empt
   });
 });
 
-test('coverOnly draws the cover alone, and so needs only the cover to exist', async (t) => {
-  if (!missingArchetypes().length) return t.skip('every archetype is built');
+test('coverOnly draws the cover alone', async () => {
+  // While the archetypes were being built (#256-#258) this could only check which of them the
+  // refusal asked for. Every archetype exists now, so it checks the thing itself: the option
+  // (#244) that draws the chat thumbnail without composing the whole book.
   const doc = await loadFixture('story-eldest');
-  const whole = (() => { try { composeBook(doc, { now: NOW }, STORY_TEMPLATE); return ''; } catch (e) { return e.message; } })();
-  const cover = (() => { try { composeBook(doc, { now: NOW, coverOnly: true }, STORY_TEMPLATE); return ''; } catch (e) { return e.message; } })();
-  if (!cover) return;   // the cover archetype exists: coverOnly drew it, which is the point
-  assert.ok(cover.length < whole.length, 'coverOnly still asks for every archetype the whole book would');
-  assert.match(cover, /\bcover\b/);
-  assert.ok(!/\bregister\b/.test(cover), 'coverOnly asked for the register');
+  const whole = composeBook(doc, { now: NOW }, STORY_TEMPLATE);
+  const cover = composeBook(doc, { now: NOW, coverOnly: true }, STORY_TEMPLATE);
+  assert.equal(cover.pages.length, 1, 'coverOnly drew more than the cover');
+  assert.ok(whole.pages.length > 1, 'the fixture is meant to make a whole book to contrast with');
+  assert.deepEqual(cover.pages[0].label, whole.pages[0].label, 'coverOnly drew a different first page');
 });
 
 /* ------------------------------------------------------------------ the shared template */
@@ -95,7 +96,7 @@ test('coverOnly draws the cover alone, and so needs only the cover to exist', as
 test('the shared storybook template is a valid format-2 template', () => {
   const t = validateTemplate(STORY_TEMPLATE);
   assert.equal(t.format, 2);
-  assert.equal(t.id, 'diwali-story');
+  assert.equal(t.id, 'diwali');
   assert.equal(t.art, 'papercut');
   assert.deepEqual(Object.keys(t.palette).sort(), [...PAPERCUT_PALETTE_KEYS].sort());
   assert.equal(t.fonts.hand, HAND_FONT_KEY, 'the hand role is Kalam, and only the hand role is');

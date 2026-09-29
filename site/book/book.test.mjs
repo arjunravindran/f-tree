@@ -20,7 +20,7 @@ import { openArchive, parseDocument } from '../playground/archive.js';
 import { buildGraph, branchFrom } from '../playground/model.js';
 import { composeBook, estimateBytes } from './compose.js';
 import { validateBook } from './format.js';
-import { validateTemplate } from './template.js';
+import { validateTemplate, FORMAT_PAPERCUT } from './template.js';
 import { paintPage } from './svg.js';
 import { measure, breakLines } from './text.js';
 import { METRICS } from './metrics/index.js';
@@ -60,8 +60,11 @@ test('every fixture composes into a valid book with every template', async () =>
     for (const [tid, tpl] of Object.entries(TEMPLATES)) {
       const book = composeBook(doc, { now: NOW }, tpl);
       assert.deepEqual(validateBook(book), [], `${name}/${tid}`);
-      assert.equal(book.pages[0].label, 'Cover');
-      assert.equal(book.pages.at(-1).label, 'Is someone missing?');
+      // Every book opens on its cover and closes on the "is someone missing?" page. A format-1
+      // book labels its cover "Cover"; the storybook labels that page with the greeting it prints
+      // on it, so the same promise is checked in each format's own words.
+      assert.equal(book.pages[0].label, tpl.format === FORMAT_PAPERCUT ? tpl.cover.greeting : 'Cover', `${name}/${tid}: opens on the wrong page`);
+      assert.equal(book.pages.at(-1).label, 'Is someone missing?', `${name}/${tid}: closes on the wrong page`);
       lines.push(`${name} ${tid} ${hash(book)} ${book.pages.length} ${book.pages.map((p) => p.label.replace(/ /g, '_')).join(',')}`);
     }
   }
@@ -91,8 +94,11 @@ test('a document as Android writes it, with empty lists left out, still makes a 
   const book = composeBook(lone, { now: NOW }, TEMPLATES.heirloom);
   assert.deepEqual(validateBook(book), []);
   assert.ok(JSON.stringify(book).includes('Meera Nair'));
+  // Diwali is the storybook since #259, so its singular cover line is the storybook's; what this
+  // has always really checked is that a family of one is not told it has "1 lamps".
   const diwali = JSON.stringify(composeBook(lone, { now: NOW }, TEMPLATES.diwali));
-  assert.ok(diwali.includes('One lamp, and room for many more.') && !diwali.includes('One lamps'));
+  assert.ok(diwali.includes('One lamp, and the family behind it'), 'the cover did not print its singular line');
+  assert.ok(!/One lamps|1 lamps/.test(diwali), 'the cover counted one person as a plural');
   assert.deepEqual(validateBook(composeBook({ format: 'f-tree', version: 1 }, { now: NOW }, TEMPLATES.diwali)), []);
 });
 

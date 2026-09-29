@@ -364,10 +364,13 @@ test('{from-family} is the line a cover carries, not the family\'s title said tw
 });
 
 test('chapterCopy also composes over every format-2 template already in the catalogue', () => {
-  const format2 = Object.values(TEMPLATES).filter((t) => t.format === 2);
-  // None ship in the catalogue yet - #259 adds diwali-story - so chapterVars/chapterCopy
-  // themselves are what carry this test's weight until then (the table test above); this one
-  // exists so the day a real format-2 template lands, it is swept automatically, not silently.
+  // Validated first, exactly as `compose.js` does before it reads a template: `template.js`'s
+  // `plural` is what turns a `line` written as one plain string into the `{one, other}` shape
+  // `pickLine` reads, so sweeping the raw file instead would test a document the composer never
+  // sees. `diwali-story` ships from #258 (hidden at format 2 until #259 shows it), so this now
+  // sweeps a real template rather than standing ready for one.
+  const format2 = Object.values(TEMPLATES).filter((t) => t.format === 2).map((t) => validateTemplate(t));
+  assert.ok(format2.length, 'diwali-story ships: this sweep must not be silently empty');
   const family = readFamily(doc([M('ankit', 'Ankit', '1995')], []), { now: NOW });
   const kin = kinOf(family, resolveFeatured(family, {}), {});
   for (const tpl of format2) {

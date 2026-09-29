@@ -668,3 +668,21 @@ test('a family small enough that every lamp lights itself gets no zone glow', ()
   assert.deepEqual(rowsToWarm(lampRows(23, box)), [], 'a twenty-three lamp cover was given one too');
   assert.ok(rowsToWarm(lampRows(200, box)).length > 0, 'a crowd of lamps lost its warmth');
 });
+
+/*
+ * Ankit's decision 4: the cover carries the count in the approved form, and two things follow from
+ * it - the singular must read as English ("1 lamps" is the failure it names), and a count of zero
+ * or none must fall back to the cover's plain form rather than printing a number nobody can use.
+ */
+test('the cover never prints a bad count: no "1 lamps", and nothing numeric with nobody to count', () => {
+  const template = validateTemplate(STORY_TEMPLATE);
+  const textOf = (book) => book.pages[0].items.filter((i) => i.t === 'text').map((i) => i.s ?? i.text).filter(Boolean).join(' | ');
+
+  const one = textOf(composeBook({ format: 1, people: [{ id: 'a', name: 'Asha' }], links: [] }, { now: NOW }, template));
+  assert.ok(!/\b1 lamps\b/.test(one), `the cover said "1 lamps": ${one}`);
+  assert.match(one, /One lamp\b/, `a family of one should say one lamp: ${one}`);
+
+  const none = textOf(composeBook({ format: 1, people: [], links: [] }, { now: NOW }, template));
+  assert.ok(!/\d/.test(none.replace(/Made with f-tree/g, '')), `the cover printed a number with nobody to count: ${none}`);
+  assert.ok(!/\blamps?\b/i.test(none), `the cover counted lamps with nobody to count: ${none}`);
+});

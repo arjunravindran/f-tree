@@ -17,17 +17,24 @@ import kotlinx.serialization.json.intOrNull
  * newer than the composer it ships with understands, is left out rather than guessed at.
  *
  * An entry's `format` is only ever compared as a number here - this object never needs to know a
- * template format's shape, only whether [TEMPLATE_FORMAT] is high enough to draw it. Template
- * format 2 (`site/book/template.js`'s paper-cut schema, #243) is a storybook template hidden this
- * way: it validates and ships in `catalog-cases.json` as a test row, but [TEMPLATE_FORMAT] stays 1
- * until the composer that draws it (#244, #246) lands, so no shell offers a book it can't paint.
+ * template format's shape, only whether [MAX_TEMPLATE_FORMAT] is high enough to draw it. Template
+ * format 2 (`site/book/template.js`'s paper-cut schema, #243) is the storybook, and it was hidden
+ * exactly this way while it was being built: it shipped as a catalogue row the shells skipped,
+ * because [MAX_TEMPLATE_FORMAT] stayed 1 until the composer and both painters (#244, #246) landed.
+ * #259 raised it to 2, which is the whole of the swap on this side - no shell offers a book it
+ * cannot paint, and none ever did.
  */
 object BookCatalog {
 
     const val FORMAT = 1
 
-    /** The template format the staged composer reads - `TEMPLATE_FORMAT` in `site/book/template.js`. */
-    const val TEMPLATE_FORMAT = 1
+    /**
+     * The highest template format the staged composer can draw - `MAX_TEMPLATE_FORMAT` in
+     * `site/book/template.js`, which `BookCatalogTest` reads out of that file to hold the two
+     * together. Not format 1's schema version (`TEMPLATE_FORMAT` there); the two were one constant
+     * until #259 and are different questions.
+     */
+    const val MAX_TEMPLATE_FORMAT = 2
 
     data class Entry(val id: String, val name: String, val format: Int, val tier: String, val featured: List<Pair<String, String>>)
 
@@ -67,22 +74,22 @@ object BookCatalog {
         return Entry(id, name, format, tier, featured)
     }
 
-    fun available(catalog: List<Entry>?, supported: Int = TEMPLATE_FORMAT): List<Entry> =
+    fun available(catalog: List<Entry>?, supported: Int = MAX_TEMPLATE_FORMAT): List<Entry> =
         catalog.orEmpty().filter { it.format <= supported }
 
     /** The ids in season on [today] (`yyyy-MM-dd`, the reader's local date), in catalogue order. */
-    fun featuredAt(catalog: List<Entry>?, today: String, supported: Int = TEMPLATE_FORMAT): List<String> =
+    fun featuredAt(catalog: List<Entry>?, today: String, supported: Int = MAX_TEMPLATE_FORMAT): List<String> =
         available(catalog, supported).filter { e -> e.featured.any { (from, to) -> from <= today && today <= to } }.map { it.id }
 
     /** The picker's list: what is in season first, then everything else in catalogue order. */
-    fun listing(catalog: List<Entry>?, today: String, supported: Int = TEMPLATE_FORMAT): List<Listed> {
+    fun listing(catalog: List<Entry>?, today: String, supported: Int = MAX_TEMPLATE_FORMAT): List<Listed> {
         val season = featuredAt(catalog, today, supported).toSet()
         val all = available(catalog, supported).map { Listed(it.id, it.name, it.tier, it.id in season) }
         return all.filter { it.featured } + all.filterNot { it.featured }
     }
 
     /** What the book opens on: the template in season, or the first one listed. */
-    fun opening(catalog: List<Entry>?, today: String, supported: Int = TEMPLATE_FORMAT): String? =
+    fun opening(catalog: List<Entry>?, today: String, supported: Int = MAX_TEMPLATE_FORMAT): String? =
         listing(catalog, today, supported).firstOrNull()?.id
 
     private fun JsonElement?.string(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.content

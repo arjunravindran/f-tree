@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readCatalog, available, featuredAt, listing, openingTemplate } from './catalog.js';
-import { validateTemplate, TEMPLATE_FORMAT } from './template.js';
+import { validateTemplate, MAX_TEMPLATE_FORMAT } from './template.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const shippedText = readFileSync(path.join(HERE, 'templates', 'catalog.json'), 'utf8');
@@ -53,8 +53,8 @@ test('every template file that ships is in the catalogue', () => {
 
 test('the default supported format is the one the composer reads', () => {
   const catalog = readCatalog({ format: 1, templates: [
-    { id: 'now', name: 'Now', format: TEMPLATE_FORMAT, tier: 'free' },
-    { id: 'later', name: 'Later', format: TEMPLATE_FORMAT + 1, tier: 'free' },
+    { id: 'now', name: 'Now', format: MAX_TEMPLATE_FORMAT, tier: 'free' },
+    { id: 'later', name: 'Later', format: MAX_TEMPLATE_FORMAT + 1, tier: 'free' },
   ] });
   assert.deepStrictEqual(available(catalog).map((t) => t.id), ['now']);
 });

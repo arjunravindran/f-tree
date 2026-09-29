@@ -20,8 +20,8 @@ const papercutPalette = Object.fromEntries(PAPERCUT_PALETTE_KEYS.map((k, i) => [
 function papercutTemplate(overrides = {}) {
   return {
     format: 2,
-    id: 'diwali-story',
-    name: 'Diwali, the storybook',
+    id: 'diwali',
+    name: 'Diwali',
     fileSuffix: 'Book',
     art: 'papercut',
     fonts: { display: 'book_display', text: 'book_text', strong: 'book_strong', hand: HAND_FONT_KEY },
@@ -39,7 +39,7 @@ function papercutTemplate(overrides = {}) {
 test('a well-formed format-2 template validates, and freezes what it returns', () => {
   const t = validateTemplate(papercutTemplate());
   assert.equal(t.format, 2);
-  assert.equal(t.id, 'diwali-story');
+  assert.equal(t.id, 'diwali');
   assert.equal(t.art, 'papercut');
   assert.deepEqual(Object.keys(t.fonts).sort(), ['display', 'hand', 'strong', 'text']);
   assert.equal(t.fonts.hand, HAND_FONT_KEY);
@@ -148,11 +148,15 @@ test('a format this app does not know, newer than 1 or 2, is refused before any 
   assert.throws(() => validateTemplate({ format: 3, id: 'x' }), /format 3 - this app reads format 1 or 2/);
 });
 
-test('the format-1 composer refuses a storybook template by name, not with a crash', async () => {
+test('a format-1 document draws a format-2 storybook, rather than being refused by name', async () => {
+  // Until #258 built the last archetypes this refused by name, on purpose, so a half-built
+  // composer could not print a book with holes in it. The document's own format is not the
+  // template's: a plain `.ftree` is what every storybook is drawn from.
   const { composeBook } = await import('./compose.js');
   const doc = { format: 1, people: [{ id: 'a', name: 'Asha' }] };
-  assert.throws(() => composeBook(doc, { now: '2026-09-21' }, papercutTemplate()),
-    /"diwali-story" is a format-2 storybook template/);
+  const book = composeBook(doc, { now: '2026-09-21' }, papercutTemplate());
+  assert.equal(book.format, 2);
+  assert.ok(book.pages.length > 0, 'a storybook with somebody in it draws pages');
 });
 
 test('a broken placeholder is refused, not printed with its braces', () => {

@@ -5,7 +5,7 @@
     {
       "id": "diwali",
       "name": "Diwali",
-      "format": 1,
+      "format": 2,
       "tier": "free",
       "featured": {
         "2026": ["2026-10-18", "2026-11-15"],

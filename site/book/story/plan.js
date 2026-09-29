@@ -107,6 +107,22 @@ const MEMBERS = {
   children: (e) => e.circle === 'children' || e.circle === 'descendants' || e.role === 'child-spouse',
   lane: (e) => e.circle === 'branches' || e.circle === 'lane',
 };
+/**
+ * Whether this person is one of the names "still to be found": somebody the record holds no name
+ * for at all, who is not F, and who stands in one of F's own circles rather than out at the edge
+ * of the tree.
+ *
+ * Exported because `copy.js` needs the same answer to say how many lamps the chapter lights, and
+ * the two used to disagree. `copy.js` asked whether a person had a *printable* name, but `nameOf`
+ * gives an unnamed person a kin description to print ("Raj Kumar's wife"), so almost nobody
+ * counted: the page said "0 lamps are lit" over three lit lamps. #258 worked around it by handing
+ * the page the plan's own count, which fixed that page and left `copy.js` wrong for every other
+ * caller (Ankit's decision 9). There is one definition now, and it lives here, with the planner
+ * that decides who is actually drawn.
+ */
+export const isStillToBeFound = (family, kin, id) =>
+  id !== kin.featured && kin.people.get(id)?.circle !== 'elsewhere' && !family.byId.get(id)?.name;
+
 /** Family chapters drawn as a gathering of households; small ones merge. */
 const HOUSEHOLD_CHAPTERS = new Set(['roots', 'courtyards', 'parents', 'siblings', 'spouses', 'children']);
 /** The chapters that show nobody but F, or nobody at all. */
@@ -224,7 +240,7 @@ export function planStory(kin, template, family, options = {}) {
   // Who each family chapter shows, and how they group: a household is one kin branch.
   const groupKey = (id) => `${entry(id).circle}:${entry(id).branch ?? ''}`;
   const membersOf = (chapter) => {
-    if (chapter === 'still-to-be-found') return everyone.filter((id) => id !== F && entry(id).circle !== 'elsewhere' && !family.byId.get(id)?.name);
+    if (chapter === 'still-to-be-found') return everyone.filter((id) => isStillToBeFound(family, kin, id));
     const take = MEMBERS[chapter];
     return take ? everyone.filter((id) => take(entry(id))) : [];
   };
@@ -340,11 +356,26 @@ function page(chapter, archetype, people, extra = {}) {
   return { chapter, chapters: [chapter], copyKey: chapter, archetype, variant: null, density: null, people: [...people], groups: [], continued: false, folds: [], ...extra };
 }
 
+/**
+ * The variant a page takes, given the one the page before it took where that page was the same
+ * chapter: the next one along, wrapping. Every list has at least two, so this always differs from
+ * the page before, which is the variety rule.
+ *
+ * It used to take the first variant that simply was not the previous one, which for a list of two
+ * is the same thing - but `gathering` declares three, and the first-that-differs rule walked
+ * band, doorways, band, doorways for ever. `steps` was written, drawn and tested in `family.js`
+ * (`stepHere`, `rowStepHere`) and no plan could ever ask for it (Ankit's decision, wave 3).
+ */
+function nextVariant(variants, previous) {
+  if (!previous) return variants[0];
+  return variants[(variants.indexOf(previous) + 1) % variants.length];
+}
+
 /** The single pass that makes a plan final: variety, then page numbers, then freezing. */
 function finish(plans) {
   let prev = null;
   return Object.freeze(plans.map((p, i) => {
-    p.variant = VARIANTS[p.archetype].find((v) => !(prev && prev.archetype === p.archetype && prev.variant === v));
+    p.variant = nextVariant(VARIANTS[p.archetype], prev && prev.archetype === p.archetype ? prev.variant : null);
     p.pageNo = i + 1;
     prev = p;
     p.groups = Object.freeze(p.groups.map((g) => Object.freeze({ key: g.key, people: Object.freeze([...g.people]) })));

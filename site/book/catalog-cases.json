@@ -3,125 +3,473 @@
   "cases": [
     {
       "name": "the shipped catalogue out of season lists Heirloom first and features nothing",
-      "catalog": "shipped", "today": "2026-09-15", "supported": 1,
-      "expect": { "listed": ["heirloom", "diwali"], "featured": [], "opening": "heirloom" }
+      "catalog": "shipped",
+      "today": "2026-09-15",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "the first day of Diwali's 2026 window features it and opens on it",
-      "catalog": "shipped", "today": "2026-10-18", "supported": 1,
-      "expect": { "listed": ["diwali", "heirloom"], "featured": ["diwali"], "opening": "diwali" }
+      "catalog": "shipped",
+      "today": "2026-10-18",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "diwali",
+          "heirloom"
+        ],
+        "featured": [
+          "diwali"
+        ],
+        "opening": "diwali"
+      }
     },
     {
       "name": "the day before the window is not in season",
-      "catalog": "shipped", "today": "2026-10-17", "supported": 1,
-      "expect": { "listed": ["heirloom", "diwali"], "featured": [], "opening": "heirloom" }
+      "catalog": "shipped",
+      "today": "2026-10-17",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "the last day of the window is still in season",
-      "catalog": "shipped", "today": "2026-11-15", "supported": 1,
-      "expect": { "listed": ["diwali", "heirloom"], "featured": ["diwali"], "opening": "diwali" }
+      "catalog": "shipped",
+      "today": "2026-11-15",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "diwali",
+          "heirloom"
+        ],
+        "featured": [
+          "diwali"
+        ],
+        "opening": "diwali"
+      }
     },
     {
       "name": "the day after the window is not",
-      "catalog": "shipped", "today": "2026-11-16", "supported": 1,
-      "expect": { "listed": ["heirloom", "diwali"], "featured": [], "opening": "heirloom" }
+      "catalog": "shipped",
+      "today": "2026-11-16",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "a year with no window is simply not featured",
-      "catalog": "shipped", "today": "2031-11-01", "supported": 1,
-      "expect": { "listed": ["heirloom", "diwali"], "featured": [], "opening": "heirloom" }
+      "catalog": "shipped",
+      "today": "2031-11-01",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "a window may cross the new year",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "new-year", "name": "New Year", "format": 1, "tier": "free", "featured": { "2026": ["2026-12-20", "2027-01-05"] } }
-      ] },
-      "today": "2027-01-02", "supported": 1,
-      "expect": { "listed": ["new-year", "heirloom"], "featured": ["new-year"], "opening": "new-year" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "new-year",
+            "name": "New Year",
+            "format": 1,
+            "tier": "free",
+            "featured": {
+              "2026": [
+                "2026-12-20",
+                "2027-01-05"
+              ]
+            }
+          }
+        ]
+      },
+      "today": "2027-01-02",
+      "supported": 1,
+      "expect": {
+        "listed": [
+          "new-year",
+          "heirloom"
+        ],
+        "featured": [
+          "new-year"
+        ],
+        "opening": "new-year"
+      }
     },
     {
       "name": "a template for a newer format is left out even in its season",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "holi", "name": "Holi", "format": 2, "tier": "free", "featured": { "2027": ["2027-03-01", "2027-03-31"] } }
-      ] },
-      "today": "2027-03-10", "supported": 1,
-      "expect": { "listed": ["heirloom"], "featured": [], "opening": "heirloom" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "holi",
+            "name": "Holi",
+            "format": 2,
+            "tier": "free",
+            "featured": {
+              "2027": [
+                "2027-03-01",
+                "2027-03-31"
+              ]
+            }
+          }
+        ]
+      },
+      "today": "2027-03-10",
+      "supported": 1,
+      "expect": {
+        "listed": [
+          "heirloom"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "the same template is offered once an app reads its format",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "holi", "name": "Holi", "format": 2, "tier": "free", "featured": { "2027": ["2027-03-01", "2027-03-31"] } }
-      ] },
-      "today": "2027-03-10", "supported": 2,
-      "expect": { "listed": ["holi", "heirloom"], "featured": ["holi"], "opening": "holi" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "holi",
+            "name": "Holi",
+            "format": 2,
+            "tier": "free",
+            "featured": {
+              "2027": [
+                "2027-03-01",
+                "2027-03-31"
+              ]
+            }
+          }
+        ]
+      },
+      "today": "2027-03-10",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "holi",
+          "heirloom"
+        ],
+        "featured": [
+          "holi"
+        ],
+        "opening": "holi"
+      }
     },
     {
       "name": "the storybook's hidden format-2 row is skipped by a build that only reads format 1 (#243)",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "diwali", "name": "Diwali", "format": 1, "tier": "free" },
-        { "id": "diwali-story", "name": "Diwali, the storybook", "format": 2, "tier": "free" }
-      ] },
-      "today": "2026-06-01", "supported": 1,
-      "expect": { "listed": ["heirloom", "diwali"], "featured": [], "opening": "heirloom" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "diwali",
+            "name": "Diwali",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "diwali-story",
+            "name": "Diwali, the storybook",
+            "format": 2,
+            "tier": "free"
+          }
+        ]
+      },
+      "today": "2026-06-01",
+      "supported": 1,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "the same hidden row is offered cleanly once a build reads template format 2 (#243)",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "diwali", "name": "Diwali", "format": 1, "tier": "free" },
-        { "id": "diwali-story", "name": "Diwali, the storybook", "format": 2, "tier": "free" }
-      ] },
-      "today": "2026-06-01", "supported": 2,
-      "expect": { "listed": ["heirloom", "diwali", "diwali-story"], "featured": [], "opening": "heirloom" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "diwali",
+            "name": "Diwali",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "diwali-story",
+            "name": "Diwali, the storybook",
+            "format": 2,
+            "tier": "free"
+          }
+        ]
+      },
+      "today": "2026-06-01",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali",
+          "diwali-story"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "two templates in season keep their catalogue order, ahead of the rest",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "diwali", "name": "Diwali", "format": 1, "tier": "free", "featured": { "2026": ["2026-10-18", "2026-11-15"] } },
-        { "id": "chhath", "name": "Chhath", "format": 1, "tier": "premium", "featured": { "2026": ["2026-11-01", "2026-11-20"] } }
-      ] },
-      "today": "2026-11-10", "supported": 1,
-      "expect": { "listed": ["diwali", "chhath", "heirloom"], "featured": ["diwali", "chhath"], "opening": "diwali" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "diwali",
+            "name": "Diwali",
+            "format": 1,
+            "tier": "free",
+            "featured": {
+              "2026": [
+                "2026-10-18",
+                "2026-11-15"
+              ]
+            }
+          },
+          {
+            "id": "chhath",
+            "name": "Chhath",
+            "format": 1,
+            "tier": "premium",
+            "featured": {
+              "2026": [
+                "2026-11-01",
+                "2026-11-20"
+              ]
+            }
+          }
+        ]
+      },
+      "today": "2026-11-10",
+      "supported": 1,
+      "expect": {
+        "listed": [
+          "diwali",
+          "chhath",
+          "heirloom"
+        ],
+        "featured": [
+          "diwali",
+          "chhath"
+        ],
+        "opening": "diwali"
+      }
     },
     {
       "name": "an entry it cannot read is dropped and the rest are kept",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "backwards", "name": "Backwards", "format": 1, "tier": "free", "featured": { "2026": ["2026-11-15", "2026-10-18"] } },
-        { "id": "Bad Id", "name": "Bad", "format": 1, "tier": "free" },
-        { "id": "no-tier", "name": "No tier", "format": 1 },
-        { "id": "odd-day", "name": "Odd day", "format": 1, "tier": "free", "featured": { "2026": ["2026-13-01", "2026-13-02"] } },
-        { "id": "list-seasons", "name": "List", "format": 1, "tier": "free", "featured": [["2026-01-01", "2026-01-02"]] },
-        { "id": "diwali", "name": "Diwali", "format": 1, "tier": "free" }
-      ] },
-      "today": "2026-11-01", "supported": 1,
-      "expect": { "listed": ["heirloom", "diwali"], "featured": [], "opening": "heirloom" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "backwards",
+            "name": "Backwards",
+            "format": 1,
+            "tier": "free",
+            "featured": {
+              "2026": [
+                "2026-11-15",
+                "2026-10-18"
+              ]
+            }
+          },
+          {
+            "id": "Bad Id",
+            "name": "Bad",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "no-tier",
+            "name": "No tier",
+            "format": 1
+          },
+          {
+            "id": "odd-day",
+            "name": "Odd day",
+            "format": 1,
+            "tier": "free",
+            "featured": {
+              "2026": [
+                "2026-13-01",
+                "2026-13-02"
+              ]
+            }
+          },
+          {
+            "id": "list-seasons",
+            "name": "List",
+            "format": 1,
+            "tier": "free",
+            "featured": [
+              [
+                "2026-01-01",
+                "2026-01-02"
+              ]
+            ]
+          },
+          {
+            "id": "diwali",
+            "name": "Diwali",
+            "format": 1,
+            "tier": "free"
+          }
+        ]
+      },
+      "today": "2026-11-01",
+      "supported": 1,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "a second entry with the same id is ignored",
-      "catalog": { "format": 1, "templates": [
-        { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
-        { "id": "heirloom", "name": "Impostor", "format": 1, "tier": "free", "featured": { "2026": ["2026-01-01", "2026-12-31"] } }
-      ] },
-      "today": "2026-06-01", "supported": 1,
-      "expect": { "listed": ["heirloom"], "featured": [], "opening": "heirloom" }
+      "catalog": {
+        "format": 1,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          },
+          {
+            "id": "heirloom",
+            "name": "Impostor",
+            "format": 1,
+            "tier": "free",
+            "featured": {
+              "2026": [
+                "2026-01-01",
+                "2026-12-31"
+              ]
+            }
+          }
+        ]
+      },
+      "today": "2026-06-01",
+      "supported": 1,
+      "expect": {
+        "listed": [
+          "heirloom"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
     },
     {
       "name": "a catalogue of a newer format cannot be read and lists nothing",
-      "catalog": { "format": 2, "templates": [ { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" } ] },
-      "today": "2026-06-01", "supported": 1,
-      "expect": { "listed": [], "featured": [], "opening": null }
+      "catalog": {
+        "format": 2,
+        "templates": [
+          {
+            "id": "heirloom",
+            "name": "Heirloom",
+            "format": 1,
+            "tier": "free"
+          }
+        ]
+      },
+      "today": "2026-06-01",
+      "supported": 1,
+      "expect": {
+        "listed": [],
+        "featured": [],
+        "opening": null
+      }
     },
     {
       "name": "a catalogue without a template list lists nothing",
-      "catalog": { "format": 1 },
-      "today": "2026-06-01", "supported": 1,
-      "expect": { "listed": [], "featured": [], "opening": null }
+      "catalog": {
+        "format": 1
+      },
+      "today": "2026-06-01",
+      "supported": 1,
+      "expect": {
+        "listed": [],
+        "featured": [],
+        "opening": null
+      }
     }
   ]
 }

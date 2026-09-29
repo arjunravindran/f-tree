@@ -16,14 +16,15 @@ import { kinOf } from './story/kin.js';
 import { readFamily, byKey } from './family.js';
 import { resolveFeatured } from './story/featured.js';
 import { validateTemplate, REQUIRED_CHAPTERS, PAPERCUT_PALETTE_KEYS, HAND_FONT_KEY } from './template.js';
-import { composeBook } from './compose.js';
+import { composeBook, composeWithPages, missingArchetypes, DRAWABLE_FORMATS } from './compose.js';
+import { PAGES as PAGES_FOR_TEST } from './story/pages/index.js';
 import { BOOK_FIXTURES, NOW, loadFixture } from './qa/book-fixtures.mjs';
 import { DENSITY_CAPS, pageBounds } from './qa/invariants.mjs';
 
 /** A format-2 template listing `chapters`, valid by template.js's own rules. */
 function storyTemplate(chapters = CHAPTERS) {
   return validateTemplate({
-    format: 2, id: 'diwali-story', name: 'Diwali, the storybook', fileSuffix: 'Book', art: 'papercut',
+    format: 2, id: 'diwali', name: 'Diwali', fileSuffix: 'Book', art: 'papercut',
     fonts: { display: 'book_display', text: 'book_text', strong: 'book_strong', hand: HAND_FONT_KEY },
     palette: Object.fromEntries(PAPERCUT_PALETTE_KEYS.map((k) => [k, '#112233'])),
     cover: { greeting: 'शुभ दीपावली', subtitle: 'from the {family} family', line: 'One lamp for each of us' },
@@ -69,7 +70,7 @@ test('chapter ids are the catalogue schema\'s: the required four, all valid ids,
 test('a chapter the planner does not know is refused by name, not skipped', () => {
   const t = storyTemplate([...REQUIRED_CHAPTERS, 'fireworks']);
   const family = readFamily(withSiblings(1), { now: NOW });
-  assert.throws(() => planStory(kinOf(family, 'f'), t, family), /does not know the chapter "fireworks" in template "diwali-story"/);
+  assert.throws(() => planStory(kinOf(family, 'f'), t, family), /does not know the chapter "fireworks" in template "diwali"/);
 });
 
 test('a chapter the template leaves out gets no page', () => {
@@ -235,11 +236,36 @@ test('chapters of exactly 2 merge into one household page; a chapter of exactly 
 
 /* ------------------------------------------------------------------ variety */
 
-test('variety: a page takes the first placement that differs from the previous page\'s', () => {
+test('variety: a run of one chapter walks its placements in turn, and never repeats one', () => {
   const { plan: p } = plan(withSiblings(DENSITY.family * 2 + 1), 'f');
   const sib = p.pages.filter((pg) => pg.chapter === 'siblings');
-  assert.deepEqual(sib.map((pg) => pg.variant), ['band', 'doorways', 'band']);
+  assert.deepEqual(sib.map((pg) => pg.variant), ['band', 'doorways', 'steps']);
   for (const [a, list] of Object.entries(VARIANTS)) assert.ok(list.length >= 2, `${a} needs a second placement`);
+});
+
+test('variety: every placement a chapter declares can actually be planned', () => {
+  // `gathering` declares three, and the old rule - the first placement that is not the previous
+  // one - walked band, doorways, band, doorways for ever, so `steps` was drawn and tested in
+  // family.js and no plan could ask for it (Ankit's decision, wave 3). A placement nobody can
+  // reach is dead art, so this holds every list to being reachable rather than only `gathering`.
+  for (const [archetype, list] of Object.entries(VARIANTS)) {
+    const seen = new Set();
+    let previous = null;
+    for (let i = 0; i < list.length; i++) {
+      previous = list[(list.indexOf(previous) + 1) % list.length];
+      if (previous === undefined) previous = list[0];
+      seen.add(previous);
+    }
+    assert.deepEqual([...seen].sort(), [...list].sort(), `${archetype}: a run of ${list.length} pages cannot reach every placement it declares`);
+  }
+});
+
+test('variety: consecutive pages of one chapter never share a placement', () => {
+  const { plan: p } = plan(withSiblings(DENSITY.family * 2 + 1), 'f');
+  for (let i = 1; i < p.pages.length; i++) {
+    const a = p.pages[i - 1], b = p.pages[i];
+    if (a.archetype === b.archetype) assert.notEqual(a.variant, b.variant, `pages ${a.pageNo} and ${b.pageNo} share ${b.variant}`);
+  }
 });
 
 /* ------------------------------------------------------------------ the cap */
@@ -343,10 +369,22 @@ test('a tree with people but nobody named to feature still lists everyone, in th
 
 /* ------------------------------------------------------------------ the composer */
 
-test('compose.js routes a format-2 template through the planner, then refuses to draw it by name', async () => {
+test('compose.js routes a format-2 template through the planner and now draws it', async () => {
   const doc = await loadFixture('story-large');
-  assert.throws(() => composeBook(doc, { now: NOW, featured: 'f' }, TEMPLATE),
-    /"diwali-story" is a format-2 storybook template: its 25 pages are planned, but the archetypes? .*(is|are) not built yet/);
+  // #258 built the last archetypes, so the refusal this test used to assert is gone: the composer
+  // draws the storybook, and `DRAWABLE_FORMATS` flips with it - which is what lets the invariant
+  // suite and the catalogue carry a format-2 template at all.
+  assert.deepEqual(missingArchetypes(), []);
+  assert.deepEqual([...DRAWABLE_FORMATS], [1, 2]);
+  const book = composeBook(doc, { now: NOW, featured: 'f' }, TEMPLATE);
+  assert.equal(book.format, 2);
+  assert.equal(book.pages.length, 25);
+  // The refusal itself still guards a table that really is missing an archetype - the seam
+  // `composeWithPages` composes through - so a half-built composer can never print a book with
+  // holes in it.
+  const noLane = Object.fromEntries(Object.entries(PAGES_FOR_TEST).filter(([a]) => a !== 'lane'));
+  assert.throws(() => composeWithPages(doc, { now: NOW, featured: 'f' }, TEMPLATE, noLane),
+    /"diwali" is a format-2 storybook template: its 25 pages are planned, but the archetype "?lane"? is not built yet/);
   // The planner, not a blanket refusal, is what runs: a chapter it does not know fails there.
   assert.throws(() => composeBook(doc, { now: NOW }, storyTemplate([...CHAPTERS, 'fireworks'])), /does not know the chapter "fireworks"/);
 });

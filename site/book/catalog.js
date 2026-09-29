@@ -19,7 +19,7 @@
  * offers a book it would draw half-right.
  */
 
-import { TEMPLATE_FORMAT } from './template.js';
+import { MAX_TEMPLATE_FORMAT } from './template.js';
 
 export const CATALOG_FORMAT = 1;
 
@@ -69,25 +69,25 @@ function entry(t) {
 }
 
 /** The entries this app can draw. */
-export function available(catalog, supported = TEMPLATE_FORMAT) {
+export function available(catalog, supported = MAX_TEMPLATE_FORMAT) {
   return catalog ? catalog.templates.filter((t) => t.format <= supported) : [];
 }
 
 /** The ids in season on `today` (YYYY-MM-DD), in catalogue order. */
-export function featuredAt(catalog, today, supported = TEMPLATE_FORMAT) {
+export function featuredAt(catalog, today, supported = MAX_TEMPLATE_FORMAT) {
   return available(catalog, supported)
     .filter((t) => t.featured.some(([from, to]) => from <= today && today <= to))
     .map((t) => t.id);
 }
 
 /** The picker's list: what is in season first, then everything else in catalogue order. */
-export function listing(catalog, today, supported = TEMPLATE_FORMAT) {
+export function listing(catalog, today, supported = MAX_TEMPLATE_FORMAT) {
   const season = new Set(featuredAt(catalog, today, supported));
   const all = available(catalog, supported).map((t) => ({ id: t.id, name: t.name, tier: t.tier, featured: season.has(t.id) }));
   return [...all.filter((t) => t.featured), ...all.filter((t) => !t.featured)];
 }
 
 /** What the book opens on: the template in season, or the first one listed. */
-export function openingTemplate(catalog, today, supported = TEMPLATE_FORMAT) {
+export function openingTemplate(catalog, today, supported = MAX_TEMPLATE_FORMAT) {
   return listing(catalog, today, supported)[0]?.id ?? null;
 }

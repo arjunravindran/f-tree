@@ -1,12 +1,16 @@
 /*
  * The storybook template every wave-3 test composes against.
  *
- * The real template ships as `templates/diwali-story.json` when there is something to ship: a file
- * in `templates/` must be in the catalogue (`catalog.test.mjs`), and a catalogue entry at format 2
- * must be drawable (`invariants.test.mjs`), so the template arrives with the last archetype, not
- * before it. Until then this is the same document, in one place, so that the archetype issues
- * (#256-#258) all draw against the same palette, chapters and copy instead of three inline
- * near-copies that drift.
+ * The real template ships as `templates/diwali.json`: since #259 the storybook *is* Diwali. It
+ * arrived with the last archetype (#258) as a hidden `diwali-story` row - listed at format 2 while
+ * the app read format 1, which `catalog.js`'s `available` skips - and #259 raised
+ * `MAX_TEMPLATE_FORMAT` to 2 and moved it onto Diwali's own catalogue entry, keeping that entry's
+ * festival windows. The old format-1 Diwali is gone; Heirloom is untouched and still format 1.
+ *
+ * This file stays the authored copy, because JSON cannot carry the reasons: every line below was
+ * argued over in a design-critic round, and the notes are the record of what was tried and why it
+ * changed. `invariants.test.mjs` holds the shipped JSON to this document exactly, so the two are
+ * one source and cannot drift; edit here, then regenerate the file.
  *
  * The palette is the one the approved style frames were rendered from
  * (`art/style-frames/motifs.mjs`), which is what `docs/book-design-system.md` documents and what
@@ -38,8 +42,8 @@ export const PAPERCUT_PALETTE = Object.freeze({
  */
 export const STORY_TEMPLATE = Object.freeze({
   format: 2,
-  id: 'diwali-story',
-  name: 'Diwali, the storybook',
+  id: 'diwali',
+  name: 'Diwali',
   fileSuffix: 'Diwali Book',
   art: 'papercut',
   fonts: { display: 'book_display', text: 'book_text', strong: 'book_strong', hand: 'book_hand' },
@@ -76,9 +80,18 @@ export const STORY_TEMPLATE = Object.freeze({
     children: { title: 'The next lamps', line: { one: 'The lamp lit after {featured-first}.', other: 'The lamps lit after {featured-first}.' } },
     lane: { title: 'Our lane', line: 'A house for every branch of the family.' },
     numbers: { title: 'In numbers', line: 'This family, counted from where {featured-first} stands.' },
-    register: { title: 'Everyone', line: { one: '{n} person, and where to find them.', other: 'All {n} of us, and where to find each one.' } },
-    'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{n} lamps are lit for names nobody has written down yet.' } },
-    legacy: { title: 'One line of light', line: 'One lamp for every generation behind {featured-first}.' },
+    register: { title: 'Everyone in our family', line: { one: '{Count-words} person, and where to find them.', other: 'All {count-words} of us, and where to find each one.' } },
+    'still-to-be-found': { title: 'Still to be found', line: { one: 'One lamp is lit for a name nobody has written down yet.', other: '{Count-words} lamps are lit for names nobody has written down yet.' } },
+    // Ankit's decision 8: the page draws a lamp for every generation behind F *and* a larger one
+    // for F, with their name under it - so a line that counted only the generations behind left
+    // the reader one lamp they could not account for. The line was the wrong half to fix.
+    legacy: {
+      title: 'One line of light',
+      line: {
+        one: 'One lamp, and it is {featured-first}\u2019s own.',
+        other: 'One lamp for {featured-first}, and one for every generation behind.',
+      },
+    },
     // Round 2, finding 19: the closing used to repeat the cover's own greeting and its
     // "from the X family" line word for word, with no `hand` face anywhere on the page. Its own
     // farewell, distinct from the cover's arrival greeting, closes the book instead.
