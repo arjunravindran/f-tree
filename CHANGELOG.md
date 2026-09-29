@@ -22,6 +22,14 @@ betas leading up to a stable release are folded into that release's entry here.
   it does not feature one person rather than hiding the control.
 - **Heirloom is untouched.** It prints byte-for-byte what it always did.
 
+**Android quoted the wrong size for a storybook (#245).**
+
+- The book screen says about how large the PDF will be before you wait for it. On Android that
+  number was still the one written for the old book of portraits, with nothing in it for the
+  paper-cut art a storybook is almost entirely made of, so it read two to seven times too small.
+  It now counts the art the way the desktop does, and the two shells are held to the same answer
+  by a test that runs the real composer.
+
 **A Diwali book could not be opened on Android at all (#297).**
 
 - Every gradient the art library owns reached the phone with a malformed colour stop, and the app
