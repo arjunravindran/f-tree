@@ -8,6 +8,8 @@ import com.vibethroughcode.ftree.R
 import com.vibethroughcode.ftree.data.Gender
 import com.vibethroughcode.ftree.data.KinshipLanguage
 import com.vibethroughcode.ftree.data.RelativeKind
+import com.vibethroughcode.ftree.data.SpouseKind
+import com.vibethroughcode.ftree.graph.SpouseStatus
 
 /**
  * The heading beside a relative's name, in the chosen family vocabulary.
@@ -19,9 +21,47 @@ import com.vibethroughcode.ftree.data.RelativeKind
  * heading rather than leaving the row unlabelled.
  */
 @StringRes
-fun relativeRoleLabel(kind: RelativeKind, gender: Gender, language: KinshipLanguage): Int =
-    hindiRoleLabel(kind, gender).takeIf { language == KinshipLanguage.HINDI && it != 0 }
+fun relativeRoleLabel(
+    kind: RelativeKind,
+    gender: Gender,
+    language: KinshipLanguage,
+    spouseSubtype: SpouseKind? = null,
+    spouseStatus: SpouseStatus = SpouseStatus.CURRENT,
+): Int {
+    if (kind == RelativeKind.SPOUSE) {
+        /*
+         * #291: this heading is the second place Android called a former spouse पत्नी - the
+         * relation panel was the first. The rule is the same one: पति / पत्नी assert a marriage,
+         * so a marriage the record says has ended, or was never one, gets no Hindi word and falls
+         * back to English the way an unrecorded gender already does. A late spouse keeps the word.
+         */
+        val hindiHasAWord = spouseSubtype != SpouseKind.DIVORCED && spouseSubtype != SpouseKind.PARTNER
+        hindiRoleLabel(kind, gender)
+            .takeIf { language == KinshipLanguage.HINDI && it != 0 && hindiHasAWord }
+            ?.let { return it }
+        return spouseRoleLabel(gender, spouseSubtype, spouseStatus)
+    }
+    return hindiRoleLabel(kind, gender).takeIf { language == KinshipLanguage.HINDI && it != 0 }
         ?: relativeRoleLabel(kind, gender)
+}
+
+/** The English heading for a marriage, which says so when the record says it ended (#291). */
+@StringRes
+private fun spouseRoleLabel(gender: Gender, subtype: SpouseKind?, status: SpouseStatus): Int = when {
+    // PARTNER is a different axis from status - it says nothing about whether it ended.
+    subtype == SpouseKind.PARTNER -> R.string.role_partner
+    status == SpouseStatus.FORMER -> when (gender) {
+        Gender.MALE -> R.string.role_former_husband
+        Gender.FEMALE -> R.string.role_former_wife
+        else -> R.string.role_former_spouse
+    }
+    status == SpouseStatus.LATE -> when (gender) {
+        Gender.MALE -> R.string.role_late_husband
+        Gender.FEMALE -> R.string.role_late_wife
+        else -> R.string.role_late_spouse
+    }
+    else -> relativeRoleLabel(RelativeKind.SPOUSE, gender)
+}
 
 @StringRes
 private fun hindiRoleLabel(kind: RelativeKind, gender: Gender): Int = when (kind to gender) {

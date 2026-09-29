@@ -127,6 +127,14 @@
     <string name="role_husband">Husband</string>
     <string name="role_wife">Wife</string>
     <string name="role_spouse">Spouse</string>
+    <!-- #291: the heading for a marriage the record says has ended. -->
+    <string name="role_former_husband">Former husband</string>
+    <string name="role_former_wife">Former wife</string>
+    <string name="role_former_spouse">Former spouse</string>
+    <string name="role_late_husband">Late husband</string>
+    <string name="role_late_wife">Late wife</string>
+    <string name="role_late_spouse">Late spouse</string>
+    <string name="role_partner">Partner</string>
     <string name="role_son">Son</string>
     <string name="role_daughter">Daughter</string>
     <string name="role_child">Child</string>

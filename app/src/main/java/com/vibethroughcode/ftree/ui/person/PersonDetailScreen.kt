@@ -54,6 +54,7 @@ import com.vibethroughcode.ftree.R
 import com.vibethroughcode.ftree.data.RecordedDate
 import com.vibethroughcode.ftree.data.Person
 import com.vibethroughcode.ftree.data.RelativeKind
+import com.vibethroughcode.ftree.data.SpouseKind
 import com.vibethroughcode.ftree.ui.FTreeViewModels
 import com.vibethroughcode.ftree.ui.common.PersonAvatar
 import com.vibethroughcode.ftree.ui.common.SectionRule
@@ -63,6 +64,7 @@ import com.vibethroughcode.ftree.ui.common.displayName
 import com.vibethroughcode.ftree.ui.common.READABLE_MEASURE
 import com.vibethroughcode.ftree.ui.common.ReadingColumns
 import com.vibethroughcode.ftree.ui.common.LocalKinshipLanguage
+import com.vibethroughcode.ftree.graph.spouseStatus
 import com.vibethroughcode.ftree.ui.common.relativeRoleLabel
 import com.vibethroughcode.ftree.ui.common.sectionTitle
 import com.vibethroughcode.ftree.ui.theme.FTreeText
@@ -206,6 +208,7 @@ fun PersonDetailScreen(
                         RelativeSection(
                             kind = kind,
                             relatives = state.of(kind),
+                            spouseKinds = state.spouseKinds,
                             onOpen = onOpenPerson,
                             onAdd = { onAddRelative(viewModel.personId, kind) },
                             onRemove = { other -> pendingRemoval = other },
@@ -357,6 +360,8 @@ private fun LifeLine(person: Person) {
 private fun RelativeSection(
     kind: RelativeKind,
     relatives: List<Person>,
+    /** #291: the state of each marriage, by the spouse's id, so the heading can say it ended. */
+    spouseKinds: Map<String, SpouseKind>,
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
     onRemove: (Person) -> Unit,
@@ -383,7 +388,13 @@ private fun RelativeSection(
                 onClick = { onOpen(relative.id) },
                 onLongClick = { onRemove(relative) },
                 supporting = stringResource(
-                    relativeRoleLabel(kind, relative.gender, LocalKinshipLanguage.current)
+                    relativeRoleLabel(
+                        kind,
+                        relative.gender,
+                        LocalKinshipLanguage.current,
+                        spouseKinds[relative.id],
+                        spouseStatus(relative, spouseKinds[relative.id]),
+                    )
                 ),
             )
         }

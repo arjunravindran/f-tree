@@ -51,6 +51,7 @@ import com.vibethroughcode.ftree.ui.common.SectionRule
 import com.vibethroughcode.ftree.ui.common.asRelativeKind
 import com.vibethroughcode.ftree.ui.common.displayName
 import com.vibethroughcode.ftree.ui.common.isShortWindow
+import com.vibethroughcode.ftree.graph.spouseStatus
 import com.vibethroughcode.ftree.ui.common.relativeRoleLabel
 import com.vibethroughcode.ftree.ui.theme.FTreeText
 import com.vibethroughcode.ftree.ui.theme.FTreeTheme
@@ -152,6 +153,9 @@ fun RelationSheet(
                         link.kind.asRelativeKind(),
                         link.person.gender,
                         LocalKinshipLanguage.current,
+                        // #291: a spouse step names the marriage the record kept, not a current one.
+                        link.spouse,
+                        spouseStatus(link.person, link.spouse),
                     )
                 )
                 PersonRow(
