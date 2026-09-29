@@ -732,6 +732,55 @@ def story_tiny():
     return t
 
 
+def story_roots():
+    """
+    F's ancestors run four generations above her: parents, grandparents on both sides, and - what
+    no other fixture has - great-grandparents on both sides too, one couple's own father recorded
+    a generation further still. That is what the planner needs to draw the roots chapter at all
+    (`ancestors`, kin.js's circle beyond the grandparents): every other fixture's family stops at
+    the grandparents, so the banyan (#257, "roots") had never been reviewed (#257 round 2, "the
+    banyan is unreviewed"). F's own degree (two parents, a spouse, two children, one sibling) is
+    kept the highest in the tree on purpose, so `resolveFeatured`'s mostConnected always settles on
+    her without needing `options.featured` - the same trap that left other fixtures rendered from
+    the wrong person entirely when a caller forgets to pass one. One great-grandmother's name was
+    never written down, and she has died, so the banyan's own medallions get a name-not-known and
+    a mala in the same render, not just full generations of names.
+    """
+    t = BookTree()
+    t.person("gggf-p", "Bhola Nath Rawat", "MALE", "1861", "1930")
+    t.person("ggf-p", "Devi Ram Rawat", "MALE", "1891", "1958")
+    t.person("ggm-p", None, "FEMALE", "1894", "1969")
+    t.child(["gggf-p"], "ggf-p")
+    t.couple("ggf-p", "ggm-p", "WIDOWED")
+    t.person("ggf-m", "Harnam Singh Bisht", "MALE", "1889", "1960")
+    t.person("ggm-m", "Kamla Bisht", "FEMALE", "1892", "1965")
+    t.couple("ggf-m", "ggm-m", "WIDOWED")
+    t.person("pgf", "Trilok Rawat", "MALE", "1921", "1994")
+    t.person("pgm", "Sarla Rawat", "FEMALE", "1924", "1999")
+    t.child(["ggf-p", "ggm-p"], "pgf")
+    t.couple("pgf", "pgm", "WIDOWED")
+    t.person("mgf", "Ishwar Bisht", "MALE", "1919", "1988")
+    t.person("mgm", "Vimla Bisht", "FEMALE", "1923", "2002")
+    t.child(["ggf-m", "ggm-m"], "mgf")
+    t.couple("mgf", "mgm", "WIDOWED")
+    t.person("father", "Mohan Rawat", "MALE", "1949")
+    t.person("mother", "Kunti Rawat", "FEMALE", "1952")
+    t.child(["pgf", "pgm"], "father")
+    t.child(["mgf", "mgm"], "mother")
+    t.couple("father", "mother")
+    t.person("f", "Deepa Rawat", "FEMALE", "1978")
+    t.person("f-sib", "Naveen Rawat", "MALE", "1981")
+    t.child(["father", "mother"], "f")
+    t.child(["father", "mother"], "f-sib")
+    t.person("f-husband", "Karan Bhatt", "MALE", "1976")
+    t.couple("f", "f-husband")
+    t.person("f-kid0", "Ira Bhatt", "FEMALE", "2008")
+    t.person("f-kid1", "Vivaan Bhatt", "MALE", "2011")
+    t.child(["f", "f-husband"], "f-kid0")
+    t.child(["f", "f-husband"], "f-kid1")
+    return t
+
+
 def story_unnamed():
     """
     Five people over three generations, and not one of them has a name. Nobody is asked for by id
