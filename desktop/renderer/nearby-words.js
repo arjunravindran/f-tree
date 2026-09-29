@@ -306,7 +306,12 @@ export function mergeArrivals(previous, current) {
  */
 export function arrivalAnnouncement(arrived, total) {
   if (!arrived.length) return null;
-  const named = arrived.length === 1 ? `${arrived[0].name} appeared` : `${arrived.length} devices appeared`;
+  // A device on another version of f-tree is announced as being there, and as not being usable in
+  // the same breath (#191). Saying only that it appeared would send somebody to a row that cannot
+  // be pressed, with nothing said about why.
+  const named = arrived.length === 1
+    ? `${arrived[0].name} appeared${arrived[0].speakable === false ? ', on a different version of f-tree' : ''}`
+    : `${arrived.length} devices appeared`;
   return `${named}. ${total === 1 ? '1 device' : `${total} devices`} nearby.`;
 }
 

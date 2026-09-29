@@ -501,6 +501,8 @@
         <item quantity="other">%d devices nearby</item>
     </plurals>
     <string name="nearby_none_yet">On the other device, open Receive from a nearby device. It appears here when it is ready.</string>
+    <!-- A device on a protocol version this build cannot speak. Listed, greyed, rather than hidden. -->
+    <string name="nearby_other_version">On a different version of f-tree. Update both to share.</string>
     <string name="nearby_type_address">Can\'t see it? Type its address</string>
     <string name="nearby_address_label">Address shown on the other device</string>
     <string name="nearby_address_invalid">That doesn\'t look like a local address and port, like 192.168.1.20:43121.</string>

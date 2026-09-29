@@ -1391,12 +1391,18 @@ function tellNearby(type, payload = {}) {
   }
 }
 
-/** A peer as the page draws it: the name to click and the two facts that tell two apart. */
+/**
+ * A peer as the page draws it: the name to click and the two facts that tell two apart.
+ *
+ * `speakable` is false for a device on a version of the protocol this build does not know. The page
+ * shows it, greyed, rather than leaving it out (#191), so the flag has to cross with it.
+ */
 const publicPeer = (peer) => ({
   key: peer.key,
   name: peer.displayName,
   platform: peer.platform,
   address: peer.address,
+  speakable: peer.speakable !== false,
 });
 
 const publicQr = (link) => (link ? { text: link.text, address: link.address, port: link.port } : null);
@@ -1582,7 +1588,11 @@ ipcMain.handle('nearby:send', async (event, request) => {
 
   let target;
   if (typeof peerKey === 'string' && /^[0-9a-f]{32}$/.test(peerKey)) {
-    if (!nearby.peers().some((peer) => peer.key === peerKey)) return { ok: false, reason: 'GONE' };
+    // Listed peers now include devices on another protocol version, which the page greys out. A
+    // request naming one is refused here as well, rather than trusted to the page (#191).
+    const listed = nearby.peers().find((peer) => peer.key === peerKey);
+    if (!listed) return { ok: false, reason: 'GONE' };
+    if (listed.speakable === false) return { ok: false, reason: 'VERSION' };
     target = { peerKey };
   } else if (typeof address === 'string') {
     const typed = parseTypedAddress(address);

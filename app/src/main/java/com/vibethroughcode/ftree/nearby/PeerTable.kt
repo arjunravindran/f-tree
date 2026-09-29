@@ -37,6 +37,8 @@ class PeerTable(private val expiryMillis: Long = NearbyProtocol.PEER_EXPIRY_MS.t
             flags = beacon.flags,
             keyFingerprint = beacon.keyFingerprint,
             lastSeenAt = atMillis,
+            maxVersion = beacon.maxVersion,
+            minVersion = beacon.minVersion,
         )
         peers[peer.key] = peer
         return peer

@@ -49,6 +49,7 @@ const SEND_REFUSALS = {
   TOO_LARGE: 'This tree is larger than nearby sharing carries, which is 512 MB.',
   NOT_OPEN: 'The nearby window was closed. Open it again to send.',
   BAD_REQUEST: 'This tree couldn’t be prepared for sending.',
+  VERSION: 'That device is on a different version of f-tree. Update both to share.',
 };
 
 /**
@@ -235,15 +236,34 @@ export function createNearby({ shell, hooks, drawCode = null }) {
       return empty;
     }
     return h('ul', { class: 'nearby-peers', id: 'nearby-peer-list', 'aria-label': 'Devices nearby' },
-      session.peers.map((peer) => h('li', {},
-        h('button', {
-          type: 'button', class: 'nearby-peer', 'data-key': peer.key,
-          onclick: () => sendTo({ peerKey: peer.key }, peer.name),
-        },
-        h('span', { class: 'nearby-peer-name', text: peer.name }),
-        h('span', { class: 'nearby-peer-where' },
-          platformName(peer.platform) ? h('span', { text: platformName(peer.platform) }) : null,
-          h('code', { text: peer.address }))))));
+      session.peers.map((peer) => h('li', {}, peerRow(peer))));
+  }
+
+  /*
+   * One device. The same row either way, because it is the same list.
+   *
+   * A device on a version of f-tree this one cannot speak to is shown rather than left out (#191):
+   * a row that is never drawn reads as a network fault, and "I can't see it" is the hardest thing
+   * to work out over the phone. It is the same row, disabled and dimmed, and where the address
+   * would be it says what to do about it instead -- the address is no use until both are updated.
+   */
+  function peerRow(peer) {
+    if (peer.speakable === false) {
+      return h('button', {
+        type: 'button', class: 'nearby-peer', disabled: 'disabled', 'data-key': peer.key,
+      },
+      h('span', { class: 'nearby-peer-name', text: peer.name }),
+      h('span', { class: 'nearby-peer-where' },
+        h('span', { text: 'On a different version of f-tree. Update both to share.' })));
+    }
+    return h('button', {
+      type: 'button', class: 'nearby-peer', 'data-key': peer.key,
+      onclick: () => sendTo({ peerKey: peer.key }, peer.name),
+    },
+    h('span', { class: 'nearby-peer-name', text: peer.name }),
+    h('span', { class: 'nearby-peer-where' },
+      platformName(peer.platform) ? h('span', { text: platformName(peer.platform) }) : null,
+      h('code', { text: peer.address })));
   }
 
   function showBrowsing({ said = '' } = {}) {

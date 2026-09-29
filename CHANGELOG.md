@@ -38,6 +38,14 @@ betas leading up to a stable release are folded into that release's entry here.
   sees the new name within a couple of seconds, and the "appears as" line on the screen agrees with
   what is being broadcast.
 
+**A device on another version of f-tree is shown, not hidden (#191).**
+
+- **"I can't see it" now says why.** Nearby dropped any device announcing a version of the sharing
+  protocol this build does not speak, so the other phone simply never appeared and there was nothing
+  on either screen to explain it - the hardest thing to work out over the phone with a relative. It
+  is now listed, set back and not selectable, saying "On a different version of f-tree. Update both
+  to share." The count above the list still counts only the devices you can actually send to.
+
 **The Diwali book is a storybook now (#239, #256-#260).**
 
 - **A family book built around one person (0.11.0-beta.1, desktop 0.9.0-beta.1).** Diwali is no
