@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FORMAT, FORMAT_MAX, MAX_SYMBOL_DEPTH, MAX_EXPANDED_ITEMS, formatOf, validateBook, group, use } from './format.js';
+import { FORMAT, FORMAT_MAX, MAX_SYMBOL_DEPTH, MAX_EXPANDED_ITEMS, MIN_PAGE, MAX_PAGE, PAGE, formatOf, validateBook, group, use } from './format.js';
 import { paintPage } from './svg.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -67,6 +67,29 @@ test('validateBook reads both formats, and no others', () => {
   for (const format of [0, 3, '2', undefined]) {
     assert.ok(validateBook(book({ format })).some((p) => p.startsWith('format ')), `format ${format}`);
   }
+});
+
+test('a page is whole points inside the bounds, and A4 is only the default', () => {
+  // Until #313 this was an equality against 595x842. The chart template sizes its page to the
+  // family, so what is checked now is the bound -- and the bound is what a painter can actually
+  // emit, not a taste in paper.
+  assert.deepEqual(validateBook(book()), [], 'A4 still validates');
+  assert.deepEqual(validateBook(book({ size: { w: 1722, h: 7421 } })), [], 'a tall chart validates');
+  assert.deepEqual(validateBook(book({ size: { w: MIN_PAGE, h: MAX_PAGE } })), [], 'the bounds themselves are in');
+
+  // A fractional page would round differently in each painter -- Android's PdfDocument takes whole
+  // points -- so it is refused rather than silently truncated.
+  for (const size of [{ w: 595.5, h: 842 }, { w: 595, h: 842.01 }, { w: '595', h: 842 }, { w: NaN, h: 842 }]) {
+    assert.ok(validateBook(book({ size })).some((p) => /not a whole number of points/.test(p)), JSON.stringify(size));
+  }
+  // Outside what a PDF can hold, or so small it could only be an arithmetic slip in the composer.
+  for (const size of [{ w: 0, h: 842 }, { w: -595, h: 842 }, { w: 595, h: MAX_PAGE + 1 }, { w: MIN_PAGE - 1, h: 842 }]) {
+    assert.ok(validateBook(book({ size })).some((p) => /outside/.test(p)), JSON.stringify(size));
+  }
+  for (const size of [undefined, null, 595, 'A4']) {
+    assert.deepEqual(validateBook(book({ size })).filter((p) => p === 'no page size'), ['no page size'], JSON.stringify(size));
+  }
+  assert.deepEqual(PAGE, { w: 595, h: 842 }, 'A4 stays the default every other book is');
 });
 
 test('a book declares the lowest format that draws it, and neither less nor more', () => {

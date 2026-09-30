@@ -14,6 +14,21 @@ package com.vibethroughcode.ftree.book
 
 private val SYMBOL_ID = Regex("^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
+/**
+ * `format.js`'s MIN_PAGE and MAX_PAGE (#313). A4 was once the only size a book could be; the chart
+ * template sizes its page to the family instead, so what is left to check is the bound. 14400 pt is
+ * PDF's own maximum page side, and [PageSize] being Int is what says "whole points" here - the
+ * JavaScript has to check that by hand.
+ */
+const val MIN_PAGE = 200
+const val MAX_PAGE = 14400
+
+/** Everything wrong with a page size, or an empty list. `format.js`'s `pageSizeProblems`. */
+fun pageSizeProblems(size: PageSize): List<String> =
+    listOf("width" to size.w, "height" to size.h).mapNotNull { (which, n) ->
+        if (n < MIN_PAGE || n > MAX_PAGE) "page $which $n is outside $MIN_PAGE..$MAX_PAGE points" else null
+    }
+
 /** How many numbers each path command takes; a command may repeat them, in whole sets. */
 private val PATH_ARGS = mapOf('M' to 2, 'L' to 2, 'H' to 1, 'V' to 1, 'C' to 6, 'Q' to 4, 'Z' to 0)
 
@@ -97,7 +112,7 @@ fun validateBook(book: Book, fontKeys: Set<String>): List<String> {
     val problems = mutableListOf<String>()
     val drawn = formatOf(book)
     if (book.format != drawn) problems += "format ${book.format} is declared, but this book draws as format $drawn"
-    if (book.size.w != 595 || book.size.h != 842) problems += "page size is not A4"
+    problems += pageSizeProblems(book.size)
     if (book.pages.isEmpty()) problems += "no pages"
 
     // The one check validateBook cannot make: which faces this release carries. A missing one used

@@ -65,6 +65,31 @@ export const FORMAT_MAX = 2;
 /** A4 in PostScript points. Android's PdfDocument takes whole points, so these must stay integers. */
 export const PAGE = Object.freeze({ w: 595, h: 842 });
 
+/*
+ * How large and how small a page may be (#313).
+ *
+ * Every book was A4 until the chart, and almost every book still is: `PAGE` is the default and a
+ * template does not get to choose, the one composer path that sizes its own page does (`chart.js`).
+ * So this is a bound, not an invitation - a page is whole points, because Android's `PdfDocument`
+ * takes integers and a fractional page would round differently in each painter, and it is inside a
+ * range both PDF writers can actually emit. 14400 pt is PDF's own maximum page side; MIN_PAGE is
+ * loose, and exists so that a size arrived at by arithmetic on an empty family is refused as the
+ * composer bug it would be rather than drawn as a sliver.
+ */
+export const MIN_PAGE = 200;
+export const MAX_PAGE = 14400;
+
+/** Everything wrong with a page size, or an empty list. `PAGE` passes, as do the chart's own sizes. */
+export function pageSizeProblems(size) {
+  const bad = (n, which) => {
+    if (!Number.isSafeInteger(n)) return `page ${which} ${n} is not a whole number of points`;
+    if (n < MIN_PAGE || n > MAX_PAGE) return `page ${which} ${n} is outside ${MIN_PAGE}..${MAX_PAGE} points`;
+    return null;
+  };
+  if (!size || typeof size !== 'object') return ['no page size'];
+  return [bad(size.w, 'width'), bad(size.h, 'height')].filter(Boolean);
+}
+
 /** Coordinates are rounded so the same tree gives the same bytes on every engine. */
 export const r2 = (n) => Math.round(n * 100) / 100;
 
@@ -238,7 +263,7 @@ export function validateBook(book) {
   const declared = book?.format;
   if (declared !== FORMAT && declared !== FORMAT_MAX) problems.push(`format ${declared} is not ${FORMAT} or ${FORMAT_MAX}`);
   else if (declared !== formatOf(book)) problems.push(`format ${declared} is declared, but this book draws as format ${formatOf(book)}`);
-  if (!book?.size || book.size.w !== PAGE.w || book.size.h !== PAGE.h) problems.push('page size is not A4');
+  problems.push(...pageSizeProblems(book?.size));
   if (!Array.isArray(book?.pages) || !book.pages.length) problems.push('no pages');
   const defs = book?.defs ?? {};
   /* Every lookup by name is an own key: `ref: 'constructor'` must be an unknown symbol, not the

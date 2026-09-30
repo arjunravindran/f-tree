@@ -102,6 +102,25 @@ test('a document as Android writes it, with empty lists left out, still makes a 
   assert.deepEqual(validateBook(composeBook({ format: 'f-tree', version: 1 }, { now: NOW }, TEMPLATES.diwali)), []);
 });
 
+/*
+ * The promise #313 did not change.
+ *
+ * `validateBook` used to assert A4 outright, and relaxing it to a bound is what lets the chart size
+ * its page to the family. That relaxation must not quietly reach the books it was not for: every
+ * page of Heirloom and of the storybook is still exactly A4, on every family. If one of them ever
+ * starts sizing its own page, that is a decision to make on purpose, not a validator that stopped
+ * looking.
+ */
+test('every book but the chart is still exactly A4', async () => {
+  for (const [name, load] of Object.entries(FIXTURES)) {
+    const doc = await load();
+    for (const tid of ['heirloom', 'diwali']) {
+      const book = composeBook(doc, { now: NOW }, TEMPLATES[tid]);
+      assert.deepEqual(book.size, { w: 595, h: 842 }, `${name}/${tid}: the page size moved`);
+    }
+  }
+});
+
 test('with nobody joined to anybody yet, the cover puts them at the centre of the sky', async () => {
   const family = readFamily(await FIXTURES['one-person'](), { now: NOW }, {});
   const { pos } = orbitPositions(family, { cx: 300, cy: 400, rMin: 34, rMax: 225 });
