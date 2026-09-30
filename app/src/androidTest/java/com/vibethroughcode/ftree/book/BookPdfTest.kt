@@ -34,7 +34,8 @@ import java.io.File
  *
  * What it proves, in the order a reader would care:
  *  - the book is laid out on the phone at all (the WebView runs the staged composer);
- *  - the PDF has the pages the composer made, each A4, and looks like the preview it came from;
+ *  - the PDF has the pages the composer made, each the size the book declares, and looks like the
+ *    preview it came from;
  *  - the text is real embedded TrueType, with Devanagari in the font, not Type3 outlines or boxes;
  *  - a family with photographs stays within what a chat app will carry;
  *  - the WebView cannot reach anything but the app's own assets.
@@ -119,21 +120,52 @@ class BookPdfTest {
         assertTrue(book.fileName.endsWith("Diwali Book.pdf"))
     }
 
+    /*
+     * #315: the chart, which is the one book that is not A4 and the only reason the page size stopped
+     * being an assertion (#313).
+     *
+     * What only a device can show is here: `PdfDocument.PageInfo` takes whole points and this is the
+     * first time it is handed something other than 595x842, `PdfRenderer` has to read that page back
+     * at the size it was written, and the painter has to agree with it over a page several times the
+     * area of a sheet. The composer's own arithmetic is held by `site/book/chart.test.mjs`; none of
+     * that would catch a PdfDocument that quietly clamped the page.
+     */
+    @Test
+    fun theChartMakesAPdfTheSizeOfTheFamily() = runBlocking {
+        val book = writeAndCheck("chart", "chart-test.pdf", "chart", everyPage = true, photographs = false)
+        assertEquals("the chart is one page", 1, book.pages.size)
+        assertEquals("The family chart", book.pages.first().label)
+        assertTrue("the chart's page is not A4", book.size.w != 595 || book.size.h != 842)
+        // Sized to this family rather than to paper: wide enough for its generations, and taller
+        // than a sheet is not what it is - what matters is that it is the composer's own number,
+        // which writeAndCheck has already held both the PDF and the painter to.
+        assertTrue("a page of ${book.size.w}x${book.size.h} is not the size of a family", book.size.w > 595)
+        assertTrue(book.fileName.endsWith("Chart.pdf"))
+    }
+
     /**
-     * Writes one template's book to a PDF and holds it to the release bar: A4 throughout, embedded
-     * TrueType rather than Type3 outlines, inside the chat-app budget, and each page matching the
-     * preview the app drew from the same Book.
+     * Writes one template's book to a PDF and holds it to the release bar: every page the size the
+     * book declares, embedded TrueType rather than Type3 outlines, inside the chat-app budget, and
+     * each page matching the preview the app drew from the same Book.
      */
     private suspend fun writeAndCheck(
         templateId: String,
         fileName: String,
         tag: String,
         everyPage: Boolean = false,
+        photographs: Boolean = true,
     ): com.vibethroughcode.ftree.book.Book {
         val started = System.nanoTime()
         val book = composer.compose(input(templateId))
         val composed = (System.nanoTime() - started) / 1_000_000
-        assertTrue("photographs asked for", book.photos.isNotEmpty())
+        // The two designed books put a face on nearly every page, and a book that quietly stopped
+        // asking for photographs would still pass every other check here. The chart asks for none by
+        // design - it draws names and lines and nothing else - so for it the promise is the reverse.
+        if (photographs) {
+            assertTrue("photographs asked for", book.photos.isNotEmpty())
+        } else {
+            assertTrue("the chart asks for no photographs", book.photos.isEmpty())
+        }
 
         val photos = book.photos.associate { it.id to portrait() }
         val file = File(app.cacheDir, fileName)
@@ -172,8 +204,10 @@ class BookPdfTest {
                 var worst = 0.0
                 for (i in 0 until pdf.pageCount) {
                     pdf.openPage(i).use { page ->
-                        assertEquals("$tag page ${i + 1} width", 595, page.width)
-                        assertEquals("$tag page ${i + 1} height", 842, page.height)
+                        // The book's own page, not A4 by assumption (#313). Every book but the chart
+                        // is still 595x842, and `book.size` is what says so.
+                        assertEquals("$tag page ${i + 1} width", book.size.w, page.width)
+                        assertEquals("$tag page ${i + 1} height", book.size.h, page.height)
                         if (everyPage || i == 0 || book.pages[i].label.startsWith("Generations")) {
                             val fromPdf = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
                             fromPdf.eraseColor(Color.WHITE)
