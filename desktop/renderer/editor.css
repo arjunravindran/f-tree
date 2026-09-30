@@ -2245,6 +2245,66 @@
 .editor .book-template-name { font-size: 12px; text-align: center; }
 .editor .book-template-season { margin-top: -4px; font-size: 11px; color: var(--brass); }
 
+/*
+ * A template that has not arrived yet (#214).
+ *
+ * The chip keeps its size, its frame and its place in the row: only the cover changes, because that
+ * is the part that is genuinely missing. An empty cover drops the printed-page shadow and takes a
+ * hairline instead, so it reads as a space waiting for a book rather than a book that failed.
+ */
+.editor .book-template { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+.editor .book-template-cover.is-empty {
+  display: grid;
+  place-items: center;
+  /* A grid item's `min-height: auto` would let two lines of refusal push the box past its page
+     aspect, so the chip beside a refused one would stand taller than the rest of the row. */
+  min-height: 0;
+  padding: 6px;
+  background: var(--sunk);
+  border: 1px solid var(--rule-strong);
+  box-shadow: none;
+}
+
+.editor .book-template-offer {
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--forest);
+}
+
+.editor .book-template-offer.is-refused { color: var(--danger); }
+
+.editor .book-template-offer.is-working {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--rule-strong);
+  border-top-color: var(--forest);
+  border-radius: 50%;
+  animation: book-template-spin 900ms linear infinite;
+}
+
+@keyframes book-template-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still a ring, still clearly mid-flight, without anything moving. */
+  .editor .book-template-offer.is-working { animation: none; border-top-color: var(--brass); }
+}
+
+.editor .book-template-remove {
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.editor .book-template-remove:hover { color: var(--ink); }
+.editor .book-template-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 .editor .book-title-row { display: flex; align-items: center; gap: 10px; padding: 0 20px 16px; }
 
 .editor .book-title-input {

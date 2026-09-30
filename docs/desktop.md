@@ -346,6 +346,16 @@ composes a designed PDF of the tree entirely on this machine. It is the desktop 
 dialog must show — this section is the Electron-specific half: how the same JavaScript composer
 that runs in Android's hidden WebView turns into a real PDF here.
 
+From desktop-v0.10.0-beta.1 a template can also arrive by download (#214). **Settings › Look for new
+book templates** — off until switched on, and gated on update checking, because it is the same
+request to the same place — lets the app fetch the signed catalogue, and nothing else. A template's
+own file is fetched only when its chip is tapped, checked against the SHA-256 that catalogue vouches
+for, and kept in `userData/templates`; *Remove copy* under the chosen chip deletes that copy and
+returns the chip to *Download*. Heirloom is the first template to arrive this way, so this release
+carries only the storybook. `desktop/templates.js` holds the whole of it, verifying with
+`node:crypto` against the key in `main.js`, and it reaches the network only through the two
+functions `main.js` passes in — so `net.request` there is still the one way this app talks.
+
 **The preview is the file.** `renderer/book.js` imports `site/book/compose.js` and `svg.js` as
 ordinary ES modules — the same files `site/book/preview.html` uses in a browser — composes a `Book`
 from the open tree, and paints every page's SVG straight into a scrolling column. Every option

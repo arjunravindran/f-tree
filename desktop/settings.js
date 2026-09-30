@@ -38,6 +38,22 @@ const DEFAULTS = Object.freeze({
   theme: 'light',
   checkForUpdates: false,
   betaReleases: false,
+  /**
+   * Whether the app may ask GitHub which book templates are on offer, and fetch one when the reader
+   * asks for it (#214). Off like the rest, and nothing about it is automatic: turning it on
+   * downloads no template, and a template arrives only when it is chosen in the book dialog.
+   */
+  bookTemplates: false,
+  /**
+   * The highest catalogue `seq` this app has ever verified, which a catalogue must beat to be
+   * accepted.
+   *
+   * The one value here that turning its switch off does **not** clear, and the exception is the
+   * point: this is anti-rollback state rather than a remembered result. Clearing it would let a
+   * withdrawn catalogue be replayed by switching off and on again, which is the move it exists to
+   * refuse. Removing a downloaded template does not touch it either.
+   */
+  templatesSeq: 0,
   /** When the updater last got an answer, as epoch milliseconds. 0 means never. */
   lastCheckedAt: 0,
   /** A version the reader has dismissed; they are not asked about it again. */
@@ -98,6 +114,8 @@ const SHAPE = {
   theme: (v) => (v === 'dark' ? 'dark' : 'light'),
   checkForUpdates: (v) => v === true,
   betaReleases: (v) => v === true,
+  bookTemplates: (v) => v === true,
+  templatesSeq: (v) => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0),
   lastCheckedAt: (v) => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0),
   skippedVersion: (v) => (typeof v === 'string' && v.trim() ? v.trim() : null),
   nearbySharing: (v) => v === true,
@@ -167,6 +185,8 @@ function applyChange(current, key, value) {
     // Leaving a remembered result behind would let a stale banner outlive the setting.
     next.lastCheckedAt = 0;
     next.skippedVersion = null;
+    // `templatesSeq` is deliberately left alone -- see its note in DEFAULTS. It is the one thing
+    // here that must survive a switch, because forgetting it is what a replay would need.
   }
 
   if (key === 'betaReleases' && next.betaReleases !== normalise(current).betaReleases) {
@@ -195,6 +215,17 @@ function mayCheckForUpdates(settings) {
   return normalise(settings).checkForUpdates === true;
 }
 
+/**
+ * Whether the app may ask about book templates, or fetch one (#214).
+ *
+ * Gated on [mayCheckForUpdates] as well as its own switch, because it is the same request to the
+ * same place: a reader who has not allowed the app to talk to GitHub has not allowed this either.
+ */
+function mayFetchTemplates(settings) {
+  const s = normalise(settings);
+  return s.checkForUpdates === true && s.bookTemplates === true;
+}
+
 /** Whether a found version should be offered, or has already been declined. */
 function shouldOffer(settings, version) {
   const { skippedVersion } = normalise(settings);
@@ -206,5 +237,6 @@ module.exports = {
   normalise,
   applyChange,
   mayCheckForUpdates,
+  mayFetchTemplates,
   shouldOffer,
 };

@@ -132,6 +132,11 @@ jobs:
           # stray trailing blank page, under the 10 MB budget. FTREE_SMOKE_BOOK_SAVE_TO is the same
           # kind of seam FTREE_SMOKE_SAVE_TO is above: a native save dialog cannot be driven from
           # here, so this is where the PDF actually lands.
+          # Templates that arrive by download (#214): the desktop reads the same signed catalogue
+          # the Android app does, so this section holds the rule that a check asks for the
+          # catalogue and nothing else, and that a catalogue this build cannot verify changes
+          # nothing. A real fetch needs a real release, and is checked by hand before one goes out.
+          FTREE_SMOKE_TEMPLATES: '1'
           FTREE_SMOKE_BOOK: '1'
           FTREE_SMOKE_BOOK_SAVE_TO: ${{ runner.temp }}/book-smoke.pdf
           # Nearby sharing (#175): a second device in the same process sends over 127.0.0.1, and the
@@ -221,6 +226,10 @@ jobs:
           # And the family book against the package: the only run that proves `site/book` was
           # staged at all -- forgetting it is exactly the mistake that leaves a dev build working
           # and a packaged one silently unable to find the composer (docs/family-book.md).
+          # And the same against the package, where it also proves the one thing only a package
+          # can: that Heirloom is genuinely not in it any more (#214), so the chip a reader meets
+          # is the offer to download it rather than a book that was quietly still there.
+          FTREE_SMOKE_TEMPLATES: '1'
           FTREE_SMOKE_BOOK: '1'
           FTREE_SMOKE_BOOK_SAVE_TO: ${{ runner.temp }}/book-smoke-packaged.pdf
           # And nearby sharing against the package: the only run that proves `nearby/` and the
