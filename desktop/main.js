@@ -1311,7 +1311,7 @@ ipcMain.handle('tree:last', async () => {
  * well is what makes an unpackaged run behave like a packaged one: without it, `npm start` and the
  * smoke harness would read the repository's own copy and quietly show a template no reader has.
  */
-const BY_DOWNLOAD = new Set(['heirloom']);
+const BY_DOWNLOAD = new Set(['heirloom', 'diwali']);
 
 /*
  * The templates and the policy, handed across once as data (#207). The page composes the book
@@ -3519,11 +3519,13 @@ async function runTemplatesSmoke(win, check) {
   check('and this app trusts no catalogue it has not been given', store.verified() === null);
 
   /*
-   * The one thing only a real build can show: Heirloom is not in this release.
+   * The one thing only a real build can show: the designed templates are not in this release.
    *
    * The chips themselves are `runBookSmoke`'s subject -- it opens the dialog and asserts every
-   * shipped template previews -- so this asserts what it cannot: that the file is genuinely gone,
-   * which is what turns Heirloom into a download rather than a book that was quietly still there.
+   * shipped template previews -- so this asserts what it cannot: that the files are genuinely gone,
+   * which is what turns Heirloom and the storybook into downloads rather than books that were
+   * quietly still there. The chart is asserted with them, because a release that handed the dialog
+   * nothing would pass every "not there" check on this list.
    */
   const handed = await win.webContents.executeJavaScript(
     'window.ftreeDesktop.book.assets().then((a) => JSON.stringify({'
@@ -3531,10 +3533,11 @@ async function runTemplatesSmoke(win, check) {
     + ' listed: (a.catalog?.templates ?? []).map((t) => t.id) }))',
   ).then(JSON.parse);
 
-  check('the app hands the dialog the storybook', handed.ids.includes('diwali'), handed.ids.join(', '));
-  check('and not Heirloom, which arrives by download now', !handed.ids.includes('heirloom'));
-  check('while the catalogue still lists it, so it can be offered',
-    handed.listed.includes('heirloom'), handed.listed.join(', '));
+  check('the app hands the dialog the chart', handed.ids.includes('chart'), handed.ids.join(', '));
+  check('and neither Heirloom nor the storybook, which arrive by download now',
+    !handed.ids.includes('heirloom') && !handed.ids.includes('diwali'), handed.ids.join(', '));
+  check('while the catalogue still lists them, so they can be offered',
+    handed.listed.includes('heirloom') && handed.listed.includes('diwali'), handed.listed.join(', '));
   check('and nothing is offered for download until a catalogue is trusted',
     handed.available.length === 0, String(handed.available.length));
 }

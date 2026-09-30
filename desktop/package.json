@@ -61,7 +61,8 @@
           "!art/style-frames${/*}",
           "!art/README.md",
           "!CLAUDE.md",
-          "!templates/heirloom.json"
+          "!templates/heirloom.json",
+        "!templates/diwali.json"
         ]
       },
       {

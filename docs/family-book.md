@@ -542,16 +542,22 @@ openssl ec -in templates-key.pem -pubout -outform DER | base64 -w0   # -> TEMPLA
 
 # Per release: a catalogue with each entry's hash and size, and a seq higher than the last
 # published one. This writes exactly what the paragraph below describes; it does not sign.
-node tools/template_manifest.mjs --seq 2 heirloom diwali > templates.json
+node tools/template_manifest.mjs --seq 2 > templates.json
 
 # Then the detached signature over its exact bytes. This step stays manual, because the key is offline.
 openssl dgst -sha256 -sign templates-key.pem templates.json | base64 -w0 > templates.json.sig
 ```
 
 `templates.json` is `catalog.json` with a root `seq`, and `sha256` (hex, of the file's exact bytes)
-and `bytes` on every entry that is being published for download. Hashing by hand is how a typo turns
-into a checksum refusal that reads to the reader like a corrupt download, which is why there is a
-script for it; the signature is not scripted, and the key never enters the repository.
+and `bytes` on **every** entry - the chart included, although it ships in the build and is never
+fetched. That is not thoroughness. `TemplateManifest.verify` refuses the whole manifest when a single
+row it would list has no hash, because dropping such a row quietly is the one path that could put an
+unverifiable template in front of a reader; a manifest that left the chart out would be refused by
+both shells, and the refusal would look like a bad signature.
+
+Hashing by hand is also how a typo turns into a checksum refusal that reads to the reader like a
+corrupt download, which is why there is a script for it. The signature is not scripted, and the key
+never enters the repository.
 
 Attach `templates.json`, `templates.json.sig` and each `<id>.json` to the release. They are assets of
 the releases the updater already reads, which is why templates added no endpoint: `NetworkSurfaceTest`

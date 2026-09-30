@@ -10,6 +10,20 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+**A plain family tree you can zoom into, and the storybook now arrives by download (#312).**
+
+- **A new Family chart template.** The family tree itself, as a PDF: generations as columns, a card
+  a person, names and years and nothing else. No art, no story, no ornament. It is meant to be
+  zoomed into and panned around rather than read as pages, so the page is the size of the tree
+  instead of the tree being shrunk onto A4 — a family of eight makes a 852x486 pt page, and two
+  hundred people make one 1680x7331 pt. A small family gets a small page rather than being lost in
+  the middle of a sheet.
+- **Diwali arrives by download now, like Heirloom.** Both designed templates are fetched from the
+  signed catalogue when you ask for them, under the same opt-in switch and the same checks; the
+  chart is what every install carries, so the book still works with no network and the switch off.
+  A copy you have downloaded can still be removed to free the space, and is offered again
+  afterwards.
+
 **Double-clicking a tree opens that tree on desktop (#190).**
 
 - **The file you opened is the file you get.** Opening a `.ftree` from the file manager, or running

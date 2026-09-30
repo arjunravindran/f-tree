@@ -68,11 +68,16 @@ fun bookEngine(site: File): List<File> {
         check(file.startsWith(site.canonicalFile)) { "the book engine imports ${file} from outside site/" }
         specifier.findAll(file.readText()).forEach { queue.add(file.parentFile.resolve(it.groupValues[1]).canonicalFile) }
     }
-    // Every template except the ones this release deliberately does not carry: Heirloom arrives by
-    // download instead (#214), which is why `catalog.json` still lists it and the assets do not have
-    // it - `BookTemplates` skips a listed template whose file is absent, and the signed catalogue
-    // offers it. The desktop packages `site/` directly and is unaffected.
-    val byDownload = setOf("heirloom.json")
+    // Every template except the ones this release deliberately does not carry: Heirloom (#214) and
+    // now the storybook (#314) arrive by download instead, which is why `catalog.json` still lists
+    // them and the assets do not have them - `BookTemplates` skips a listed template whose file is
+    // absent, and the signed catalogue offers it.
+    //
+    // The chart (#315) is what stays, and something must: a build carrying no template at all would
+    // make the book a feature you cannot use offline or before finding the switch. It is a few
+    // hundred bytes of JSON with no art behind it, which is why it is the one to hold that line.
+    // The desktop keeps the same two lists, in package.json and main.js.
+    val byDownload = setOf("heirloom.json", "diwali.json")
     return found.toList() +
         (site.resolve("book/templates").listFiles { f -> f.extension == "json" && f.name !in byDownload }?.sorted() ?: emptyList())
 }
