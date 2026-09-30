@@ -203,6 +203,64 @@ silently drop one. Both painters are held to it — `format.test.mjs` paints it 
 tests read the same file — so it is the one place to change when format 2's meaning changes. It is
 written by hand, not generated: `UPDATE_GOLDEN=1` does not touch it.
 
+## The chart, template format 3 (#315)
+
+The other two templates are books: pages, in an order, with art and copy. The chart is not. It is
+the family tree itself — one page, the size of the tree, drawn at 1:1 so it can be zoomed into and
+panned around. No art, no story, no ornament, no photographs. It is the template every release
+carries, because it is small enough to cost nothing and plain enough to never need changing, and
+because the two designed templates now arrive by download and something must be there offline.
+
+**A page the size of the tree.** `PAGE` is still A4 and every book but this one is A4, but the size
+is no longer an assertion (#313): `validateBook` asks for whole points inside `MIN_PAGE`…`MAX_PAGE`
+rather than for 595×842. 14400 pt is PDF's own page limit, and the chart is the only thing that has
+ever wanted to approach it. Both painters already drew from `book.size`; it was the validators and
+the desktop print CSS that knew A4 by heart.
+
+**The layout is the viewer's own.** `layoutArchive` (`site/playground/layout.js`), the same function
+behind the chart on screen and behind Heirloom's tree page, with `orientation: 'columns'` — eldest
+generation on the left, as the Android app arranges it. Nothing about the tree is computed twice.
+
+Columns rather than rows, because generation *depth* is bounded and generation *width* is not:
+
+| fixture | people | rows | columns |
+|---|---|---|---|
+| `remarriage` | 8 | 1072×522 | 894×576 |
+| `sample` | 23 | 1563×1208 | 2076×788 |
+| `story-twelve-siblings` | 14 | 2904×370 | 618×1416 |
+| `large` | 180 | 4857×3606 | 6582×2222 |
+| `story-large` | 200 | 17062×978, past the limit | 1722×7421 |
+
+In rows, a wide generation makes a ribbon, and 200 people make a page too wide to print at all. In
+columns the unbounded axis is height — a tall scroll, which is the direction a reader pans anyway.
+
+**Spacing comes from the family, never from the paper.** The page is the nodes' own bounding box
+plus one margin, so a family of three gets a small page and a family of two hundred gets a large
+one. There is no canvas to be lost in the middle of, and nothing is stretched to fill a sheet. The
+one scale factor in the whole path is the guard against `MAX_PAGE`, and on every fixture we have but
+`story-large` it is exactly 1.
+
+**What it draws.** A ground, the connectors `layoutArchive` already worked out, and one card a
+person: the name, sized to the card by the fonts' own advance tables, and the life years under it.
+Everyone the family holds, including people with no link to the rest — `layoutArchive` packs
+disconnected components onto shelves of their own, so the chart has no "elsewhere" section to keep.
+
+```
+{ "format": 3, "id": "chart", "name": "Family chart",
+  "fonts":   { "text": "book_text", "strong": "book_strong" },
+  "palette": { "paper": "#...", "ink": "#...", "inkSoft": "#...", "line": "#...", "aged": "#..." } }
+```
+
+No `pages` key: the chart is one page by construction, so there is no order to choose. `format` is
+read before anything else, as always, and `MAX_TEMPLATE_FORMAT` is 3 — which is what stops an older
+release offering a chart it would have to squeeze onto A4.
+
+**Not a Book format.** `FORMAT`/`FORMAT_MAX` say which drawing vocabulary a painter must know, and
+the chart uses nothing new: rectangles, paths, text. A book is composed and printed by one release
+in one process and never handed to another version, so a page that is not A4 needs no painter to
+refuse it. What needed saying out loud is the promise that did not change, and it is a test:
+Heirloom and Diwali still compose to exactly 595×842.
+
 ## What a PDF weighs
 
 The book screen says *About 3.4 MB* before anybody waits for the PDF. `estimateBytes` (compose.js)
@@ -318,32 +376,38 @@ A template is a JSON document (`site/book/templates/`) that chooses:
   `{count-words}`, `{Count-words}`.
 
 `template.js` refuses anything else: an unknown key, a colour that isn't `#rrggbb`, a block it
-does not know, markup in the copy, a newer `format`. Templates ship inside the release today. The
-same rules are what make a downloaded template safe to draw - see
+does not know, markup in the copy, a newer `format`. A release carries the chart and nothing else;
+Heirloom and Diwali arrive by download. The same rules are what make a downloaded template safe to
+draw - see
 [Templates that arrive by download](#templates-that-arrive-by-download-214).
 
 | template | format | look |
 |---|---|---|
 | `heirloom` | 1 | Night sky: the family as a constellation, eldest at the centre, each generation an orbit further out |
 | `diwali` | 2 | The Aangan storybook: cut-paper courtyards, a lane of havelis and lamplight, told around one featured person, with a register at the back. *शुभ दीपावली* |
+| `chart` | 3 | The plain tree: generations as columns, a card a person, on one page the size of the family. Nothing else — see [The chart](#the-chart-template-format-3-315) |
 
-A template's `format` is the schema it is written in, and the two are different shapes rather than
-one extending the other (#243). Format 1 is the block list Heirloom uses; format 2 is the
-storybook's - a paper-cut palette, four font roles instead of three, and a chapter list the story
-planner turns into pages. `validateTemplate` reads `format` before any other key, so a template
-written for a format this app cannot draw fails on that alone.
+A template's `format` is the schema it is written in, and they are different shapes rather than each
+extending the last (#243). Format 1 is the block list Heirloom uses; format 2 is the storybook's - a
+paper-cut palette, four font roles instead of three, and a chapter list the story planner turns into
+pages; format 3 is the chart's, which is almost nothing, because a chart has no pages to order and
+no copy to write. `validateTemplate` reads `format` before any other key, so a template written for a
+format this app cannot draw fails on that alone.
 
 Two constants decide what is offered, and they are deliberately not the same one:
 
 | constant | what it answers |
 |---|---|
 | `TEMPLATE_FORMAT` (1) | Format 1's own schema version - what `validateTemplate` holds a format-1 template to |
-| `MAX_TEMPLATE_FORMAT` (2) | The highest format this app can draw - what `catalog.js`'s `available` filters the catalogue on, mirrored by `BookCatalog.MAX_TEMPLATE_FORMAT` |
+| `MAX_TEMPLATE_FORMAT` (3) | The highest format this app can draw - what `catalog.js`'s `available` filters the catalogue on, mirrored by `BookCatalog.MAX_TEMPLATE_FORMAT` |
 
 That split is what let the storybook ship hidden while it was being built: it sat in the catalogue
 as a format-2 row that every shell skipped, because `MAX_TEMPLATE_FORMAT` was still 1. #259 raised
 it to 2, and the same row became Diwali. Raising `TEMPLATE_FORMAT` instead would have made
-`validateTemplate` reject Heirloom.
+`validateTemplate` reject Heirloom. #315 raised it to 3 for the chart, and the
+same mechanism now works the other way round: a release from before the chart existed reads a
+catalogue that lists it and skips the row, rather than downloading a template it would have had to
+squeeze onto A4.
 
 ### The catalogue
 
@@ -441,21 +505,28 @@ it arrives, and *Couldn't verify* when it is refused. *Remove copy* appears unde
 template while it is the chosen one - that frees the space and returns the tile to *Download*.
 Turning the switch off stops the network; it does not take a downloaded book away.
 
-**Heirloom is the first one.** From v0.11.0-beta.2 the Android release does not carry
+**Heirloom was the first one.** From v0.11.0-beta.2 the Android release does not carry
 `heirloom.json`: `catalog.json` still lists it, the assets simply do not have it, and
 `BookTemplates` already skips a listed template whose file is absent - so it appears in the picker as
 a download and nothing else had to change, not the catalogue, not the seasons, not the policy tiers.
-An install that takes that beta keeps Diwali and fetches Heirloom if it wants it. The excluded list is
-one line in `app/build.gradle.kts`'s `bookEngine`.
+The excluded list is one line in `app/build.gradle.kts`'s `bookEngine`.
+
+**Diwali is the second, and the chart takes its place (#314).** A release now carries `chart.json`
+alone, and both designed templates arrive by download. Which needed the chart to exist first: a
+package that carries no template at all would make the book a feature you cannot use offline, or
+before finding the switch, and `book-packaging.test.js` asserts against exactly that - one named
+template must always be in the package, so that "nothing ships" can never pass. It used to be Diwali
+that held that line; now it is the chart, which is the better thing to hold it, being a few hundred
+bytes of JSON with no art behind it.
 
 **Both shells, one catalogue.** The desktop does the same from desktop-v0.10.0-beta.1
 (`desktop/templates.js`), and reads the *same* signed file: one catalogue, one signature, one `seq`,
 published once as release assets and verified by both. Node has a P-256 verifier of its own, so the
 key in `desktop/main.js` is the key in `app/build.gradle.kts` - `book-packaging.test.js` fails if
-they ever drift. The desktop excludes Heirloom twice over, and both are needed: `build.extraResources`
-in `desktop/package.json` keeps the file out of the package, and `BY_DOWNLOAD` in `main.js` keeps an
-unpackaged run - `npm start`, the smoke harness - from quietly reading the repository's own copy and
-showing a template no reader has.
+they ever drift. The desktop excludes each downloaded template twice over, and both are needed:
+`build.extraResources` in `desktop/package.json` keeps the file out of the package, and `BY_DOWNLOAD`
+in `main.js` keeps an unpackaged run - `npm start`, the smoke harness - from quietly reading the
+repository's own copy and showing a template no reader has.
 
 The catalogue currently lives on an Android pre-release, so on both shells it reaches only readers
 who have asked for betas. That is a property of where it was published, not a rule: whichever release
@@ -469,11 +540,24 @@ with `TEMPLATE_PUBLIC_KEY` empty the feature is dormant and the switch is absent
 openssl ecparam -name prime256v1 -genkey -noout -out templates-key.pem
 openssl ec -in templates-key.pem -pubout -outform DER | base64 -w0   # -> TEMPLATE_PUBLIC_KEY
 
-# Per release: a catalogue with each entry's hash and size, a seq higher than the last published
-# one, then the detached signature over its exact bytes.
-sha256sum holi.json                       # -> the entry's "sha256"
+# Per release: a catalogue with each entry's hash and size, and a seq higher than the last
+# published one. This writes exactly what the paragraph below describes; it does not sign.
+node tools/template_manifest.mjs --seq 2 > templates.json
+
+# Then the detached signature over its exact bytes. This step stays manual, because the key is offline.
 openssl dgst -sha256 -sign templates-key.pem templates.json | base64 -w0 > templates.json.sig
 ```
+
+`templates.json` is `catalog.json` with a root `seq`, and `sha256` (hex, of the file's exact bytes)
+and `bytes` on **every** entry - the chart included, although it ships in the build and is never
+fetched. That is not thoroughness. `TemplateManifest.verify` refuses the whole manifest when a single
+row it would list has no hash, because dropping such a row quietly is the one path that could put an
+unverifiable template in front of a reader; a manifest that left the chart out would be refused by
+both shells, and the refusal would look like a bad signature.
+
+Hashing by hand is also how a typo turns into a checksum refusal that reads to the reader like a
+corrupt download, which is why there is a script for it. The signature is not scripted, and the key
+never enters the repository.
 
 Attach `templates.json`, `templates.json.sig` and each `<id>.json` to the release. They are assets of
 the releases the updater already reads, which is why templates added no endpoint: `NetworkSurfaceTest`

@@ -48,6 +48,37 @@ class BookCatalogTest {
         assertEquals(format, BookCatalog.MAX_TEMPLATE_FORMAT)
     }
 
+    /*
+     * What this release carries, and what it expects to fetch (#214, #314, #315).
+     *
+     * The Android twin of `desktop/book-packaging.test.js`. `bookEngine` in `app/build.gradle.kts`
+     * stages every JSON file in `templates` except the ones named there, so one `setOf` decides what
+     * a reader has offline - and it is a build script, which no other test in this suite reads.
+     *
+     * The chart is asserted with them because a build carrying no template at all would pass every
+     * "not staged" check on its own. It is the reason the chart had to land before the storybook
+     * could leave: the book has to work with no network and the switch off.
+     */
+    @Test
+    fun `the release carries the chart, and fetches the templates the catalogue vouches for`() {
+        val gradle = File(repoRoot, "app/build.gradle.kts").readText()
+        val listed = Regex("val byDownload = setOf\\(([^)]*)\\)").find(gradle)?.groupValues?.get(1)
+            ?: error("app/build.gradle.kts no longer declares byDownload - has the staging changed?")
+        val byDownload = Regex("\"([^\"]+)\"").findAll(listed).map { it.groupValues[1] }.toSet()
+
+        assertEquals(setOf("heirloom.json", "diwali.json"), byDownload)
+
+        val templates = File(repoRoot, "site/book/templates")
+        val staged = templates.listFiles { f -> f.extension == "json" }!!
+            .map { it.name }.filter { it != "catalog.json" && it !in byDownload }.toSet()
+        assertEquals("the chart, and nothing else, is what an install has offline", setOf("chart.json"), staged)
+
+        // And everything left out is a template the catalogue can actually offer back, or it would
+        // simply be missing rather than downloadable.
+        val catalogued = BookCatalog.read(shipped)!!.map { "${it.id}.json" }.toSet()
+        assertEquals(emptySet<String>(), byDownload - catalogued)
+    }
+
     @Test
     fun `the shipped catalogue is read whole`() {
         val raw = Json.parseToJsonElement(shipped).jsonObject.getValue("templates").jsonArray

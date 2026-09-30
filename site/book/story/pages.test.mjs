@@ -53,7 +53,8 @@ test('missingArchetypes is what the planner asks for minus what is built', () =>
 
 test('format 2 becomes drawable exactly when the last archetype lands', () => {
   // No issue flips a flag by hand: this is the flag, and #245's invariant suite reads it.
-  assert.deepEqual([...DRAWABLE_FORMATS], missingArchetypes().length ? [1] : [1, 2]);
+  // The chart (format 3, #315) is drawable whatever the story archetypes are doing: it has none.
+  assert.deepEqual([...DRAWABLE_FORMATS], missingArchetypes().length ? [1, 3] : [1, 2, 3]);
   assert.ok(DRAWABLE_FORMATS.includes(1), 'Heirloom never stops being drawable');
 });
 

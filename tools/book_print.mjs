@@ -2,8 +2,8 @@
  * Painting Books in headless Chromium, the way the desktop does, for the book's by-eye and by-size
  * tools (#245): `book_contact_sheet.mjs` and `book_pdf_size.mjs`. Not a test and not run in CI.
  *
- * The HTML is `printBookToPdf`'s (desktop/main.js): the four book faces as data: URLs, one A4 box
- * per page with `@page { size: 595pt 842pt; margin: 0 }`, each page the SVG that `svg.js` paints,
+ * The HTML is `printBookToPdf`'s (desktop/main.js): the four book faces as data: URLs, one box per
+ * page with `@page { size: <book.size>; margin: 0 }`, each page the SVG that `svg.js` paints,
  * `fitText` once the fonts are ready (as the renderer's preview does), and `page.pdf` with
  * `printBackground` and `preferCSSPageSize` - Playwright's name for Electron's `printToPDF` with the
  * same options. Both are Chromium's Skia PDF backend, so a byte measured here is a byte the desktop
@@ -20,6 +20,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fitText } from '../site/book/svg.js';
 import { FONT_KEYS } from '../site/book/template.js';
+import { PAGE } from '../site/book/format.js';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const FONT_DIR = path.join(repo, 'app/src/main/res/font');
@@ -42,15 +43,21 @@ let faces;
 export const fontFaces = () => (faces ??= FONT_KEYS.map((key) => `@font-face{font-family:"${key}";`
   + `src:url(data:font/ttf;base64,${readFileSync(path.join(FONT_DIR, `${key}.ttf`)).toString('base64')}) format("truetype");font-display:block}`).join(''));
 
-/** The desktop's print document, around already-painted SVG pages. */
-export function printHtml(svgs) {
+/**
+ * The desktop's print document, around already-painted SVG pages.
+ *
+ * `size` is the book's own page box, A4 unless a book says otherwise (#313): pass `book.size` to
+ * measure a chart, whose page is the size of the family rather than a sheet.
+ */
+export function printHtml(svgs, size = PAGE) {
+  const { w, h } = size;
   return `<!doctype html><html><head><meta charset="utf-8"><style>
 ${fontFaces()}
-@page { size: 595pt 842pt; margin: 0; }
+@page { size: ${w}pt ${h}pt; margin: 0; }
 html, body { margin: 0; }
-.page { width: 595pt; height: 842pt; overflow: hidden; break-after: page; }
+.page { width: ${w}pt; height: ${h}pt; overflow: hidden; break-after: page; }
 .page:last-child { break-after: auto; }
-.page svg { display: block; width: 595pt; height: 842pt; }
+.page svg { display: block; width: ${w}pt; height: ${h}pt; }
 </style></head><body>${svgs.map((svg) => `<div class="page">${svg}</div>`).join('')}</body></html>`;
 }
 
@@ -58,9 +65,12 @@ html, body { margin: 0; }
  * Loads the pages, waits for the faces (with a Devanagari string, as the desktop does, so shaping
  * data is really there) and runs `svg.js`'s `fitText` over them, exactly as a preview would.
  */
-export async function openPages(browser, svgs, { scale = 1 } = {}) {
-  const page = await browser.newPage({ viewport: { width: 794, height: 1123 }, deviceScaleFactor: scale });
-  await page.setContent(printHtml(svgs), { waitUntil: 'load' });
+export async function openPages(browser, svgs, { scale = 1, size = PAGE } = {}) {
+  const page = await browser.newPage({
+    viewport: { width: Math.round(size.w * 4 / 3), height: Math.round(size.h * 4 / 3) },
+    deviceScaleFactor: scale,
+  });
+  await page.setContent(printHtml(svgs, size), { waitUntil: 'load' });
   await settle(page);
   return page;
 }
@@ -79,8 +89,8 @@ export async function settle(page) {
 }
 
 /** The PDF Chromium prints for these pages: the desktop's `printToPDF`, as Playwright spells it. */
-export async function printPdf(browser, svgs) {
-  const page = await openPages(browser, svgs);
+export async function printPdf(browser, svgs, size = PAGE) {
+  const page = await openPages(browser, svgs, { size });
   try {
     return await page.pdf({ printBackground: true, preferCSSPageSize: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } });
   } finally {

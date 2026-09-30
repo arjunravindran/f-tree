@@ -1,6 +1,7 @@
 {
   "format": 1,
   "templates": [
+    { "id": "chart", "name": "Family chart", "format": 3, "tier": "free" },
     { "id": "heirloom", "name": "Heirloom", "format": 1, "tier": "free" },
     {
       "id": "diwali",

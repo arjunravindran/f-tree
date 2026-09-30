@@ -351,8 +351,9 @@ book templates** — off until switched on, and gated on update checking, becaus
 request to the same place — lets the app fetch the signed catalogue, and nothing else. A template's
 own file is fetched only when its chip is tapped, checked against the SHA-256 that catalogue vouches
 for, and kept in `userData/templates`; *Remove copy* under the chosen chip deletes that copy and
-returns the chip to *Download*. Heirloom is the first template to arrive this way, so this release
-carries only the storybook. `desktop/templates.js` holds the whole of it, verifying with
+returns the chip to *Download*. Heirloom arrived this way first and the storybook followed it, so
+this release carries only the chart (#314) - which is the plain family tree, a few hundred bytes of
+JSON, and enough that the book still works with no network and the switch off. `desktop/templates.js` holds the whole of it, verifying with
 `node:crypto` against the key in `main.js`, and it reaches the network only through the two
 functions `main.js` passes in — so `net.request` there is still the one way this app talks.
 

@@ -1,0 +1,15 @@
+{
+  "format": 3,
+  "id": "chart",
+  "name": "Family chart",
+  "fileSuffix": "Chart",
+  "fonts": { "text": "book_text", "strong": "book_strong" },
+  "palette": {
+    "paper": "#f7f5f0",
+    "card": "#ffffff",
+    "line": "#9aa3b0",
+    "ink": "#1b2a45",
+    "inkSoft": "#5a6779",
+    "aged": "#8a8578"
+  }
+}

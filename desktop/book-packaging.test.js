@@ -33,23 +33,55 @@ test('the packaged book leaves out the authored art and keeps the compiled art',
 });
 
 /*
- * Heirloom is not in the package, and that is the point (#214).
+ * The designed templates are not in the package, and that is the point (#214, #314).
  *
- * From desktop-v0.10.0-beta.1 it arrives by download, exactly as it does on Android from
- * v0.11.0-beta.2: `catalog.json` still lists it, the package simply does not carry the file, and a
- * listed template whose file is missing is left out rather than failing the rest. Diwali is asserted
- * beside it so that "nothing ships" could never pass this test.
+ * From desktop-v0.10.0-beta.1 Heirloom arrives by download, exactly as it does on Android from
+ * v0.11.0-beta.2, and the storybook joins it here: `catalog.json` still lists them, the package
+ * simply does not carry the files, and a listed template whose file is missing is left out rather
+ * than failing the rest.
+ *
+ * The chart is asserted beside them so that "nothing ships" could never pass this test. That
+ * assertion is the reason the chart had to exist before Diwali could leave: a package carrying no
+ * template at all would make the book a feature you cannot use offline, or before finding the
+ * switch. It used to be Diwali holding this line, and the chart is the better thing to hold it -
+ * a few hundred bytes of JSON with no art behind it.
  */
-test('Heirloom is left out of the package, and Diwali is not', () => {
+test('the templates that arrive by download are left out of the package, and the chart is not', () => {
   const filter = entry.filter;
+  for (const id of ['heirloom', 'diwali']) {
+    assert.ok(
+      filter.includes(`!templates/${id}.json`),
+      `the package must not carry ${id}.json -- it is a download now`,
+    );
+  }
   assert.ok(
-    filter.includes('!templates/heirloom.json'),
-    'the package must not carry heirloom.json -- it is a download now',
+    !filter.some((p) => p.startsWith('!') && p.includes('chart')),
+    'the chart is the template this release ships; nothing may exclude it',
   );
+  // And it is really there to ship, rather than a filter protecting a file that does not exist.
   assert.ok(
-    !filter.some((p) => p.startsWith('!') && p.includes('diwali')),
-    'the storybook is the template this release ships; nothing may exclude it',
+    require('node:fs').existsSync(require('node:path').join(__dirname, '../site/book/templates/chart.json')),
+    'chart.json must exist: it is the only template the package carries',
   );
+});
+
+/*
+ * The two lists that must agree, in three places.
+ *
+ * `build.extraResources` keeps a template out of the package; `BY_DOWNLOAD` in main.js keeps an
+ * unpackaged run (`npm start`, the smoke harness) from reading the repository's own copy and showing
+ * a template no reader has. A template in one list and not the other is a dev run that disagrees
+ * with a release, which is exactly the kind of thing nobody notices until a reader reports it.
+ */
+test('the packaging filter and BY_DOWNLOAD name the same templates', () => {
+  const main = require('node:fs').readFileSync(require('node:path').join(__dirname, 'main.js'), 'utf8');
+  const listed = main.match(/const BY_DOWNLOAD = new Set\(\[([^\]]*)\]\)/)?.[1] ?? '';
+  const byDownload = [...listed.matchAll(/'([a-z][a-z0-9-]*)'/g)].map((m) => m[1]).sort();
+  const excluded = entry.filter
+    .filter((p) => p.startsWith('!templates/'))
+    .map((p) => p.replace('!templates/', '').replace(/\.json$/, ''))
+    .sort();
+  assert.deepStrictEqual(byDownload, excluded, 'package.json and main.js disagree about which templates arrive by download');
 });
 
 /*

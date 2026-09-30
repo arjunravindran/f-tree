@@ -20,7 +20,7 @@ import { openArchive, parseDocument } from '../playground/archive.js';
 import { buildGraph, branchFrom } from '../playground/model.js';
 import { composeBook, estimateBytes } from './compose.js';
 import { validateBook } from './format.js';
-import { validateTemplate, FORMAT_PAPERCUT } from './template.js';
+import { validateTemplate, FORMAT_PAPERCUT, FORMAT_CHART } from './template.js';
 import { paintPage } from './svg.js';
 import { measure, breakLines } from './text.js';
 import { METRICS } from './metrics/index.js';
@@ -34,7 +34,11 @@ const read = (p) => readFileSync(path.join(here, p), 'utf8');
 const UPDATE = process.env.UPDATE_GOLDEN === '1';
 const NOW = '2026-09-15';
 
-const TEMPLATES = { heirloom: JSON.parse(read('templates/heirloom.json')), diwali: JSON.parse(read('templates/diwali.json')) };
+const TEMPLATES = {
+  heirloom: JSON.parse(read('templates/heirloom.json')),
+  diwali: JSON.parse(read('templates/diwali.json')),
+  chart: JSON.parse(read('templates/chart.json')),
+};
 
 async function sampleDoc() {
   const buf = readFileSync(path.join(here, '../playground/sample-family.ftree'));
@@ -60,11 +64,22 @@ test('every fixture composes into a valid book with every template', async () =>
     for (const [tid, tpl] of Object.entries(TEMPLATES)) {
       const book = composeBook(doc, { now: NOW }, tpl);
       assert.deepEqual(validateBook(book), [], `${name}/${tid}`);
-      // Every book opens on its cover and closes on the "is someone missing?" page. A format-1
-      // book labels its cover "Cover"; the storybook labels that page with the greeting it prints
-      // on it, so the same promise is checked in each format's own words.
-      assert.equal(book.pages[0].label, tpl.format === FORMAT_PAPERCUT ? tpl.cover.greeting : 'Cover', `${name}/${tid}: opens on the wrong page`);
-      assert.equal(book.pages.at(-1).label, 'Is someone missing?', `${name}/${tid}: closes on the wrong page`);
+      /*
+       * Every *book* opens on its cover and closes on the "is someone missing?" page. A format-1
+       * book labels its cover "Cover"; the storybook labels that page with the greeting it prints
+       * on it, so the same promise is checked in each format's own words.
+       *
+       * The chart is not a book and makes that promise differently: it is one page, so its first
+       * page is its last, and it has no cover to open on and nothing that could have been left off
+       * the end. What is checked instead is that it really is the single page it claims to be.
+       */
+      if (tpl.format === FORMAT_CHART) {
+        assert.equal(book.pages.length, 1, `${name}/${tid}: a chart is one page`);
+        assert.equal(book.pages[0].label, 'The family chart', `${name}/${tid}: the chart's page is mislabelled`);
+      } else {
+        assert.equal(book.pages[0].label, tpl.format === FORMAT_PAPERCUT ? tpl.cover.greeting : 'Cover', `${name}/${tid}: opens on the wrong page`);
+        assert.equal(book.pages.at(-1).label, 'Is someone missing?', `${name}/${tid}: closes on the wrong page`);
+      }
       lines.push(`${name} ${tid} ${hash(book)} ${book.pages.length} ${book.pages.map((p) => p.label.replace(/ /g, '_')).join(',')}`);
     }
   }
@@ -100,6 +115,25 @@ test('a document as Android writes it, with empty lists left out, still makes a 
   assert.ok(diwali.includes('One lamp, and the family behind it'), 'the cover did not print its singular line');
   assert.ok(!/One lamps|1 lamps/.test(diwali), 'the cover counted one person as a plural');
   assert.deepEqual(validateBook(composeBook({ format: 'f-tree', version: 1 }, { now: NOW }, TEMPLATES.diwali)), []);
+});
+
+/*
+ * The promise #313 did not change.
+ *
+ * `validateBook` used to assert A4 outright, and relaxing it to a bound is what lets the chart size
+ * its page to the family. That relaxation must not quietly reach the books it was not for: every
+ * page of Heirloom and of the storybook is still exactly A4, on every family. If one of them ever
+ * starts sizing its own page, that is a decision to make on purpose, not a validator that stopped
+ * looking.
+ */
+test('every book but the chart is still exactly A4', async () => {
+  for (const [name, load] of Object.entries(FIXTURES)) {
+    const doc = await load();
+    for (const tid of ['heirloom', 'diwali']) {
+      const book = composeBook(doc, { now: NOW }, TEMPLATES[tid]);
+      assert.deepEqual(book.size, { w: 595, h: 842 }, `${name}/${tid}: the page size moved`);
+    }
+  }
 });
 
 test('with nobody joined to anybody yet, the cover puts them at the centre of the sky', async () => {

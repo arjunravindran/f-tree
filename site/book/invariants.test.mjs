@@ -73,7 +73,7 @@ for (const name of Object.keys(BOOK_FIXTURES)) {
           const options = { now: NOW, ...(featured ? { featured } : {}) };
           const { book, report } = composeWithReport(doc, options, tpl);
           const family = readFamily(doc, options);
-          const failures = check({ doc, family, options, book, report, scope, year: YEAR });
+          const failures = check({ doc, family, options, book, report, scope, year: YEAR, tpl });
           assert.deepEqual(failures.slice(0, 15), [], `${failures.length} violations`);
           seen.set(choice, JSON.stringify(book));
         });
@@ -147,8 +147,16 @@ test('storybook: a story composer cannot land without the suite covering it', as
     assert.ok(!composerExists || STORY_DRAWABLE.some(([d]) => d === id), `${id} is a format-2 template the composer still refuses, although it draws format 2`);
   }
   const catalog = JSON.parse(readFileSync(path.join(here, 'templates/catalog.json'), 'utf8'));
-  for (const entry of catalog.templates.filter((e) => e.format >= 2)) {
+  // Exactly format 2, not `>= 2`: this test is about the *story* composer, and `>= 2` only meant
+  // that while 2 was the newest format there was. The chart is format 3 and is drawn by nothing in
+  // `story/`, so holding it to the story suite would be asking it for pages it does not have.
+  for (const entry of catalog.templates.filter((e) => e.format === FORMAT_PAPERCUT)) {
     assert.ok(STORY_DRAWABLE.some(([d]) => d === entry.id), `the catalogue offers ${entry.id} at format ${entry.format}, which the invariant suite cannot draw`);
+  }
+  // The general form of the same promise, which no format can slip past: whatever the catalogue
+  // offers and this release can draw, the fixtures above ran every invariant over.
+  for (const entry of catalog.templates.filter((e) => DRAWABLE_FORMATS.includes(e.format))) {
+    assert.ok(DRAWABLE.some(([d]) => d === entry.id), `the catalogue offers ${entry.id} at format ${entry.format}, which this release draws but the invariant suite never composed`);
   }
   // What the story-only invariants read has to be there, or they would pass by reading nothing.
   for (const [id, tpl] of STORY_DRAWABLE) {

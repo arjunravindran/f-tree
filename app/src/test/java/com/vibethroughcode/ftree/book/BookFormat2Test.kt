@@ -314,6 +314,20 @@ class BookFormat2Test {
             add(book(listOf("""{"t":"text","x":0,"y":9,"s":"Dadi","font":"hand","size":9,"fill":"#2a1a33"}"""), format = 1))
             add(book(listOf("""{"t":"rect","x":0,"y":0,"w":1,"h":1,"fill":{"ref":"constructor"}}"""), format = 1))
             add(book(listOf("""{"t":"rect","x":0,"y":0,"w":1,"h":1,"fill":{"ref":"glow"}}"""), format = 1, defs = DEFS))
+            // A page size that is not A4 (#313): what the chart template needs, and what the bound
+            // still refuses. Both sides must draw the line in the same place, or a chart would
+            // compose on the desktop and be refused on the phone.
+            listOf(
+                """{"w":1722,"h":7421}""", """{"w":200,"h":14400}""", """{"w":595,"h":842}""",
+                """{"w":595,"h":14401}""", """{"w":199,"h":842}""", """{"w":0,"h":842}""",
+                """{"w":-595,"h":842}""", """{"w":595.5,"h":842}""",
+                // A quoted number is left out on purpose: both sides refuse a fractional page, but
+                // kotlinx accepts `"595"` for an Int where `format.js` does not -- and that gap is
+                // not about pages (a quoted `x` on a rect diverges the same way), so it belongs to
+                // its own fix rather than to this list. See #316.
+            ).forEach { size ->
+                add(book(listOf(RECT), format = 1).replaceFirst(A4, """"size":$size"""))
+            }
         }
         val input = File.createTempFile("books", ".json").apply { deleteOnExit(); writeText(JsonArray(cases.map(::JsonPrimitive)).toString()) }
         val script = """
@@ -345,6 +359,8 @@ class BookFormat2Test {
 
     /** A row of 150 leaves: one use of it expands to 300 items. */
     private fun rows() = """{"leaf":{"items":[$RECT]},"row":{"items":[${List(150) { use("leaf") }.joinToString(",")}]}}"""
+
+    private val A4 = """"size":{"w":595,"h":842}"""
 
     private fun book(
         items: List<String>,

@@ -652,7 +652,9 @@ export function createBook({ shell, hooks }) {
     setBusy(true, 'Making your book…');
     try {
       const pages = [...preview.querySelectorAll('svg')].map((svg) => svg.outerHTML);
-      const result = await shell.book.save({ fileName: session.book.fileName, pages });
+      // The book's own page box, which the main process turns into `@page` (#313). Sent rather than
+      // assumed A4: the chart template sizes its page to the family.
+      const result = await shell.book.save({ fileName: session.book.fileName, pages, size: session.book.size });
       if (result?.canceled) return;
       if (!result?.path) {
         status.textContent = result?.error || 'That book could not be saved.';

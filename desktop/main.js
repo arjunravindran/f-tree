@@ -357,6 +357,37 @@ function maxTemplateFormat() {
 }
 
 /**
+ * What a book's page size may be, read out of `format.js` the same way (#313).
+ *
+ * The main process checks this itself rather than trusting the number the renderer sends: the page
+ * box goes straight into the CSS this process writes, and a size that is not two sane whole numbers
+ * would be a print no reader could open. Unreadable means A4 only -- fail closed, which keeps every
+ * book that has ever existed printable and refuses only the chart.
+ */
+function pageBounds() {
+  try {
+    const source = require('node:fs').readFileSync(path.join(BOOK_DIR, 'format.js'), 'utf8');
+    const of = (name) => Number(source.match(new RegExp(`export const ${name} = (\\d+)`))?.[1]);
+    const min = of('MIN_PAGE');
+    const max = of('MAX_PAGE');
+    return Number.isSafeInteger(min) && Number.isSafeInteger(max) && min <= max ? { min, max } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Everything wrong with a page size, or an empty list. `format.js`'s `pageSizeProblems`. */
+function pageSizeProblems(size) {
+  const { min, max } = pageBounds() ?? { min: 595, max: 842 };
+  if (!size || typeof size !== 'object') return ['no page size'];
+  return [['width', size.w], ['height', size.h]].map(([which, n]) => {
+    if (!Number.isSafeInteger(n)) return `page ${which} ${n} is not a whole number of points`;
+    if (n < min || n > max) return `page ${which} ${n} is outside ${min}..${max} points`;
+    return null;
+  }).filter(Boolean);
+}
+
+/**
  * Templates that arrive by download, wired to the updater's own request and its own download, so
  * `net.request` in this file is still the only way this app touches the network.
  *
@@ -1280,7 +1311,7 @@ ipcMain.handle('tree:last', async () => {
  * well is what makes an unpackaged run behave like a packaged one: without it, `npm start` and the
  * smoke harness would read the repository's own copy and quietly show a template no reader has.
  */
-const BY_DOWNLOAD = new Set(['heirloom']);
+const BY_DOWNLOAD = new Set(['heirloom', 'diwali']);
 
 /*
  * The templates and the policy, handed across once as data (#207). The page composes the book
@@ -1368,8 +1399,19 @@ ipcMain.handle('book:templateRemove', async (_event, id) => {
  * partition string, so there is no second call to make here. This window renders a template's own
  * art and a family's own names, and that is precisely the content `refuseTheNetwork` exists for.
  */
-async function printBookToPdf(pages) {
+async function printBookToPdf(pages, size) {
   const fontFaces = (await bookFontFiles()).map(fontFace).join('');
+
+  /*
+   * The page box is the book's own, not A4 (#313). Almost every book is still 595x842, but the chart
+   * template sizes its page to the family, and `preferCSSPageSize` is already on -- so `@page` is
+   * what Chromium emits, and hardcoding A4 here would have printed a chart scaled down to a sheet.
+   * Refused rather than guessed at: a renderer that sends no size is a bug in the page, and silently
+   * falling back to A4 is how that bug would have reached a reader's PDF instead of a test.
+   */
+  const problems = pageSizeProblems(size);
+  if (problems.length) throw new Error(`this book cannot be printed: ${problems.join('; ')}`);
+  const { w, h } = size;
 
   /*
    * One rule each for the page box, the break between pages, and the one page that must not get a
@@ -1380,11 +1422,11 @@ async function printBookToPdf(pages) {
   // them: no script, no request - fonts and photographs arrive as data: URLs or not at all.
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'"><style>
 ${fontFaces}
-@page { size: 595pt 842pt; margin: 0; }
+@page { size: ${w}pt ${h}pt; margin: 0; }
 html, body { margin: 0; }
-.page { width: 595pt; height: 842pt; overflow: hidden; break-after: page; }
+.page { width: ${w}pt; height: ${h}pt; overflow: hidden; break-after: page; }
 .page:last-child { break-after: auto; }
-.page svg { display: block; width: 595pt; height: 842pt; }
+.page svg { display: block; width: ${w}pt; height: ${h}pt; }
 </style></head><body>${pages.map((svg) => `<div class="page">${svg}</div>`).join('')}</body></html>`;
 
   const tempFile = path.join(app.getPath('temp'), `ftree-book-${crypto.randomUUID()}.html`);
@@ -1438,7 +1480,7 @@ html, body { margin: 0; }
  * it rather than a second temp-then-rename implementation is the point, not a shortcut: the crash
  * safety only has to be gotten right once.
  */
-ipcMain.handle('book:save', async (event, { fileName, pages } = {}) => {
+ipcMain.handle('book:save', async (event, { fileName, pages, size } = {}) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!Array.isArray(pages) || !pages.length || typeof fileName !== 'string' || !fileName.trim()) {
     return { error: 'That book has nothing in it to save.' };
@@ -1460,7 +1502,7 @@ ipcMain.handle('book:save', async (event, { fileName, pages } = {}) => {
   }
 
   try {
-    const pdf = await printBookToPdf(pages);
+    const pdf = await printBookToPdf(pages, size);
     await writeTreeFile(target, pdf);
     savedBooks.add(target);
     return { path: target };
@@ -3477,11 +3519,13 @@ async function runTemplatesSmoke(win, check) {
   check('and this app trusts no catalogue it has not been given', store.verified() === null);
 
   /*
-   * The one thing only a real build can show: Heirloom is not in this release.
+   * The one thing only a real build can show: the designed templates are not in this release.
    *
    * The chips themselves are `runBookSmoke`'s subject -- it opens the dialog and asserts every
-   * shipped template previews -- so this asserts what it cannot: that the file is genuinely gone,
-   * which is what turns Heirloom into a download rather than a book that was quietly still there.
+   * shipped template previews -- so this asserts what it cannot: that the files are genuinely gone,
+   * which is what turns Heirloom and the storybook into downloads rather than books that were
+   * quietly still there. The chart is asserted with them, because a release that handed the dialog
+   * nothing would pass every "not there" check on this list.
    */
   const handed = await win.webContents.executeJavaScript(
     'window.ftreeDesktop.book.assets().then((a) => JSON.stringify({'
@@ -3489,10 +3533,11 @@ async function runTemplatesSmoke(win, check) {
     + ' listed: (a.catalog?.templates ?? []).map((t) => t.id) }))',
   ).then(JSON.parse);
 
-  check('the app hands the dialog the storybook', handed.ids.includes('diwali'), handed.ids.join(', '));
-  check('and not Heirloom, which arrives by download now', !handed.ids.includes('heirloom'));
-  check('while the catalogue still lists it, so it can be offered',
-    handed.listed.includes('heirloom'), handed.listed.join(', '));
+  check('the app hands the dialog the chart', handed.ids.includes('chart'), handed.ids.join(', '));
+  check('and neither Heirloom nor the storybook, which arrive by download now',
+    !handed.ids.includes('heirloom') && !handed.ids.includes('diwali'), handed.ids.join(', '));
+  check('while the catalogue still lists them, so they can be offered',
+    handed.listed.includes('heirloom') && handed.listed.includes('diwali'), handed.listed.join(', '));
   check('and nothing is offered for download until a catalogue is trusted',
     handed.available.length === 0, String(handed.available.length));
 }
@@ -3549,34 +3594,35 @@ async function runBookSmoke(win, check) {
     JSON.stringify({ chips: opened?.templates, covers: opened?.covers, offers: opened?.offers }));
 
   /*
-   * #260: switch to the storybook, so everything below smokes the template that actually ships it.
+   * #260, #314: switch to the template this release actually carries, so everything below smokes it.
    *
-   * The dialog opens on whatever `BookCatalog.opening()` picks, and Diwali is the featured template
-   * only inside its own season (2026-10-18 to 11-15, catalog.json) -- so outside that window this
-   * whole pass used to run against Heirloom, and the storybook's PDF was never written by the
-   * desktop shell at all. Selected by NAME rather than by waiting for the season, so this test says
-   * the same thing on either side of the date.
+   * That was the storybook until #314 moved it onto the download path, and it is the chart now. The
+   * reasoning has not changed, only the answer: the dialog opens on whatever `BookCatalog.opening()`
+   * picks, which is season-dependent, so the template is chosen by NAME and this pass says the same
+   * thing on either side of a date. The storybook is no longer in the package, so a packaged smoke
+   * cannot compose it at all - `FTREE_SMOKE_TEMPLATES` covers its download instead, and the Android
+   * instrumented tests still draw its PDF from their own assets.
    *
-   * It is also the harder book by every measure below: format 2, so the PDF carries symbols and
-   * clipped groups, with far more vector art per page than Heirloom's grid of portraits.
+   * The chart is the harder case for the part of the path this pass is about: it is the one book
+   * whose page is not A4 (#313), so it exercises `printBookToPdf`'s page box, Chromium's
+   * `preferCSSPageSize` and the save that follows, none of which a sheet would have tested.
    */
   const picked = await page(() => {
     const chip = [...document.querySelectorAll('#book-templates .book-template-chip')]
-      .find((b) => b.querySelector('.book-template-name')?.textContent.trim() === 'Diwali');
+      .find((b) => b.querySelector('.book-template-name')?.textContent.trim() === 'Family chart');
     if (!chip) return null;
     chip.click();
     return true;
   });
-  check('the storybook template can be chosen by name', Boolean(picked), String(picked));
+  check('the chart template can be chosen by name', Boolean(picked), String(picked));
   // The chip triggers a recompose; save re-enables only once one that started after it has landed.
-  const storybook = await waitFor(() => {
+  const chart = await waitFor(() => {
     const save = document.getElementById('book-save');
     if (save.disabled) return false;
-    const hint = document.getElementById('book-story-hint');
-    return { pages: document.querySelectorAll('#book-preview svg').length, hintHidden: Boolean(hint?.hidden) };
+    return { pages: document.querySelectorAll('#book-preview svg').length };
   }, { timeoutMs: 20_000 });
-  check('the storybook composes in the desktop shell, and offers "whose story" rather than explaining itself away',
-    (storybook?.pages ?? 0) > 0 && storybook?.hintHidden === true, JSON.stringify(storybook));
+  check('the chart composes in the desktop shell, on the one page it promises',
+    chart?.pages === 1, JSON.stringify(chart));
 
   /*
    * A Devanagari title, before anything is saved: the composer's own tests already hold Devanagari

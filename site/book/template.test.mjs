@@ -144,8 +144,12 @@ test('a font role missing, or not one of the release\'s files, is refused', () =
   assert.throws(() => validateTemplate(papercutTemplate({ fonts: { ...papercutTemplate().fonts, hand: 'book_display' } })), /font for "hand" must be one of book_hand/);
 });
 
-test('a format this app does not know, newer than 1 or 2, is refused before any key is looked at', () => {
-  assert.throws(() => validateTemplate({ format: 3, id: 'x' }), /format 3 - this app reads format 1 or 2/);
+test('a format this app does not know is refused before any key is looked at', () => {
+  // 4, because 3 is the chart's now (#315). The point of the test is the order: the format is read
+  // first, so a template from a newer release is refused for being newer rather than for whichever
+  // key happens to look wrong to a validator that was never meant to read it.
+  assert.throws(() => validateTemplate({ format: 4, id: 'x' }), /format 4 - this app reads formats 1, 2 and 3/);
+  assert.throws(() => validateTemplate({ format: 0, id: 'x' }), /this app reads formats 1, 2 and 3/);
 });
 
 test('a format-1 document draws a format-2 storybook, rather than being refused by name', async () => {

@@ -16,6 +16,7 @@ import { resolveFeatured } from './story/featured.js';
 import { kinOf } from './story/kin.js';
 import { planStory, VARIANTS } from './story/plan.js';
 import { PAGES } from './story/pages/index.js';
+import { chartBook } from './chart.js';
 import { artFor } from './art/index.js';
 import { cover } from './blocks/cover.js';
 import { treePage } from './blocks/tree.js';
@@ -102,7 +103,7 @@ const STORY_ARCHETYPES = Object.freeze(Object.keys(VARIANTS));
  * `drawable` rather than matching the error text, so it picks the storybook up the same day.
  */
 export const missingArchetypes = (pages = PAGES) => STORY_ARCHETYPES.filter((a) => !pages[a]);
-export const DRAWABLE_FORMATS = Object.freeze(missingArchetypes().length ? [1] : [1, 2]);
+export const DRAWABLE_FORMATS = Object.freeze(missingArchetypes().length ? [1, 3] : [1, 2, 3]);
 export const drawable = (template) => DRAWABLE_FORMATS.includes(validateTemplate(template).format);
 
 function compose(doc, options, template, allowance, rec, archetypes = PAGES) {
@@ -113,6 +114,12 @@ function compose(doc, options, template, allowance, rec, archetypes = PAGES) {
   const family = readFamily(doc, options, allowance);
   const ctx = context(family, options, tpl, allowance, { year: Number(now[1]), month: Number(now[2]) }, rec);
   if (tpl.format === 2) return storyBook(ctx, options, archetypes);
+  // The chart is one page the size of the family (chart.js), so it is the one composer path that
+  // tells finishBook what size that page is instead of taking A4 (#313, #315).
+  if (tpl.format === 3) {
+    const chart = chartBook(ctx);
+    return finishBook(ctx, options, chart.pages, undefined, chart.size);
+  }
   const pages = [];
   for (const name of pageBlocks(tpl, options)) {
     for (const page of BLOCKS[name](ctx, pages.length + 1)) {
@@ -131,12 +138,12 @@ function compose(doc, options, template, allowance, rec, archetypes = PAGES) {
  * release before that. `symbols` is left out entirely when the book placed no art, because a book
  * never carries an empty symbols map (docs/family-book.md).
  */
-function finishBook(ctx, options, pages, symbols) {
+function finishBook(ctx, options, pages, symbols, size = PAGE) {
   const book = {
     template: ctx.tpl.id,
     title: ctx.family.title,
     fileName: fileName(ctx.family.title, ctx.tpl),
-    size: { ...PAGE },
+    size: { ...size },
     fonts: { ...ctx.tpl.fonts },
     defs: ctx.defs,
     ...(symbols ? { symbols } : {}),

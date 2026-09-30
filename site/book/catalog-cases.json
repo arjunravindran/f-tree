@@ -90,6 +90,52 @@
       }
     },
     {
+      "name": "a reader that draws format 3 is offered the chart, and opens on it out of season",
+      "catalog": "shipped",
+      "today": "2026-09-15",
+      "supported": 3,
+      "expect": {
+        "listed": [
+          "chart",
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "chart"
+      }
+    },
+    {
+      "name": "in season the festival still comes first, and the chart keeps its place behind it",
+      "catalog": "shipped",
+      "today": "2026-10-18",
+      "supported": 3,
+      "expect": {
+        "listed": [
+          "diwali",
+          "chart",
+          "heirloom"
+        ],
+        "featured": [
+          "diwali"
+        ],
+        "opening": "diwali"
+      }
+    },
+    {
+      "name": "a release from before the chart skips its row instead of offering a page it cannot size",
+      "catalog": "shipped",
+      "today": "2026-09-15",
+      "supported": 2,
+      "expect": {
+        "listed": [
+          "heirloom",
+          "diwali"
+        ],
+        "featured": [],
+        "opening": "heirloom"
+      }
+    },
+    {
       "name": "a window may cross the new year",
       "catalog": {
         "format": 1,

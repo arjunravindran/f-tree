@@ -257,9 +257,9 @@ try {
   mkdirSync(path.join(out, 'books'), { recursive: true });
   for (const [name, book] of samples) {
     writeFileSync(path.join(out, 'books', `${name.replace(':', '-')}.json`), JSON.stringify(book));
-    const full = (await printPdf(browser, svgsOf(book))).length;
+    const full = (await printPdf(browser, svgsOf(book), book.size)).length;
     const bare = { ...book, pages: book.pages.map((p) => ({ ...p, items: textOnly(p.items) })) };
-    const text = (await printPdf(browser, svgsOf(bare))).length;
+    const text = (await printPdf(browser, svgsOf(bare), bare.size)).length;
     rows.push({ name, pdf: full, textOnly: text, artPdf: full - text, ...artStats(book), json: JSON.stringify(book).length });
   }
 
@@ -282,7 +282,7 @@ try {
 
   const story = bookOf('storybook-density', STORY.map((f, i) => [`${f} ${i + 1}`, frames[f]]));
   writeFileSync(path.join(out, 'books', 'storybook-density.json'), JSON.stringify(story));
-  const storyPdf = (await printPdf(browser, svgsOf(story))).length;
+  const storyPdf = (await printPdf(browser, svgsOf(story), story.size)).length;
   const storyArt = artStats(story);
   const result = {
     chromium: browser.version(),

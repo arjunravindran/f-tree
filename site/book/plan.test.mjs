@@ -376,7 +376,7 @@ test('compose.js routes a format-2 template through the planner and now draws it
   // draws the storybook, and `DRAWABLE_FORMATS` flips with it - which is what lets the invariant
   // suite and the catalogue carry a format-2 template at all.
   assert.deepEqual(missingArchetypes(), []);
-  assert.deepEqual([...DRAWABLE_FORMATS], [1, 2]);
+  assert.deepEqual([...DRAWABLE_FORMATS], [1, 2, 3], 'the chart (#315) joined the two books');
   const book = composeBook(doc, { now: NOW, featured: 'f' }, TEMPLATE);
   assert.equal(book.format, 2);
   assert.equal(book.pages.length, 25);
