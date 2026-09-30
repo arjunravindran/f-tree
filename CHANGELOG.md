@@ -10,6 +10,19 @@ betas leading up to a stable release are folded into that release's entry here.
 
 ## [Unreleased]
 
+## [1.0.0](https://github.com/thisisankit27/f-tree/releases/tag/v1.0.0) — 2026-09-30
+
+**The first stable release.** Everything below arrived through the 0.9, 0.10 and 0.11 betas and is
+folded in here; nothing in it is new on the day. Desktop reaches 1.0.0 alongside it, and the two
+version lines are the same number from here on.
+
+What f-tree is, now that it is finished enough to say so: a family tree that lives in one file you
+own. It never touches the network unless you ask it to — no account, no server, no telemetry — and
+the file it writes is a documented archive you can read without this app. It runs on Android and on
+Linux, Windows and macOS, draws your family three ways on screen, makes a PDF book of it, tells you
+whose birthday is coming, and hands a tree to another device in the room without either of them
+going online.
+
 **A plain family tree you can zoom into, and the storybook now arrives by download (#312).**
 
 - **A new Family chart template.** The family tree itself, as a PDF: generations as columns, a card
