@@ -173,6 +173,9 @@ export function peoplePerPage({ report }) {
  *     pages, plus the register at 48 a page (docs/storybook-plan.md).
  */
 export function pageBounds(format, n, { named = true } = {}) {
+  // The chart is one page, whatever the family (#315). Not a range, because there is nothing in it
+  // that could flow onto a second page: it grows the page instead.
+  if (format === 3) return [1, 1];
   if (format === 1) return [5, 5 + Math.ceil(n / 10) + Math.ceil(n / 100)];
   if (n === 0) return [3, 4];
   // A register page holds at most DENSITY.register - 1 people once its own heading is counted (it
@@ -187,10 +190,19 @@ export function pageBounds(format, n, { named = true } = {}) {
  * @param options the same composition options the book was made with (`composeBook`'s second
  *                argument) - `resolveFeatured` needs them to tell a book that really has nobody to
  *                feature from one that was simply never given a `featured` id
+ * @param tpl     the template the book was composed from, when the caller has it: how many pages to
+ *                expect is a property of the template's shape, not of the book's drawing format
  */
-export function pageCount({ book, scope, family, options = {} }) {
+export function pageCount({ book, tpl, scope, family, options = {} }) {
   const named = !family || resolveFeatured(family, options) !== null;
-  const [lo, hi] = pageBounds(book.format, scope.size, { named });
+  /*
+   * The *template's* format, where the caller knows it, and the book's otherwise.
+   *
+   * The two are different questions on purpose (docs/family-book.md): a book's format is which
+   * drawing vocabulary it needs, and the chart needs nothing newer than format 1, so its book says
+   * 1. How many pages to expect follows from the template's shape instead.
+   */
+  const [lo, hi] = pageBounds(tpl?.format ?? book.format, scope.size, { named });
   const n = book.pages.length;
   return n < lo || n > hi ? [`${n} pages for ${scope.size} people, outside ${lo}-${hi}`] : [];
 }

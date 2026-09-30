@@ -23,6 +23,16 @@ export const TEMPLATE_FORMAT = 1;
 export const FORMAT_PAPERCUT = 2;
 
 /**
+ * The chart's template format (#315): a third schema, and the smallest of them.
+ *
+ * The other two describe books - pages in an order, art, copy. A chart has none of that to choose:
+ * it is the family tree on one page the size of the family, so all a template can say is which two
+ * faces to set it in and which five colours to draw it with. No `pages` key, because there is one
+ * page and its order is not a decision; no cover copy, because there is no cover.
+ */
+export const FORMAT_CHART = 3;
+
+/**
  * The highest template format this app can draw, which is what the catalogue filters on
  * (`catalog.js`'s `available`) - not the same question as `TEMPLATE_FORMAT`, which is format 1's
  * own schema version and is what `validateTemplate` holds a format-1 template to.
@@ -33,7 +43,7 @@ export const FORMAT_PAPERCUT = 2;
  * different questions and now have different names. `BookCatalog.MAX_TEMPLATE_FORMAT` mirrors this
  * one, and `BookCatalogTest` reads this line out of this file to hold the two together.
  */
-export const MAX_TEMPLATE_FORMAT = 2;
+export const MAX_TEMPLATE_FORMAT = 3;
 
 export const BLOCKS = ['cover', 'tree', 'numbers', 'generations', 'find', 'closing'];
 
@@ -126,6 +136,16 @@ const COVER = new Set(['motif', 'greeting', 'subtitle', 'line', 'ornaments']);
 const ORNAMENTS = ['lanterns', 'rangoli'];
 
 const TOP_PAPERCUT = new Set(['format', 'id', 'name', 'fileSuffix', 'art', 'fonts', 'palette', 'cover', 'story', 'copy']);
+const TOP_CHART = new Set(['format', 'id', 'name', 'fileSuffix', 'fonts', 'palette']);
+/** The chart's two roles: names are set in `strong`, everything quieter in `text`. */
+const CHART_ROLES = ['text', 'strong'];
+/*
+ * Five colours, and each is load-bearing rather than a taste: the page, the cards on it so a name
+ * is legible where a connector runs behind it, the connectors and card edges, the names, and the
+ * quiet text - years, the title - with `aged` the one distinction the chart draws, a departed
+ * person's years from a living one's.
+ */
+export const CHART_PALETTE_KEYS = ['paper', 'card', 'line', 'ink', 'inkSoft', 'aged'];
 const COVER_PAPERCUT = new Set(['greeting', 'subtitle', 'line']);
 
 function fail(msg) {
@@ -167,7 +187,8 @@ function copyPlural(v, max, what) {
 export function validateTemplate(t) {
   if (!t || typeof t !== 'object' || Array.isArray(t)) fail('not an object');
   if (t.format === FORMAT_PAPERCUT) return validatePapercutTemplate(t);
-  if (t.format !== TEMPLATE_FORMAT) fail(`format ${t.format} - this app reads format ${TEMPLATE_FORMAT} or ${FORMAT_PAPERCUT}`);
+  if (t.format === FORMAT_CHART) return validateChartTemplate(t);
+  if (t.format !== TEMPLATE_FORMAT) fail(`format ${t.format} - this app reads formats ${TEMPLATE_FORMAT}, ${FORMAT_PAPERCUT} and ${FORMAT_CHART}`);
   for (const k of Object.keys(t)) if (!TOP.has(k)) fail(`unknown key "${k}"`);
   if (typeof t.id !== 'string' || !ID.test(t.id)) fail('id must be lower-case letters, digits and hyphens');
   const name = plainText(t.name, 40, 'name');
@@ -217,6 +238,38 @@ export function validateTemplate(t) {
  * an unknown key, a bad colour, a missing palette token or required chapter, an unknown
  * placeholder - the same posture format 1 keeps.
  */
+/*
+ * The chart's template (#315), and the shortest validator here by some way.
+ *
+ * Strict in exactly the same way as the other two - unknown keys refused, colours `#rrggbb` only,
+ * the name plain text - and it simply has less to be strict about. A chart cannot choose its pages,
+ * its art or a word of its copy, because it has none of those: what it draws is the family, and the
+ * only thing a template decides is how that family looks on paper.
+ */
+function validateChartTemplate(t) {
+  for (const k of Object.keys(t)) if (!TOP_CHART.has(k)) fail(`unknown key "${k}"`);
+  if (typeof t.id !== 'string' || !ID.test(t.id)) fail('id must be lower-case letters, digits and hyphens');
+  const name = plainText(t.name, 40, 'name');
+
+  const fonts = {};
+  for (const role of CHART_ROLES) {
+    if (!ROLE_FONT_KEYS.includes(t.fonts?.[role])) fail(`font for "${role}" must be one of ${ROLE_FONT_KEYS.join(', ')}`);
+    fonts[role] = t.fonts[role];
+  }
+  for (const k of Object.keys(t.fonts ?? {})) if (!CHART_ROLES.includes(k)) fail(`unknown font role "${k}"`);
+
+  const palette = {};
+  for (const k of CHART_PALETTE_KEYS) {
+    const v = t.palette?.[k];
+    if (typeof v !== 'string' || !COLOUR.test(v)) fail(`palette.${k} must be a #rrggbb colour`);
+    palette[k] = v;
+  }
+  for (const k of Object.keys(t.palette ?? {})) if (!CHART_PALETTE_KEYS.includes(k)) fail(`unknown palette key "${k}"`);
+
+  const fileSuffix = t.fileSuffix === undefined ? 'Chart' : plainText(t.fileSuffix, 20, 'fileSuffix');
+  return Object.freeze({ format: FORMAT_CHART, id: t.id, name, fileSuffix, fonts, palette });
+}
+
 function validatePapercutTemplate(t) {
   for (const k of Object.keys(t)) if (!TOP_PAPERCUT.has(k)) fail(`unknown key "${k}"`);
   if (typeof t.id !== 'string' || !ID.test(t.id)) fail('id must be lower-case letters, digits and hyphens');

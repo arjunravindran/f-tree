@@ -34,7 +34,7 @@ object BookCatalog {
      * together. Not format 1's schema version (`TEMPLATE_FORMAT` there); the two were one constant
      * until #259 and are different questions.
      */
-    const val MAX_TEMPLATE_FORMAT = 2
+    const val MAX_TEMPLATE_FORMAT = 3
 
     data class Entry(val id: String, val name: String, val format: Int, val tier: String, val featured: List<Pair<String, String>>)
 
