@@ -3594,34 +3594,35 @@ async function runBookSmoke(win, check) {
     JSON.stringify({ chips: opened?.templates, covers: opened?.covers, offers: opened?.offers }));
 
   /*
-   * #260: switch to the storybook, so everything below smokes the template that actually ships it.
+   * #260, #314: switch to the template this release actually carries, so everything below smokes it.
    *
-   * The dialog opens on whatever `BookCatalog.opening()` picks, and Diwali is the featured template
-   * only inside its own season (2026-10-18 to 11-15, catalog.json) -- so outside that window this
-   * whole pass used to run against Heirloom, and the storybook's PDF was never written by the
-   * desktop shell at all. Selected by NAME rather than by waiting for the season, so this test says
-   * the same thing on either side of the date.
+   * That was the storybook until #314 moved it onto the download path, and it is the chart now. The
+   * reasoning has not changed, only the answer: the dialog opens on whatever `BookCatalog.opening()`
+   * picks, which is season-dependent, so the template is chosen by NAME and this pass says the same
+   * thing on either side of a date. The storybook is no longer in the package, so a packaged smoke
+   * cannot compose it at all - `FTREE_SMOKE_TEMPLATES` covers its download instead, and the Android
+   * instrumented tests still draw its PDF from their own assets.
    *
-   * It is also the harder book by every measure below: format 2, so the PDF carries symbols and
-   * clipped groups, with far more vector art per page than Heirloom's grid of portraits.
+   * The chart is the harder case for the part of the path this pass is about: it is the one book
+   * whose page is not A4 (#313), so it exercises `printBookToPdf`'s page box, Chromium's
+   * `preferCSSPageSize` and the save that follows, none of which a sheet would have tested.
    */
   const picked = await page(() => {
     const chip = [...document.querySelectorAll('#book-templates .book-template-chip')]
-      .find((b) => b.querySelector('.book-template-name')?.textContent.trim() === 'Diwali');
+      .find((b) => b.querySelector('.book-template-name')?.textContent.trim() === 'Family chart');
     if (!chip) return null;
     chip.click();
     return true;
   });
-  check('the storybook template can be chosen by name', Boolean(picked), String(picked));
+  check('the chart template can be chosen by name', Boolean(picked), String(picked));
   // The chip triggers a recompose; save re-enables only once one that started after it has landed.
-  const storybook = await waitFor(() => {
+  const chart = await waitFor(() => {
     const save = document.getElementById('book-save');
     if (save.disabled) return false;
-    const hint = document.getElementById('book-story-hint');
-    return { pages: document.querySelectorAll('#book-preview svg').length, hintHidden: Boolean(hint?.hidden) };
+    return { pages: document.querySelectorAll('#book-preview svg').length };
   }, { timeoutMs: 20_000 });
-  check('the storybook composes in the desktop shell, and offers "whose story" rather than explaining itself away',
-    (storybook?.pages ?? 0) > 0 && storybook?.hintHidden === true, JSON.stringify(storybook));
+  check('the chart composes in the desktop shell, on the one page it promises',
+    chart?.pages === 1, JSON.stringify(chart));
 
   /*
    * A Devanagari title, before anything is saved: the composer's own tests already hold Devanagari
