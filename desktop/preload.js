@@ -145,6 +145,11 @@ contextBridge.exposeInMainWorld('ftreeDesktop', {
      * teaching the renderer a second way to reach the filesystem.
      */
     assets: () => ipcRenderer.invoke('book:assets'),
+    /* Templates that arrive by download (#214). Each one is a deliberate act by the reader: the
+     * dialog asks for a refresh when it opens the picker, and for a fetch only on a tap. */
+    templateRefresh: () => ipcRenderer.invoke('book:templateRefresh'),
+    templateFetch: (id) => ipcRenderer.invoke('book:templateFetch', id),
+    templateRemove: (id) => ipcRenderer.invoke('book:templateRemove', id),
     /**
      * Prints the given pages -- already-fitted SVG, outerHTML, photographs already as `data:`
      * URLs -- to a PDF the reader chooses where to save. `{ path }`, or `{ canceled: true }`, or

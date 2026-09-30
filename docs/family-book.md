@@ -445,10 +445,21 @@ Turning the switch off stops the network; it does not take a downloaded book awa
 `heirloom.json`: `catalog.json` still lists it, the assets simply do not have it, and
 `BookTemplates` already skips a listed template whose file is absent - so it appears in the picker as
 a download and nothing else had to change, not the catalogue, not the seasons, not the policy tiers.
-An install that takes that beta keeps Diwali and fetches Heirloom if it wants it. **The desktop still
-ships both**: it packages `site/` directly and has no download path, which is a deliberate non-goal,
-so the two shells carry different templates from that release on. The excluded list is one line in
-`app/build.gradle.kts`'s `bookEngine`.
+An install that takes that beta keeps Diwali and fetches Heirloom if it wants it. The excluded list is
+one line in `app/build.gradle.kts`'s `bookEngine`.
+
+**Both shells, one catalogue.** The desktop does the same from desktop-v0.10.0-beta.1
+(`desktop/templates.js`), and reads the *same* signed file: one catalogue, one signature, one `seq`,
+published once as release assets and verified by both. Node has a P-256 verifier of its own, so the
+key in `desktop/main.js` is the key in `app/build.gradle.kts` - `book-packaging.test.js` fails if
+they ever drift. The desktop excludes Heirloom twice over, and both are needed: `build.extraResources`
+in `desktop/package.json` keeps the file out of the package, and `BY_DOWNLOAD` in `main.js` keeps an
+unpackaged run - `npm start`, the smoke harness - from quietly reading the repository's own copy and
+showing a template no reader has.
+
+The catalogue currently lives on an Android pre-release, so on both shells it reaches only readers
+who have asked for betas. That is a property of where it was published, not a rule: whichever release
+last carried `templates.json` is the one both shells read.
 
 **Publishing one.** The private key never enters the repository, and no placeholder key does either -
 with `TEMPLATE_PUBLIC_KEY` empty the feature is dormant and the switch is absent.

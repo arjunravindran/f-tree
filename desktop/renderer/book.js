@@ -159,6 +159,16 @@ export function createBook({ shell, hooks }) {
 
   let debounceTimer = null;
 
+  /**
+   * The covers last painted, and what each downloadable chip is doing (#214).
+   *
+   * Held here rather than in `session` because neither survives a book: a cover is recomputed with
+   * the book, and a chip that is fetching or explaining a refusal is doing so about the network,
+   * not about the tree.
+   */
+  let coversByTemplate = new Map();
+  const fetching = new Map();
+
   async function ensureAssets() {
     if (assets) return assets;
     const raw = await shell.book.assets();
@@ -166,16 +176,42 @@ export function createBook({ shell, hooks }) {
     assets = {
       catalog: readCatalog(raw?.catalog ?? null),
       files: new Map(files.map((t) => [t.id, t])),
+      // Which templates came from a download, and which could (#214). `available` is empty unless
+      // the switch is on, so a chip never offers a fetch that would be refused.
+      downloaded: new Set(Array.isArray(raw?.downloaded) ? raw.downloaded : []),
+      available: readCatalog({ format: 1, templates: Array.isArray(raw?.available) ? raw.available : [] }),
       policy: loadPolicy(raw?.policy ?? null),
     };
     return assets;
   }
 
-  /** The catalogue's list for `today` -- what is in season first -- limited to what this build carries. */
+  /** Reads the assets again, after a template arrived or a copy was removed. */
+  async function reloadAssets() {
+    assets = null;
+    await ensureAssets();
+    session.templates = offered(todayIso());
+    if (!session.templates.some((t) => t.id === session.options.templateId && t.template)) {
+      session.options.templateId = session.templates.find((t) => t.template)?.id ?? null;
+    }
+  }
+
+  /**
+   * The catalogue's list for `today` -- what is in season first -- carrying what this build has and
+   * what it could fetch.
+   *
+   * A template with no `template` is one the signed catalogue offers and this device does not have
+   * (#214): the chip offers the download instead of a book, and there is no cover to draw because
+   * there is no JSON to draw one from.
+   */
   function offered(today) {
-    return listing(assets.catalog, today)
+    const have = listing(assets.catalog, today)
       .filter((t) => assets.files.has(t.id))
-      .map((t) => ({ ...t, template: assets.files.get(t.id) }));
+      .map((t) => ({ ...t, template: assets.files.get(t.id), downloaded: assets.downloaded.has(t.id) }));
+    const ids = new Set(have.map((t) => t.id));
+    const toFetch = listing(assets.available, today)
+      .filter((t) => !ids.has(t.id))
+      .map((t) => ({ ...t, template: null, downloaded: false }));
+    return [...have, ...toFetch];
   }
 
   /* ---------------------------------------------------------------- painting */
@@ -315,18 +351,51 @@ export function createBook({ shell, hooks }) {
     storyHint.hidden = featuresPerson(entry?.template);
   }
 
-  /** The template chips, each with a mini cover painted from page 0 of that template's own book. */
+  /**
+   * The template chips, each with a mini cover painted from page 0 of that template's own book.
+   *
+   * A template the catalogue offers but this device does not have has no JSON, so it has no cover
+   * either (#214): the same frame carries the offer, then the wait, then a refusal if the file does
+   * not match what the signed catalogue vouched for. One chip, four conditions -- never four
+   * different things in a row.
+   */
   function paintTemplates(covers) {
     templatesBox.replaceChildren();
     for (const template of session.templates) {
+      const slot = document.createElement('div');
+      slot.className = 'book-template';
+
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'book-template-chip';
-      button.setAttribute('aria-pressed', String(template.id === session.options.templateId));
+      const selected = template.id === session.options.templateId && template.template;
+      if (template.template) button.setAttribute('aria-pressed', String(Boolean(selected)));
 
       const cover = document.createElement('span');
       cover.className = 'book-template-cover';
-      cover.innerHTML = covers.get(template.id) ?? '';
+      if (template.template) {
+        cover.innerHTML = covers.get(template.id) ?? '';
+      } else {
+        cover.classList.add('is-empty');
+        const state = fetching.get(template.id);
+        const note = document.createElement('span');
+        note.className = 'book-template-offer';
+        if (state === 'fetching') {
+          note.classList.add('is-working');
+          note.setAttribute('aria-label', `Downloading ${template.name}`);
+        } else if (state) {
+          note.classList.add('is-refused');
+          note.textContent = state;
+          // Two words is all a chip has room for; the sentence behind them belongs somewhere.
+          note.title = state === "Couldn't verify"
+            ? 'This file is not the one the signed list vouches for, so it was not kept. Try again.'
+            : 'The template could not be fetched. Nothing was kept. Try again.';
+        } else {
+          note.textContent = 'Download';
+        }
+        cover.append(note);
+        button.disabled = fetching.get(template.id) === 'fetching';
+      }
 
       const name = document.createElement('span');
       name.className = 'book-template-name';
@@ -341,12 +410,57 @@ export function createBook({ shell, hooks }) {
       }
 
       button.addEventListener('click', () => {
+        if (!template.template) {
+          fetchTemplate(template);
+          return;
+        }
         if (session.options.templateId === template.id) return;
         session.options.templateId = template.id;
         recompute();
       });
-      templatesBox.append(button);
+      slot.append(button);
+
+      // Only under the chosen one, so a row of chips is not a row of buttons. Removing a copy is
+      // about space and nothing else: the template stays listed and is offered again at once.
+      if (selected && template.downloaded) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'book-template-remove';
+        remove.textContent = 'Remove copy';
+        remove.addEventListener('click', async () => {
+          await shell.book.templateRemove(template.id);
+          await reloadAssets();
+          recompute();
+        });
+        slot.append(remove);
+      }
+
+      templatesBox.append(slot);
     }
+  }
+
+  /**
+   * Fetches one template, because the reader asked for that one.
+   *
+   * The only thing in this dialog that touches the network, and it takes a tap: opening the book,
+   * choosing a template and composing never ask GitHub anything.
+   */
+  async function fetchTemplate(template) {
+    if (fetching.get(template.id) === 'fetching') return;
+    fetching.set(template.id, 'fetching');
+    paintTemplates(coversByTemplate);
+    const result = await shell.book.templateFetch(template.id);
+    if (result?.ok) {
+      fetching.delete(template.id);
+      await reloadAssets();
+      session.options.templateId = template.id;
+      recompute();
+      return;
+    }
+    // Named for what the reader can act on: the file did not match what the catalogue vouched for,
+    // or it could not be fetched at all. Either way nothing was kept.
+    fetching.set(template.id, result?.reason === 'checksum' ? "Couldn't verify" : "Couldn't fetch");
+    paintTemplates(coversByTemplate);
   }
 
   async function paintPreview(book, photoUrls) {
@@ -412,8 +526,8 @@ export function createBook({ shell, hooks }) {
     if (token !== session.token) return;
 
     try {
-      const entry = session.templates.find((t) => t.id === session.options.templateId)
-        ?? session.templates[0];
+      const entry = session.templates.find((t) => t.id === session.options.templateId && t.template)
+        ?? session.templates.find((t) => t.template);
       if (!entry) throw new Error('no template shipped with this build');
       const { template } = entry;
 
@@ -496,6 +610,9 @@ export function createBook({ shell, hooks }) {
       const covers = new Map();
       const coverBaseOptions = coverOptions(baseOptions);
       for (const other of session.templates) {
+        // A template that has not been downloaded has no JSON to compose a cover from; its chip
+        // carries the offer to fetch it instead (#214).
+        if (!other.template) continue;
         try {
           const coverBook = other.id === entry.id
             ? book
@@ -512,6 +629,7 @@ export function createBook({ shell, hooks }) {
       session.photoUrls = photoUrls;
       session.error = null;
 
+      coversByTemplate = covers;
       paintTemplates(covers);
       paintDecision();
       await paintPreview(book, photoUrls);
@@ -577,7 +695,7 @@ export function createBook({ shell, hooks }) {
     session.templates = offered(todayIso());
     session.options = {
       ...DEFAULT_OPTIONS,
-      templateId: session.templates[0]?.id ?? null,
+      templateId: session.templates.find((t) => t.template)?.id ?? null,
       scopeKind: scopePersonId ? 'branch' : 'everyone',
     };
     session.error = null;

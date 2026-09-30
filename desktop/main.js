@@ -19,6 +19,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { chooseUpdate } = require('./update');
+const { createTemplates, MANIFEST_ASSET, SIGNATURE_ASSET } = require('./templates');
 const { writeTreeFile } = require('./atomic');
 const { backUpBefore, folderFor } = require('./backups');
 const { installationId } = require('./identity');
@@ -32,6 +33,7 @@ const {
   normalise: normaliseSettings,
   applyChange: applySettingChange,
   mayCheckForUpdates,
+  mayFetchTemplates,
   shouldOffer,
 } = require('./settings');
 
@@ -327,6 +329,54 @@ async function chooseInto(win) {
 
 const RELEASES_API = 'https://api.github.com/repos/thisisankit27/f-tree/releases?per_page=30';
 
+/*
+ * The one key that says which book templates this app will accept from that same place (#214): the
+ * public half of the P-256 keypair whose private half signs `templates.json`.
+ *
+ * The same key the Android app pins, deliberately and provably -- `book-packaging.test.js` fails if
+ * the two ever drift -- because both shells read one signed catalogue carrying one `seq`. Emptying
+ * this string turns the feature off here: no menu item, and nothing offered in the book dialog.
+ */
+const TEMPLATE_PUBLIC_KEY = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3CDF+rEzRC5k6kisDYGvyGEt355lK6GYlfZQdfH2a3DC3Ml2QVUrhTHzjZcaG2twNqJNdcEc66vTKxq6VjJwLw==';
+
+/**
+ * The highest template format the composer this release ships can draw.
+ *
+ * Read out of `template.js` rather than written down a second time, the way `BookCatalogTest` reads
+ * it on the Android side: the constant has exactly one home, and a release can never offer to fetch
+ * a book it would draw half-right. Unreadable means 1 -- fail closed, and a staging mistake that
+ * broke this would already have broken the composer.
+ */
+function maxTemplateFormat() {
+  try {
+    const source = require('node:fs').readFileSync(path.join(BOOK_DIR, 'template.js'), 'utf8');
+    return Number(source.match(/export const MAX_TEMPLATE_FORMAT = (\d+)/)?.[1]) || 1;
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * Templates that arrive by download, wired to the updater's own request and its own download, so
+ * `net.request` in this file is still the only way this app touches the network.
+ *
+ * Built once and lazily, because `app.getPath('userData')` cannot be asked before the app is ready.
+ */
+let templatesStore = null;
+function templates() {
+  if (!templatesStore) {
+    templatesStore = createTemplates({
+      directory: path.join(app.getPath('userData'), 'templates'),
+      settings: { get: (key) => settings[key], set: (key, value) => { changeSetting(key, value); } },
+      publicKey: TEMPLATE_PUBLIC_KEY,
+      fetchReleases,
+      download,
+      maxFormat: maxTemplateFormat(),
+    });
+  }
+  return templatesStore;
+}
+
 /**
  * Asks GitHub what exists.
  *
@@ -391,6 +441,13 @@ function download(url, into) {
  * including "you are up to date", because a question deserves one.
  */
 async function checkForUpdates(win, { quiet = false } = {}) {
+  /*
+   * The same button asks about templates (#214), because it is the same question to the same place.
+   * Refused on its own switch inside `refreshCatalogue`, deliberately not awaited before the update
+   * conversation, and it fetches the catalogue only -- never a template.
+   */
+  templates().refreshCatalogue().catch(() => {});
+
   let releases;
   try {
     releases = await fetchReleases();
@@ -656,6 +713,25 @@ function buildMenu(win) {
           type: 'checkbox',
           checked: settings.checkForUpdates,
           click: async (item) => { await changeSetting('checkForUpdates', item.checked, win); },
+        },
+        {
+          /*
+           * Gated on the check above, like betas, and for the same reason: it is the same request to
+           * the same place, and a reader who has not allowed this app to talk to GitHub has not
+           * allowed this either. Hidden entirely when no key is pinned, because the feature is then
+           * a switch that could only ever refuse.
+           */
+          label: 'Look for new book templates',
+          type: 'checkbox',
+          visible: TEMPLATE_PUBLIC_KEY !== '',
+          enabled: settings.checkForUpdates,
+          checked: settings.bookTemplates,
+          click: async (item) => {
+            await changeSetting('bookTemplates', item.checked, win);
+            // Turning it on is the consent to look, and looking means the catalogue - never a
+            // template. A template still takes a tap on that template, in the book dialog.
+            if (item.checked) await templates().refreshCatalogue();
+          },
         },
         {
           label: 'Offer me beta releases',
@@ -1197,6 +1273,16 @@ ipcMain.handle('tree:last', async () => {
 /* ------------------------------------------------------------------ the family book */
 
 /*
+ * Templates this release does not carry, because they arrive by download instead (#214).
+ *
+ * `catalog.json` still lists Heirloom -- that is what lets it be offered at all -- and the package
+ * simply does not include the file (see `build.extraResources` in package.json). Naming it here as
+ * well is what makes an unpackaged run behave like a packaged one: without it, `npm start` and the
+ * smoke harness would read the repository's own copy and quietly show a template no reader has.
+ */
+const BY_DOWNLOAD = new Set(['heirloom']);
+
+/*
  * The templates and the policy, handed across once as data (#207). The page composes the book
  * itself -- this is not an export the main process decides anything about -- so the only thing
  * asked of this side is what it alone can do: read a file the renderer cannot fetch.
@@ -1213,18 +1299,63 @@ ipcMain.handle('book:assets', async () => {
     // templates/<id>.json, and one whose file is missing is left out rather than failing the rest.
     const ids = (Array.isArray(catalog?.templates) ? catalog.templates : [])
       .map((t) => t?.id)
-      .filter((id) => typeof id === 'string' && /^[a-z][a-z0-9-]{1,31}$/.test(id));
-    const templates = (await Promise.all(ids.map((id) =>
+      .filter((id) => typeof id === 'string' && /^[a-z][a-z0-9-]{1,31}$/.test(id))
+      // Skipped even when the file is right there, which it is in a dev run: the packaging filter
+      // keeps these out of a release, and this keeps a dev run honest about what a reader sees.
+      .filter((id) => !BY_DOWNLOAD.has(id));
+    const shipped = (await Promise.all(ids.map((id) =>
       readJson(path.join(BOOK_DIR, 'templates', `${id}.json`)).catch(() => null)))).filter(Boolean);
-    return { catalog, templates, policy };
+
+    /*
+     * And what arrives by download (#214), which is why `catalog.json` still lists Heirloom while
+     * the package no longer carries the file: a listed template whose file is absent is simply left
+     * out above, and here it comes back as a copy this device fetched, or as an offer to fetch it.
+     *
+     * `cached()` re-verifies the signed catalogue and re-hashes every copy on disk, so nothing in
+     * userData is trusted for being there. `available` is what the page turns into a download chip,
+     * and it is empty while the switch is off -- a chip offering a fetch that would be refused is a
+     * dead end, not an offer.
+     */
+    const store = templates();
+    const cached = store.cached();
+    const have = new Set([...shipped.map((tmpl) => tmpl?.id), ...cached.map((c) => c.id)]);
+    const manifest = store.verified();
+    const available = mayFetchTemplates(settings) && manifest
+      ? manifest.entries.filter((entry) => !have.has(entry.id)).map((entry) => ({ ...entry }))
+      : [];
+
+    return {
+      catalog,
+      templates: [...shipped, ...cached.map((c) => c.template)],
+      // Which of those came from a download, so the dialog can offer to remove a copy without
+      // offering to remove something the release itself carries.
+      downloaded: cached.map((c) => c.id),
+      available,
+      policy,
+    };
   } catch (error) {
     // `decide()` treats a policy it cannot read as Allowed, not Locked (docs/premium.md) -- the
     // same principle applies here: a staging mistake must not quietly take the feature away, so an
     // empty catalogue is what the dialog sees, and it says so, rather than the page hanging on a
     // rejected promise it never expected.
     console.warn(`f-tree: could not read the book's templates or policy — ${error.message}`);
-    return { catalog: null, templates: [], policy: null };
+    return { catalog: null, templates: [], downloaded: [], available: [], policy: null };
   }
+});
+
+/*
+ * The three things the book dialog can ask about a downloaded template (#214).
+ *
+ * A refresh fetches the signed catalogue and nothing else; a template's own file is fetched only by
+ * `book:templateFetch`, which the dialog calls when the reader taps that chip; and removal frees
+ * the space without touching the catalogue, its signature or the `seq`, so the chip goes back to
+ * offering the download.
+ */
+ipcMain.handle('book:templateRefresh', async () => templates().refreshCatalogue());
+ipcMain.handle('book:templateFetch', async (_event, id) => templates().fetchTemplate(String(id)));
+ipcMain.handle('book:templateRemove', async (_event, id) => {
+  templates().remove(String(id));
+  return { ok: true };
 });
 
 /*
@@ -3300,6 +3431,72 @@ async function runNearbySmoke(win, check, fileToSend) {
  * save dialog cannot be driven from here, so the destination is supplied and `printToPDF` itself is
  * exercised for real.
  */
+/*
+ * Templates that arrive by download (#214), end to end, without the network.
+ *
+ * A catalogue signed by a keypair this function generates cannot be verified by the pinned key, so
+ * the harness asserts what it honestly can offline: that a catalogue this app does not trust is
+ * refused and changes nothing, and that the chip for a template the release no longer carries is
+ * the download offer rather than a book. The live path -- a real fetch from a real release -- is
+ * the one thing only a running release can prove, and it is checked by hand before a release goes
+ * out. What must never regress is that a check asks for the catalogue and nothing else.
+ */
+async function runTemplatesSmoke(win, check) {
+  console.log('\n  -- templates that arrive by download --');
+
+  const store = templates();
+  const asked = [];
+  const offline = createTemplates({
+    directory: path.join(app.getPath('userData'), 'templates-smoke'),
+    settings: { get: (key) => (key === 'bookTemplates' ? true : 0), set: () => {} },
+    publicKey: TEMPLATE_PUBLIC_KEY,
+    fetchReleases: async () => {
+      asked.push('releases');
+      return [{
+        tag_name: 'v0.0.0-smoke',
+        published_at: '2026-01-01T00:00:00Z',
+        assets: [MANIFEST_ASSET, SIGNATURE_ASSET, 'heirloom.json'].map((name) => ({
+          name, browser_download_url: `https://example.invalid/${name}`, size: 1,
+        })),
+      }];
+    },
+    download: async (url, into) => {
+      const name = url.slice(url.lastIndexOf('/') + 1);
+      asked.push(name);
+      // Signed by nobody this app trusts, which is the point: it must be refused, not rendered.
+      await fs.writeFile(into, name === SIGNATURE_ASSET ? 'bm90LWEtc2lnbmF0dXJl' : '{"format":1,"seq":9,"templates":[]}');
+    },
+  });
+
+  const refused = await offline.refreshCatalogue();
+  check('a catalogue this app cannot verify is refused',
+    refused.state === 'refused', JSON.stringify(refused));
+  check('and the check asked for the catalogue and its signature, and nothing else',
+    asked.join(',') === `releases,${MANIFEST_ASSET},${SIGNATURE_ASSET}`, asked.join(','));
+  check('a refused catalogue leaves nothing behind to trust', offline.verified() === null);
+  check('and this app trusts no catalogue it has not been given', store.verified() === null);
+
+  /*
+   * The one thing only a real build can show: Heirloom is not in this release.
+   *
+   * The chips themselves are `runBookSmoke`'s subject -- it opens the dialog and asserts every
+   * shipped template previews -- so this asserts what it cannot: that the file is genuinely gone,
+   * which is what turns Heirloom into a download rather than a book that was quietly still there.
+   */
+  const handed = await win.webContents.executeJavaScript(
+    'window.ftreeDesktop.book.assets().then((a) => JSON.stringify({'
+    + ' ids: a.templates.map((t) => t.id), available: a.available.map((t) => t.id),'
+    + ' listed: (a.catalog?.templates ?? []).map((t) => t.id) }))',
+  ).then(JSON.parse);
+
+  check('the app hands the dialog the storybook', handed.ids.includes('diwali'), handed.ids.join(', '));
+  check('and not Heirloom, which arrives by download now', !handed.ids.includes('heirloom'));
+  check('while the catalogue still lists it, so it can be offered',
+    handed.listed.includes('heirloom'), handed.listed.join(', '));
+  check('and nothing is offered for download until a catalogue is trusted',
+    handed.available.length === 0, String(handed.available.length));
+}
+
 async function runBookSmoke(win, check) {
   const page = (fn, ...args) => win.webContents.executeJavaScript(
     `(${fn.toString()})(${args.map((a) => JSON.stringify(a)).join(',')})`);
@@ -3332,12 +3529,24 @@ async function runBookSmoke(win, check) {
       open: dialog.open,
       pages,
       templates: document.querySelectorAll('#book-templates .book-template-chip').length,
+      // A chip with a cover is a template this build carries; one with an offer instead is a
+      // template it could fetch (#214). Counted apart, because the rule below is about the first.
+      covers: document.querySelectorAll('#book-templates .book-template-cover svg').length,
+      offers: document.querySelectorAll('#book-templates .book-template-offer').length,
     };
   }, { timeoutMs: 20_000 }); // the very first compose warms up every font and photograph at once
   check('the book dialog opens from the menu, with a live preview',
     Boolean(opened?.open) && opened?.pages > 0, JSON.stringify(opened));
+  /*
+   * Every template this build carries has a chip, and every one of those chips has a cover.
+   *
+   * Counted rather than compared to a number: until desktop-v0.10.0-beta.1 this asked for two or
+   * more, which was true only while every template shipped inside the app. Heirloom arrives by
+   * download now, so a fixed floor would fail for the right reason and read like the wrong one.
+   */
   check('every shipped template offers a chip with a mini cover',
-    (opened?.templates ?? 0) >= 2, String(opened?.templates ?? 0));
+    (opened?.covers ?? 0) > 0 && opened.covers + opened.offers === opened.templates,
+    JSON.stringify({ chips: opened?.templates, covers: opened?.covers, offers: opened?.offers }));
 
   /*
    * #260: switch to the storybook, so everything below smokes the template that actually ships it.
@@ -3770,6 +3979,11 @@ async function runSmoke(win, file) {
   if (process.env.FTREE_SMOKE_BOOK) {
     await reopenSample();
     await runBookSmoke(win, check);
+  }
+
+  if (process.env.FTREE_SMOKE_TEMPLATES) {
+    await reopenSample();
+    await runTemplatesSmoke(win, check);
   }
 
   // Last of the feature sections: it switches nearby sharing on, and the sections above were
