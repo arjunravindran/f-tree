@@ -28,6 +28,7 @@ the arriving file through the same review as a file picked out of a folder. See
 - [The QR code](#the-qr-code)
 - [Encryption](#encryption)
 - [The conversation](#the-conversation)
+- [Pairing](#pairing)
 - [When it goes wrong](#when-it-goes-wrong)
 - [Versions, and what a later release may change](#versions-and-what-a-later-release-may-change)
 - [Test vectors](#test-vectors)
@@ -252,8 +253,11 @@ Two traps, one per language, both of which have test vectors:
 0x21 END         encrypted   sender   -> receiver
 0x22 RESULT      encrypted   receiver -> sender
 0x30..0x3F       reserved for a later conversation
+0x40 IDENTITY    encrypted   either way, pairing only: see [Pairing](#pairing)
 0x7F ABORT       either
 ```
+
+`0x40` sits outside the reserved range, which stays set aside for merge sync.
 
 **An unrecognised type ends the connection; it is never skipped.** Skipping an unknown frame in an
 encrypted stream means consuming a sequence number whose meaning you do not know, which is exactly
@@ -616,6 +620,107 @@ One transfer at a time. A second connection is accepted only far enough to say `
 because a refusal somebody can read beats a hang they cannot. That cooldown, and the rule that no
 exponentiation happens until `HELLO` has validated, are what stop a stranger spending your battery
 on modular arithmetic.
+
+---
+
+## Pairing
+
+A second conversation on the same connection, used by Kutumb to let two people in the same room
+exchange public keys. It is the file transfer with the last half swapped out: HELLO, the key
+exchange and the six digits (or the scanned token) are unchanged, and where a sender would send an
+`OFFER` it sends one identity card. No file moves and nothing is saved by the protocol; the app asks
+the reader who the person is before anything is written.
+
+Roles are as for a transfer: the **sender** is the phone that connects (scanned or typed), the
+**receiver** is the phone showing the code. Which conversation it is, is decided locally — a pairing
+is started from the pairing screen, and neither side announces it.
+
+### The identity card
+
+`IDENTITY (0x40)`, encrypted like `OFFER`, with the same sequence rules.
+
+```
+off size field
+  0   32  publicKey   x-only BIP-340 public key
+ 32   64  signature   BIP-340 signature by that key
+                      total 96 bytes exactly
+```
+
+The signature covers this UTF-8 text, fields joined by a single `\n` and no trailing newline:
+
+```
+"ftree-kutumb/pair/1"
+<the six digits of this session, as shown>
+<role: "1" if the card is the sender's, "2" if the receiver's>
+<publicKey, 64 lowercase hex characters>
+```
+
+What each field is for:
+
+- The **six digits** make a card recorded from an earlier pairing fail in a new one.
+- The **role** stops one side's card being played back at its author as the other side's.
+- The **key** inside the signed text, with the signature check against that same key, is proof of
+  possession: nobody can present a key they do not hold, and so nobody can get a bystander's public
+  key registered under their own name.
+
+The signature adds no secrecy. The channel is already authenticated by the two people comparing
+digits (or by the token in the QR), and the card is encrypted under keys that comparison vouches for.
+
+A card is refused — `BAD_PAIRING` — if it is not exactly 96 bytes, if the signature does not verify
+for this session and the *other* side's role, or if its key is the receiver's own (pairing with
+oneself or with a clone of one's own key is never what anybody meant).
+
+### Order
+
+```
+sender                                      receiver
+  ...digits compared (sender confirms;
+     skipped when the QR token was used)
+  IDENTITY (sender's card)        ->        check the card
+                                            show "pair with <name>?" and wait
+                                  <-        IDENTITY (receiver's card)   only after yes
+  check the card; both sides finish
+```
+
+**The receiver confirms before it replies.** It verifies the sender's card on arrival, but sends
+nothing back until its person has said yes. Answering first would hand its key to anybody who could
+open a connection and sit through the digits. If the person says no, the receiver sends **no card**,
+only a `DECLINE` frame, and closes; the sender, waiting in `AWAITING_PEER_IDENTITY`, reports
+`DECLINED`. The receiver's person is given `USER_DECISION` (120 s), as for a transfer.
+
+Each side reports the peer's key to the application only when the exchange is complete on its side:
+the sender once the receiver's card verifies, the receiver as it sends its own.
+
+States added to the session machines in [The conversation](#the-conversation):
+
+```
+sender    AWAITING_PEER_IDENTITY   IDENTITY  -> check, report key       DONE
+                                   DECLINE                              FAILED (DECLINED)
+receiver  AWAITING_OFFER           IDENTITY  -> check, ask the person   AWAITING_USER
+          AWAITING_USER            accept    -> send own IDENTITY       DONE
+```
+
+### Unexpected frames
+
+A pairing is told apart from a transfer only by which frame arrives, and neither is allowed to be
+mistaken for the other.
+
+- A receiver that is **not pairing** does not know `IDENTITY` in `AWAITING_OFFER`; like any frame not
+  listed for a state it is `UNEXPECTED_MESSAGE` and the connection ends. A receiver that **is
+  pairing** likewise refuses an `OFFER`.
+- A **pairing sender** in `AWAITING_PEER_IDENTITY` accepts only `IDENTITY` or `DECLINE`; a
+  **transfer sender** waiting for `ACCEPT` that is sent `IDENTITY` ends the same way.
+- Any other frame in any state is as before: `UNEXPECTED_MESSAGE`. Types are still never skipped, so
+  an older build that has never heard of `0x40` ends the connection and nothing more.
+
+A pairing that ends in `CODES_DID_NOT_MATCH`, `KEY_NOT_AS_PROMISED` or `BAD_PAIRING` is a
+verification failure, not a glitch, and is not offered a retry.
+
+**Implementations.** Only the Android app speaks `IDENTITY` today. The desktop app (`desktop/nearby/`)
+and the browser viewer (`site/`) do not implement the frame (no reference to type `0x40` in either),
+so neither can take part in a pairing, and by the unknown-type rule a desktop peer ends a
+connection that sends one. The shared
+[test vectors](#test-vectors) do not yet cover it.
 
 ---
 
