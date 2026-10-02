@@ -27,3 +27,6 @@ temp/
 # The desktop app's dependencies and installers
 /desktop/node_modules/
 /desktop/dist/
+/kutumb-core/build/
+/kutumb-core/.gradle/
+/kutumb-core/.kotlin/
