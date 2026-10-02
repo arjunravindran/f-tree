@@ -103,3 +103,19 @@ The existing chart already has the mockup's three views (Chart / Compact / Every
 - **Assumptions with no spec number:** reward threshold is **5 points** and reward type **coffee** for every pair (`ResolveViewModel.DEFAULT_THRESHOLD/DEFAULT_REWARD`). The spec says both are configurable per relationship, but no mockup has that screen. The mockup's "40 / 100 pts" and "+10" were illustrative and are not used.
 - Picking your own answer awards you points but no reward (nothing owed to yourself), and the screen says so.
 - No screen yet lists owed rewards or lets either side mark one redeemed; the data and core rules (`RewardRedemption.settle`) exist. A follow-up.
+
+## Step 4 — Room
+
+Database version 1 -> 2 (`data/Migrations.kt`, schema `app/schemas/.../2.json` checked in). The migration only creates tables; the tree, relationships and import history are untouched, and a test migrates a v1 database with a person in it and checks the person survives and the schema validates. `AppContainer.kutumbRepository` is now `RoomKutumbRepository`; the in-memory one remains for JVM tests.
+
+Tables (`kutumb/db/`): `local_identity`, `trusted_contacts`, `identity_rotations`, `person_locations`, `facts`, `fact_answers`, `fact_resolutions`, `points_ledger`, `sync_outbox`, `reward_redemptions` (SPEC's `TrustedContact`, `IdentityRotationEvent`, `PersonLocation`, `Fact`/`FactAnswer`/`FactResolution`, `PointsLedger`, `SyncOutbox`, `RewardRedemption`, plus `local_identity` for this phone's own key).
+
+Deviations and decisions:
+
+- **No foreign keys to `people`**, though SPEC marks `personId` as FK. A cascade would delete a trusted key, the points history and an owed coffee whenever someone is removed from the tree. A test pins this: deleting a person keeps their contact row.
+- **Private key is sealed by the Android Keystore** (`AndroidKeyVault`, AES-256-GCM) before it reaches the database. The app's backup rules are empty (everything is backed up), so a plain key would have been copied to Google Drive and to a new phone, letting that phone speak as this person. Sealed, it opens only on the phone that sealed it; elsewhere the identity reads as absent (user picks "who am I" again, gets a new key, is vouched for). Consequence: **restoring from backup or transferring to a new phone loses the identity by design**, and that is exactly the recovery flow.
+- Trust-store integrity in SQL: unique `pubKeyCurrent` (one key, one person), `saveContact` throws rather than letting `REPLACE`/`@Upsert` silently delete or ignore a clash (caught by a test); unique `points_ledger.reasonFactId` plus insert-ignore on `fact_resolutions` make a second resolution unable to award points twice; answers are insert-ignore so a redelivered answer is the same row.
+- `MessageThread`/`Message` (SPEC's optional messaging section) are not created: messaging has no screen or transport yet, and an unused table is a migration to regret.
+- `.ftree` export/import is untouched (CLAUDE.md: format changes need discussion). None of the network data travels in `.ftree` files.
+- Debug seeder: `mode=clear` already calls `clearAllTables`, which now covers these tables too; the seeder does not create trust/facts data.
+- Observed once: `NetworkTreeLinkTest.aTrustedPersonsSheetLeadsToTheirRelationshipScreen` timed out in a sequential run and passed on rerun. Looks like emulator timing, not logic.

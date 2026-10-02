@@ -212,6 +212,8 @@ android {
             // Heirloom is no longer in the app's own assets (#214, it downloads), but the format-1
             // golden PDF is still worth drawing, so the tests carry the templates themselves.
             assets.srcDir(rootProject.file("site/book/templates"))
+            // The exported Room schemas, for MigrationTestHelper.
+            assets.srcDir("$projectDir/schemas")
         }
     }
 }

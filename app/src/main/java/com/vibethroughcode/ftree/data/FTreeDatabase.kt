@@ -6,10 +6,26 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.vibethroughcode.ftree.kutumb.db.FactAnswerEntity
+import com.vibethroughcode.ftree.kutumb.db.FactEntity
+import com.vibethroughcode.ftree.kutumb.db.FactResolutionEntity
+import com.vibethroughcode.ftree.kutumb.db.IdentityRotationEntity
+import com.vibethroughcode.ftree.kutumb.db.KutumbDao
+import com.vibethroughcode.ftree.kutumb.db.LedgerEntity
+import com.vibethroughcode.ftree.kutumb.db.LocalIdentityEntity
+import com.vibethroughcode.ftree.kutumb.db.OutboxEntity
+import com.vibethroughcode.ftree.kutumb.db.PersonLocationEntity
+import com.vibethroughcode.ftree.kutumb.db.RedemptionEntity
+import com.vibethroughcode.ftree.kutumb.db.TrustedContactEntity
 
 @Database(
-    entities = [Person::class, Relationship::class, PersonOrigin::class],
-    version = 1,
+    entities = [
+        Person::class, Relationship::class, PersonOrigin::class,
+        LocalIdentityEntity::class, TrustedContactEntity::class, IdentityRotationEntity::class,
+        PersonLocationEntity::class, FactEntity::class, FactAnswerEntity::class, FactResolutionEntity::class,
+        LedgerEntity::class, OutboxEntity::class, RedemptionEntity::class,
+    ],
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -18,6 +34,7 @@ abstract class FTreeDatabase : RoomDatabase() {
     abstract fun personDao(): PersonDao
     abstract fun relationshipDao(): RelationshipDao
     abstract fun personOriginDao(): PersonOriginDao
+    abstract fun kutumbDao(): KutumbDao
 
     companion object {
         private const val NAME = "f-tree.db"
@@ -35,6 +52,7 @@ abstract class FTreeDatabase : RoomDatabase() {
 
         fun build(context: Context): FTreeDatabase =
             Room.databaseBuilder(context.applicationContext, FTreeDatabase::class.java, NAME)
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(enforceForeignKeys)
                 .build()
     }

@@ -15,9 +15,10 @@ import com.vibethroughcode.ftree.entitlement.Policy
 import com.vibethroughcode.ftree.entitlement.PolicyAssets
 import com.vibethroughcode.ftree.entitlement.UsageLedger
 import com.vibethroughcode.ftree.kutumb.Bip340Scheme
-import com.vibethroughcode.ftree.kutumb.InMemoryKutumbRepository
 import com.vibethroughcode.ftree.kutumb.KutumbRepository
 import com.vibethroughcode.ftree.kutumb.PairingFlow
+import com.vibethroughcode.ftree.kutumb.db.AndroidKeyVault
+import com.vibethroughcode.ftree.kutumb.db.RoomKutumbRepository
 import com.vibethroughcode.ftree.kutumb.UnavailablePairingFlow
 import com.vibethroughcode.ftree.kutumb.trust.SignatureScheme
 import com.vibethroughcode.ftree.nearby.LanTransport
@@ -69,11 +70,8 @@ class AppContainer(context: Context) {
         )
     }
 
-    /**
-     * The family network's records. In memory until the Room tables arrive, which is why nothing
-     * here survives a restart yet.
-     */
-    val kutumbRepository: KutumbRepository by lazy { InMemoryKutumbRepository() }
+    /** The family network's records, in the app's database. The private key is sealed by the Keystore first. */
+    val kutumbRepository: KutumbRepository by lazy { RoomKutumbRepository(database, AndroidKeyVault()) }
 
     /**
      * The in-person pairing handshake. A `var` so a test can put a fake in before the screen first

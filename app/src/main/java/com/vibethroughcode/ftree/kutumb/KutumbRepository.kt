@@ -6,6 +6,8 @@ import com.vibethroughcode.ftree.kutumb.game.FactResolution
 import com.vibethroughcode.ftree.kutumb.game.LedgerEntry
 import com.vibethroughcode.ftree.kutumb.game.RewardRedemption
 import com.vibethroughcode.ftree.kutumb.geo.PersonLocation
+import com.vibethroughcode.ftree.kutumb.sync.OutboxEntry
+import com.vibethroughcode.ftree.kutumb.trust.IdentityRotationEvent
 import com.vibethroughcode.ftree.kutumb.trust.KeyPair
 import com.vibethroughcode.ftree.kutumb.trust.TrustedContact
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +31,15 @@ interface KutumbRepository {
 
     fun observeContacts(): Flow<List<TrustedContact>>
     suspend fun saveContact(contact: TrustedContact)
+
+    /** Every signed rotation this phone has accepted or issued, for audit and for relaying on. */
+    fun observeRotations(): Flow<List<IdentityRotationEvent>>
+    suspend fun saveRotation(event: IdentityRotationEvent)
+
+    /** The retry queue for events waiting to reach the relays. */
+    suspend fun outboxEntries(): List<OutboxEntry>
+    suspend fun saveOutboxEntry(entry: OutboxEntry)
+    suspend fun deleteOutboxEntry(eventId: String)
 
     fun observeLocations(): Flow<List<PersonLocation>>
 
@@ -58,6 +69,8 @@ interface KutumbRepository {
 class InMemoryKutumbRepository : KutumbRepository {
     private val identity = MutableStateFlow<LocalIdentity?>(null)
     private val contacts = MutableStateFlow<List<TrustedContact>>(emptyList())
+    private val rotations = MutableStateFlow<List<IdentityRotationEvent>>(emptyList())
+    private val outbox = MutableStateFlow<List<OutboxEntry>>(emptyList())
     private val locations = MutableStateFlow<List<PersonLocation>>(emptyList())
     private val facts = MutableStateFlow<List<Fact>>(emptyList())
     private val answers = MutableStateFlow<List<FactAnswer>>(emptyList())
@@ -71,6 +84,13 @@ class InMemoryKutumbRepository : KutumbRepository {
     override fun observeContacts(): Flow<List<TrustedContact>> = contacts.asStateFlow()
     override suspend fun saveContact(contact: TrustedContact) =
         contacts.update { all -> all.filter { it.personId != contact.personId } + contact }
+
+    override fun observeRotations(): Flow<List<IdentityRotationEvent>> = rotations.asStateFlow()
+    override suspend fun saveRotation(event: IdentityRotationEvent) = rotations.update { all -> if (event in all) all else all + event }
+
+    override suspend fun outboxEntries(): List<OutboxEntry> = outbox.value
+    override suspend fun saveOutboxEntry(entry: OutboxEntry) = outbox.update { all -> all.filter { it.eventId != entry.eventId } + entry }
+    override suspend fun deleteOutboxEntry(eventId: String) = outbox.update { all -> all.filter { it.eventId != eventId } }
 
     override fun observeLocations(): Flow<List<PersonLocation>> = locations.asStateFlow()
     override suspend fun saveLocation(location: PersonLocation) =
@@ -92,7 +112,7 @@ class InMemoryKutumbRepository : KutumbRepository {
 
     override suspend fun clearAll() {
         identity.value = null
-        contacts.value = emptyList(); locations.value = emptyList(); facts.value = emptyList(); answers.value = emptyList()
+        contacts.value = emptyList(); rotations.value = emptyList(); outbox.value = emptyList(); locations.value = emptyList(); facts.value = emptyList(); answers.value = emptyList()
         resolutions.value = emptyList(); ledger.value = emptyList(); redemptions.value = emptyList()
     }
 
