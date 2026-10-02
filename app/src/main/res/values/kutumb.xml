@@ -122,6 +122,9 @@
     <string name="pairing_code_mismatch">No, it\'s different</string>
     <string name="pairing_retry">Try again</string>
     <string name="pairing_failed_unavailable">Pairing is not available in this version yet.</string>
+    <string name="pairing_failed_off">Nearby sharing is switched off, and pairing does not switch it on for you. Turn it on in Settings, then try again.</string>
+    <string name="pairing_failed_no_identity">Say who you are on the Network tab first.</string>
+    <string name="pairing_scanned_question">%1$s scanned this phone. Pair with them?</string>
     <string name="pairing_failed_mismatch">The codes did not match. Someone may be interfering with the connection, so nothing was saved. Pair again somewhere else, with only the two of you on the network.</string>
     <string name="pairing_failed_lost">The connection was lost before pairing finished.</string>
     <string name="pairing_failed_declined">The other person did not confirm the code, so nothing was saved.</string>

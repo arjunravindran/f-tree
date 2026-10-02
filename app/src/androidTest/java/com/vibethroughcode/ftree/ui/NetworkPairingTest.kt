@@ -19,7 +19,6 @@ import com.vibethroughcode.ftree.kutumb.LocalIdentity
 import com.vibethroughcode.ftree.kutumb.PairingFlow
 import com.vibethroughcode.ftree.kutumb.PairingProblem
 import com.vibethroughcode.ftree.kutumb.PairingState
-import com.vibethroughcode.ftree.kutumb.UnavailablePairingFlow
 import com.vibethroughcode.ftree.kutumb.trust.PairingMethod
 import com.vibethroughcode.ftree.nearby.wire.QrLink
 import com.vibethroughcode.ftree.ui.network.NetworkListTag
@@ -69,7 +68,7 @@ class NetworkPairingTest {
     @Before
     fun seed() {
         app.container.database.clearAllTables()
-        app.container.pairingFlow = flow
+        app.container.pairingFlowOverride = flow
         runBlocking {
             kutumb.clearAll()
             me = app.container.familyRepository.addPerson(Person(name = "Yash Rao"))
@@ -83,7 +82,7 @@ class NetworkPairingTest {
 
     @After
     fun putTheRealOneBack() {
-        app.container.pairingFlow = UnavailablePairingFlow
+        app.container.pairingFlowOverride = null
     }
 
     @Test

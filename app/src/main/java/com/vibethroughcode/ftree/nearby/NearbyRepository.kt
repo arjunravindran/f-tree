@@ -6,6 +6,7 @@ import com.vibethroughcode.ftree.nearby.wire.Handshake
 import com.vibethroughcode.ftree.nearby.wire.NearbyPlatform
 import com.vibethroughcode.ftree.nearby.wire.NearbyProblem
 import com.vibethroughcode.ftree.nearby.wire.NearbyProtocol
+import com.vibethroughcode.ftree.nearby.wire.PairingIdentity
 import com.vibethroughcode.ftree.nearby.wire.Offer
 import com.vibethroughcode.ftree.nearby.wire.QrLink
 import com.vibethroughcode.ftree.transfer.ImportProblem
@@ -64,6 +65,26 @@ sealed interface NearbyState {
         val problem: NearbyProblem,
         val importProblem: ImportProblem? = null,
     ) : NearbyState
+}
+
+/** Where a pairing has got to, as seen from the nearby layer. */
+sealed interface NearbyPairState {
+    data object Idle : NearbyPairState
+
+    /** Nearby sharing is switched off in Settings; pairing does not switch it on. */
+    data object Off : NearbyPairState
+
+    data class Connecting(val name: String) : NearbyPairState
+
+    /** This side scanned; both screens show [code] and the people say whether it is the same. */
+    data class ConfirmCode(val code: String, val peerName: String) : NearbyPairState
+
+    /** This side was scanned: [peerName] is proven and waits for a yes. [code] is null when they scanned. */
+    data class Requested(val peerName: String, val code: String?) : NearbyPairState
+
+    data class Paired(val peerPublicKey: String, val peerName: String) : NearbyPairState
+
+    data class Failed(val problem: NearbyProblem) : NearbyPairState
 }
 
 /**
@@ -126,6 +147,17 @@ class NearbyRepository(
 
     /** Who is sending to us, from their HELLO; remembered once what they sent proves readable. */
     private var incomingFrom: Pair<String, String>? = null
+
+    /**
+     * Pairing mode: while an identity is set, an incoming connection is answered as a *pairing* (an
+     * identity card is expected where an offer would be) and an outgoing one by [pairByLink] sends
+     * a card instead of a file. Progress is on [pair], never on [state], so the file-sharing screen
+     * is not disturbed by a pairing and a pairing is not shown as a file.
+     */
+    @Volatile private var pairingIdentity: PairingIdentity? = null
+    private val _pair = MutableStateFlow<NearbyPairState>(NearbyPairState.Idle)
+    val pair: StateFlow<NearbyPairState> = _pair.asStateFlow()
+    @Volatile private var pairingAsSender = false
 
     private var visible = false
     private var beaconPrivate: BigInteger? = null
@@ -305,6 +337,95 @@ class NearbyRepository(
         )
     }
 
+    /**
+     * Starts a pairing: becomes visible with a code to scan, answering connections as pairings.
+     * With the master switch off nothing happens beyond [NearbyPairState.Off]: pairing never turns
+     * the network on for somebody.
+     */
+    fun beginPairing(identity: PairingIdentity) {
+        if (!preferences.enabled.value) {
+            _pair.value = NearbyPairState.Off
+            return
+        }
+        pairingIdentity = identity
+        _pair.value = NearbyPairState.Idle
+        setVisible(true)
+        showPairing(true)
+    }
+
+    /** Ends a pairing, finished or not, and leaves nothing visible or listening. */
+    fun endPairing() {
+        if (pairingIdentity == null && _pair.value is NearbyPairState.Idle) return
+        pairingIdentity = null
+        showPairing(false)
+        sending?.cancel()
+        receiving?.cancel()
+        _pair.value = NearbyPairState.Idle
+        setVisible(false)
+    }
+
+    /** The reader's answer to "does their screen show the same code?" (or "pair with them?"). */
+    fun answerPairing(matched: Boolean) {
+        if (pairingAsSender) {
+            sending?.confirmCode(matched)
+        } else if (matched) {
+            receiving?.accept()
+        } else {
+            receiving?.decline()
+        }
+    }
+
+    /** Pairs with the device whose code was scanned. */
+    fun pairByLink(link: QrLink) {
+        val identity = pairingIdentity ?: return
+        if (!preferences.enabled.value) {
+            _pair.value = NearbyPairState.Off
+            return
+        }
+        if (!engaged.compareAndSet(false, true)) return
+        val name = link.displayName ?: link.address
+        pairingAsSender = true
+        _pair.value = NearbyPairState.Connecting(name)
+        val token = link.token ?: Handshake.NO_TOKEN
+
+        scope.launch(Dispatchers.IO) {
+            val transfer = NearbySendTransfer(
+                identity = this@NearbyRepository.identity,
+                outgoing = null,
+                pairedByQr = !token.contentEquals(Handshake.NO_TOKEN),
+                pairingToken = token,
+                expectedFingerprint = link.keyFingerprint,
+                listener = object : NearbyTransferListener {
+                    override fun onCode(sas: String) {
+                        _pair.value = NearbyPairState.ConfirmCode(sas, name)
+                    }
+
+                    override fun onPeerIdentified(publicKey: String) {
+                        _pair.value = NearbyPairState.Paired(publicKey, name)
+                    }
+
+                    override fun onFailed(problem: NearbyProblem, importProblem: ImportProblem?) {
+                        _pair.value = NearbyPairState.Failed(problem)
+                    }
+                },
+                pairing = identity,
+            )
+            sending = transfer
+            try {
+                val channel = try {
+                    transport.connect(link.address, link.port, NearbyProtocol.CONNECT_TIMEOUT_MS)
+                } catch (_: Exception) {
+                    _pair.value = NearbyPairState.Failed(NearbyProblem.NETWORK)
+                    return@launch
+                }
+                transfer.run(channel)
+            } finally {
+                sending = null
+                engaged.set(false)
+            }
+        }
+    }
+
     /** Starts or stops showing a code for another device to scan. Only the receive screen does. */
     fun showPairing(show: Boolean) {
         showingPairing = show
@@ -473,6 +594,10 @@ class NearbyRepository(
                 refuseAsBusy(channel)
                 return@launch
             }
+            pairingIdentity?.let { identity ->
+                receivePairing(channel, identity)
+                return@launch
+            }
             // `.part` until it is whole, then renamed — the same pattern `UpdateClient.download`
             // uses, and for the same reason: a half-written file that looks finished is worse than
             // no file at all.
@@ -560,6 +685,56 @@ class NearbyRepository(
                 file = whole,
                 suggestedFileName = done.incomingOffer?.suggestedFileName ?: whole.name,
             )
+        }
+    }
+
+    /** The receiving half of a pairing: no file, no review, just the cards and a person's yes. */
+    private fun receivePairing(channel: NearbyChannel, pairing: PairingIdentity) {
+        pairingAsSender = false
+        var shownCode: String? = null
+        var peerName = ""
+        fun scanned() = (receiving?.sender?.flags ?: 0) and NearbyProtocol.FLAG_PAIRED_BY_QR != 0
+        val discard = object : OutputStream() {
+            override fun write(b: Int) = Unit
+        }
+        try {
+            val t = NearbyReceiveTransfer(
+                identity = identity,
+                beaconPrivateKey = beaconPrivate ?: return,
+                beaconPublicKey = beaconPublic ?: return,
+                sink = discard,
+                pairingToken = pairingToken ?: Handshake.NO_TOKEN,
+                onTokenUsed = {
+                    pairingToken = null
+                    publishPairing()
+                },
+                listener = object : NearbyTransferListener {
+                    override fun onCode(sas: String) {
+                        // A sender that scanned this screen compares nothing, so there is no code to show.
+                        if (!scanned()) shownCode = sas
+                    }
+
+                    override fun onPairingRequest() {
+                        peerName = receiving?.sender?.displayName.orEmpty()
+                        _pair.value = NearbyPairState.Requested(peerName, shownCode)
+                    }
+
+                    override fun onPeerIdentified(publicKey: String) {
+                        _pair.value = NearbyPairState.Paired(publicKey, peerName)
+                    }
+
+                    override fun onFailed(problem: NearbyProblem, importProblem: ImportProblem?) {
+                        _pair.value = NearbyPairState.Failed(problem)
+                    }
+                },
+                pairing = pairing,
+            )
+            receiving = t
+            t.run(channel)
+        } finally {
+            receiving = null
+            engaged.set(false)
+            runCatching { channel.close() }
         }
     }
 

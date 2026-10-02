@@ -154,6 +154,7 @@ class NearbyConnection(
             NearbyProtocol.TYPE_DATA,
             NearbyProtocol.TYPE_END,
             NearbyProtocol.TYPE_RESULT,
+            NearbyProtocol.TYPE_IDENTITY,
             NearbyProtocol.TYPE_ABORT,
         )
 

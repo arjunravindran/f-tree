@@ -15,8 +15,11 @@ sealed interface PairingState {
 
     data class Connecting(val name: String) : PairingState
 
-    /** Both phones should show [code]; the two people have to say whether it is the same one. */
-    data class ConfirmCode(val code: String, val peerName: String) : PairingState
+    /**
+     * Both phones should show [code]; the two people have to say whether it is the same one. A null
+     * [code] is a phone that was scanned: nothing was compared, and it is only asked whether to pair.
+     */
+    data class ConfirmCode(val code: String?, val peerName: String) : PairingState
 
     /**
      * The other phone is proven to be the one in front of this one, and holds [peerPublicKey]. Who
@@ -31,6 +34,12 @@ sealed interface PairingState {
 enum class PairingProblem {
     /** This build cannot pair. */
     UNAVAILABLE,
+
+    /** Nearby sharing is switched off in Settings, and pairing does not switch it on. */
+    NEARBY_OFF,
+
+    /** The reader has not yet said who they are, so there is no key to pair with. */
+    NO_IDENTITY,
 
     /** The two screens did not show the same code. Somebody may be in the middle; not a retry-and-see. */
     CODE_MISMATCH,

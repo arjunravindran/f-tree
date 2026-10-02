@@ -17,9 +17,9 @@ import com.vibethroughcode.ftree.entitlement.UsageLedger
 import com.vibethroughcode.ftree.kutumb.Bip340Scheme
 import com.vibethroughcode.ftree.kutumb.KutumbRepository
 import com.vibethroughcode.ftree.kutumb.PairingFlow
+import com.vibethroughcode.ftree.kutumb.pairing.NearbyPairingFlow
 import com.vibethroughcode.ftree.kutumb.db.AndroidKeyVault
 import com.vibethroughcode.ftree.kutumb.db.RoomKutumbRepository
-import com.vibethroughcode.ftree.kutumb.UnavailablePairingFlow
 import com.vibethroughcode.ftree.kutumb.trust.SignatureScheme
 import com.vibethroughcode.ftree.nearby.LanTransport
 import com.vibethroughcode.ftree.nearby.NearbyIdentity
@@ -77,7 +77,19 @@ class AppContainer(context: Context) {
      * The in-person pairing handshake. A `var` so a test can put a fake in before the screen first
      * reads it; the real one rides the nearby protocol.
      */
-    var pairingFlow: PairingFlow = UnavailablePairingFlow
+    var pairingFlowOverride: PairingFlow? = null
+
+    private val nearbyPairingFlow: PairingFlow by lazy {
+        NearbyPairingFlow(
+            nearby = nearbyRepository,
+            kutumb = kutumbRepository,
+            scheme = signatureScheme,
+            deviceName = { nearbyIdentity.displayName },
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        )
+    }
+
+    val pairingFlow: PairingFlow get() = pairingFlowOverride ?: nearbyPairingFlow
 
     /** The signature algorithm behind every attestation; swapped as a whole, not per call site. */
     val signatureScheme: SignatureScheme by lazy { Bip340Scheme }

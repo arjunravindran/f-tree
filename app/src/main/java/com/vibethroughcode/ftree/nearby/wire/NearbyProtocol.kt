@@ -94,6 +94,13 @@ object NearbyProtocol {
     const val TYPE_DATA = 0x20
     const val TYPE_END = 0x21
     const val TYPE_RESULT = 0x22
+    /**
+     * A pairing conversation's one message each way: an identity card (see [PairingIdentity]),
+     * sent in place of an OFFER. Outside [RESERVED_TYPES], which stays set aside for merge sync.
+     * A receiver that is not pairing treats it, like any frame it did not expect, as the end of the
+     * conversation, so a pairing sender cannot be mistaken for a file sender or the reverse.
+     */
+    const val TYPE_IDENTITY = 0x40
     const val TYPE_ABORT = 0x7F
 
     /** Reserved for a later merge-sync conversation. A version 1 build refuses the whole range. */

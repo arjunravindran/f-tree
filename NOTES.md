@@ -119,3 +119,43 @@ Deviations and decisions:
 - `.ftree` export/import is untouched (CLAUDE.md: format changes need discussion). None of the network data travels in `.ftree` files.
 - Debug seeder: `mode=clear` already calls `clearAllTables`, which now covers these tables too; the seeder does not create trust/facts data.
 - Observed once: `NetworkTreeLinkTest.aTrustedPersonsSheetLeadsToTheirRelationshipScreen` timed out in a sequential run and passed on rerun. Looks like emulator timing, not logic.
+
+## Step 5 — Pairing over nearby
+
+`kutumb/pairing/NearbyPairingFlow.kt` (the `PairingFlow` the screen already used), `kutumb/pairing/IdentityCards.kt`, plus a pairing mode in `nearby/`. `AppContainer.pairingFlow` is now a getter returning `pairingFlowOverride` (tests) or `NearbyPairingFlow`; `UnavailablePairingFlow` is no longer wired in.
+
+How the exchange works:
+
+- Same conversation as a file send: HELLO, key exchange, six derived digits (or the scanned token). Where the sender would send an OFFER it sends one **identity card** in a new `TYPE_IDENTITY` (0x40) frame. `SenderSession`/`ReceiverSession` take an optional `PairingIdentity`; with it null they behave as before. Sender = the phone that connects (scanned or typed), receiver = the phone showing the code.
+- Order: digits compared (sender confirms; skipped when the QR token was used) -> sender sends its card -> receiver checks it and **waits for its person to say yes** -> only then sends its own card. A receiver that says no sends nothing back; the sender sees `DECLINED`.
+- A card is 32 bytes x-only key + 64-byte BIP-340 signature over `"ftree-kutumb/pair/1"`, the session's six digits, the role, and the key. Wrong session digits, wrong role, a key presented with someone else's signature, wrong length, or one's own key are all refused (`peerKey` returns null -> `BAD_PAIRING`).
+- `NearbyRepository` gets `beginPairing/endPairing/pairByLink/answerPairing` and a separate `pair: StateFlow<NearbyPairState>`, so a pairing never shows on the file-sharing screen. `NearbySendTransfer.outgoing` is now nullable (no file); a pairing receiver discards the sink and finishes when the cards are exchanged, with no digest check.
+- `NearbyPairingFlow` maps `NearbyPairState` to `PairingState`; success is `Verified(name, key)`. It saves nothing: the screen still asks who the person is and only then writes a `DIRECT` contact (step 3b, unchanged).
+
+Reuse of verification: no new code or QR. The scanner path is the existing `ScanAction`/`QrLink`; the digits are the existing derived code. Cards are bound to those digits, so the card signature proves possession of the key on a channel the two people already authenticated; it adds no secrecy.
+
+Security-relevant decisions:
+
+- Pairing never switches nearby sharing on: with the master switch off the state is `Off` and the screen says to enable it in Settings.
+- Needs a local identity first (`NO_IDENTITY` otherwise).
+- A non-pairing receiver does not accept `TYPE_IDENTITY` and a pairing receiver does not accept an OFFER (the last test below covers the second).
+- `endPairing` cancels in-flight transfers and stops being visible. A mismatch (`CODES_DID_NOT_MATCH`, `KEY_NOT_AS_PROMISED`, `BAD_PAIRING`) maps to `CODE_MISMATCH` with no retry; only `CONNECTION_LOST` and `DECLINED` offer "Try again" (previously every failure except two did).
+- `TYPE_IDENTITY` is outside `RESERVED_TYPES` and was added to the connection's allowed-frame list.
+
+Deviations from the mockup/SPEC:
+
+- A phone that was scanned shows no digits (nothing was compared), just "<name> scanned this phone. Pair with them?". `PairingState.ConfirmCode.code` is therefore nullable.
+- Still the 3b deviation: derived digits, not a pre-agreed PIN; still same-LAN UDP/TCP, not Wi-Fi Direct.
+- `docs/nearby-protocol.md` is not updated for `TYPE_IDENTITY`. The protocol change should get the discussion CLAUDE.md asks for before merge.
+
+Tested (JVM, written but not run by me while this note was written):
+
+- `IdentityCardsTest` (5): round trip; card holds only for its session and role; tampered or mis-sized card; key with another key's signature; own key.
+- `NearbyPairingTest` (7): full pairing over in-memory pipes with real `Bip340Scheme` cards, covering digit comparison, QR-token pairing, mismatched digits, receiver declining, stale-session card, forged key, and a file sender against a pairing receiver.
+- `NetworkPairingTest` (instrumented) now injects its fake through `pairingFlowOverride`.
+
+Known gaps:
+
+- No test drives `NearbyRepository`'s pairing mode, `NearbyPairingFlow` or `problemOf` (the new `receivePairing` and `pairByLink` paths), and none runs two real devices; the transport is only exercised through the pure sessions.
+- A receiver who answers "no, different" to the digits is reported to the sender as `DECLINED`, not as a mismatch (by the state mapping; no test).
+- Typed-address pairing is not offered on the pairing screen, only the scan.

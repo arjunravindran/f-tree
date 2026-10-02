@@ -143,17 +143,28 @@ private fun Waiting(state: PairingState.Waiting, viewModel: PairingViewModel) {
 @Composable
 private fun Confirm(state: PairingState.ConfirmCode, viewModel: PairingViewModel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.pairing_code_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            text = spacedCode(state.code),
-            style = MaterialTheme.typography.displayMedium,
-            modifier = Modifier.testTag(PairingCodeTag),
-        )
-        Text(
-            stringResource(R.string.pairing_code_question, state.peerName),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-        )
+        val code = state.code
+        if (code != null) {
+            Text(stringResource(R.string.pairing_code_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = spacedCode(code),
+                style = MaterialTheme.typography.displayMedium,
+                modifier = Modifier.testTag(PairingCodeTag),
+            )
+            Text(
+                stringResource(R.string.pairing_code_question, state.peerName),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+            )
+        } else {
+            // They scanned this phone: nothing to compare, only whether to go ahead.
+            Text(
+                stringResource(R.string.pairing_scanned_question, state.peerName),
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag(PairingCodeTag),
+            )
+        }
         Button(onClick = { viewModel.confirmCode(true) }, modifier = Modifier.fillMaxWidth().testTag(PairingMatchTag)) {
             Text(stringResource(R.string.pairing_code_match))
         }
@@ -174,6 +185,8 @@ private fun Failed(problem: PairingProblem, viewModel: PairingViewModel) {
             stringResource(
                 when (problem) {
                     PairingProblem.UNAVAILABLE -> R.string.pairing_failed_unavailable
+                    PairingProblem.NEARBY_OFF -> R.string.pairing_failed_off
+                    PairingProblem.NO_IDENTITY -> R.string.pairing_failed_no_identity
                     PairingProblem.CODE_MISMATCH -> R.string.pairing_failed_mismatch
                     PairingProblem.CONNECTION_LOST -> R.string.pairing_failed_lost
                     PairingProblem.DECLINED -> R.string.pairing_failed_declined
@@ -183,7 +196,7 @@ private fun Failed(problem: PairingProblem, viewModel: PairingViewModel) {
             textAlign = TextAlign.Center,
         )
         // A mismatch is not something to retry until it works: it means somebody may be in the middle.
-        if (problem != PairingProblem.UNAVAILABLE && problem != PairingProblem.CODE_MISMATCH) {
+        if (problem == PairingProblem.CONNECTION_LOST || problem == PairingProblem.DECLINED) {
             Button(onClick = viewModel::retry, modifier = Modifier.testTag(PairingRetryTag)) {
                 Text(stringResource(R.string.pairing_retry))
             }

@@ -14,6 +14,7 @@ import com.vibethroughcode.ftree.nearby.wire.NearbyProblem
 import com.vibethroughcode.ftree.nearby.wire.NearbyProtocol
 import com.vibethroughcode.ftree.nearby.wire.Negotiation
 import com.vibethroughcode.ftree.nearby.wire.Offer
+import com.vibethroughcode.ftree.nearby.wire.PairingIdentity
 import com.vibethroughcode.ftree.nearby.wire.ReceiverSession
 import com.vibethroughcode.ftree.nearby.wire.ReceiverState
 import com.vibethroughcode.ftree.nearby.wire.SenderSession
@@ -42,6 +43,12 @@ interface NearbyTransferListener {
     fun onOffer(offer: Offer) {}
     fun onProgress(done: Long, total: Long) {}
     fun onFailed(problem: NearbyProblem, importProblem: ImportProblem? = null) {}
+
+    /** Pairing, receiver only: the other device is proven and waits for this side to say yes. */
+    fun onPairingRequest() {}
+
+    /** Pairing: the other device has proved it holds this public key (hex). */
+    fun onPeerIdentified(publicKey: String) {}
 }
 
 /** What the sender is about to offer, gathered before a socket is opened. */
@@ -94,11 +101,14 @@ data class OutgoingFile(
  */
 class NearbySendTransfer(
     private val identity: NearbySelf,
-    private val outgoing: OutgoingFile,
+    /** Null when pairing: there is no file, only an identity card. */
+    private val outgoing: OutgoingFile?,
     private val pairedByQr: Boolean = false,
     private val pairingToken: ByteArray = Handshake.NO_TOKEN,
     private val expectedFingerprint: ByteArray? = null,
     private val listener: NearbyTransferListener,
+    /** Non-null makes this a pairing rather than a file transfer. */
+    private val pairing: PairingIdentity? = null,
 ) {
 
     private val privateKey = Dh.generatePrivate()
@@ -156,7 +166,7 @@ class NearbySendTransfer(
      */
     fun run(channel: NearbyChannel): NearbyProblem? = channel.use {
         val described = try {
-            outgoing.describe()
+            outgoing?.describe()
         } catch (failure: NearbyFailure) {
             listener.onFailed(failure.problem)
             return failure.problem
@@ -177,7 +187,8 @@ class NearbySendTransfer(
             key = { key() },
             onHelloAck = { ack -> onHelloAck(ack) },
             onKeyAck = { ack -> onKeyAck(ack, link) },
-            offer = { described },
+            offer = { described ?: throw NearbyFailure(NearbyProblem.UNEXPECTED_MESSAGE) },
+            identity = pairing,
         )
 
         return try {
@@ -209,6 +220,7 @@ class NearbySendTransfer(
                     is NearbyAction.SendFrame ->
                         runCatching { link.send(action.type, action.payload, transcript) }
                     is NearbyAction.ShowCode -> listener.onCode(action.sas)
+                    is NearbyAction.PeerIdentified -> listener.onPeerIdentified(action.publicKey)
                     is NearbyAction.ReadMoreOfTheFile -> Unit // driven by the loop below
                     is NearbyAction.Fail -> {
                         problem = action.problem
@@ -222,7 +234,7 @@ class NearbySendTransfer(
 
         perform(session.step(NearbyEvent.Connected).actions)
 
-        outgoing.file.inputStream().use { file ->
+        (outgoing?.file?.inputStream() ?: java.io.ByteArrayInputStream(ByteArray(0))).use { file ->
             val buffer = ByteArray(NearbyProtocol.MAX_PLAINTEXT)
             while (session.state != SenderState.DONE && session.state != SenderState.FAILED) {
                 if (cancelled.get()) {
@@ -364,6 +376,8 @@ class NearbyReceiveTransfer(
     private val listener: NearbyTransferListener,
     /** Called when a connection has presented the token, which is then spent. */
     private val onTokenUsed: () -> Unit = {},
+    /** Non-null makes this a pairing: an identity card is expected where an offer would be. */
+    private val pairing: PairingIdentity? = null,
 ) {
 
     private val nonce = ByteArray(NearbyProtocol.HANDSHAKE_NONCE_BYTES)
@@ -422,6 +436,7 @@ class NearbyReceiveTransfer(
             helloAck = { hello -> onHello(hello) },
             keyAck = { key -> onKey(key) },
             acceptable = { incoming -> acceptable(incoming) },
+            identity = pairing,
         )
         this.session = session
 
@@ -488,6 +503,8 @@ class NearbyReceiveTransfer(
                     }
                     is NearbyAction.ShowCode -> listener.onCode(action.sas)
                     is NearbyAction.ShowOffer -> listener.onOffer(action.offer)
+                    is NearbyAction.ShowPairing -> listener.onPairingRequest()
+                    is NearbyAction.PeerIdentified -> listener.onPeerIdentified(action.publicKey)
                     is NearbyAction.WriteChunk -> {
                         sink.write(action.bytes)
                         digest.update(action.bytes)
@@ -541,6 +558,9 @@ class NearbyReceiveTransfer(
         }
 
         sink.flush()
+
+        // A pairing has no file to verify: it is finished when the cards have been exchanged.
+        if (problem == null && pairing != null && session.state == ReceiverState.DONE) return null
 
         if (problem == null && session.state == ReceiverState.VERIFYING) {
             // Length catches a truncated transfer, digest catches a corrupted one. Neither is a
