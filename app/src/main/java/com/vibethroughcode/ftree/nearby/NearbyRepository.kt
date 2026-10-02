@@ -101,7 +101,7 @@ sealed interface NearbyPairState {
  */
 class NearbyRepository(
     private val preferences: NearbyPreferences,
-    private val identity: NearbyIdentity,
+    private val identity: NearbySelf,
     private val transport: NearbyTransport,
     private val downloadDirectory: File,
     private val scope: CoroutineScope,

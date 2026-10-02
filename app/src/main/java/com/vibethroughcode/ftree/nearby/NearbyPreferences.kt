@@ -1,6 +1,7 @@
 package com.vibethroughcode.ftree.nearby
 
 import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,10 +19,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * that promises to keep everything on the device should not open its first socket on the strength
  * of a default nobody chose.
  */
-class NearbyPreferences(context: Context) {
+class NearbyPreferences(private val prefs: SharedPreferences) {
 
-    private val prefs = context.applicationContext
-        .getSharedPreferences("nearby-preferences", Context.MODE_PRIVATE)
+    constructor(context: Context) : this(
+        context.applicationContext.getSharedPreferences("nearby-preferences", Context.MODE_PRIVATE),
+    )
 
     private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, false))
 
