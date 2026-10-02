@@ -212,4 +212,11 @@ class GameTest {
         rejects { RewardRedemption("r1", "dad", "kid", RewardType.BEER, 5, RedemptionStatus.REDEEMED, null) }
         rejects { RewardRedemption("r1", "dad", "kid", RewardType.BEER, 5, RedemptionStatus.OWED, 3) }
     }
+
+    @Test
+    fun `an owner's points on their own facts never create a reward they owe themselves`() {
+        val own = PointsLedger(listOf(LedgerEntry("dad", 5, "f1", 1)))
+        val made = RewardRules.redemptionsToCreate(own, "dad", "dad", mapOf("f1" to "dad"), RewardType.BEER, 5, emptyList()) { "r" }
+        assertTrue(made.isEmpty())
+    }
 }

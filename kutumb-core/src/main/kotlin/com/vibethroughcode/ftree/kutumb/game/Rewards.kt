@@ -63,7 +63,8 @@ object RewardRules {
 
     /**
      * Rewards to create now for the pair (owner owes earner). Ids come from [newId] so the caller
-     * controls their generation.
+     * controls their generation. Nothing is owed to oneself, so an owner's points on their own
+     * facts (a self-report that won) never create a reward.
      */
     fun redemptionsToCreate(
         ledger: PointsLedger,
@@ -75,6 +76,7 @@ object RewardRules {
         existing: List<RewardRedemption>,
         newId: () -> String,
     ): List<RewardRedemption> {
+        if (earner == owner) return emptyList()
         val created = existing.count { it.fromPersonId == owner && it.toPersonId == earner && it.rewardType == rewardType }
         val count = newlyEarned(ledger.pointsEarnedFrom(earner, owner, factOwners), threshold, created)
         return List(count) { RewardRedemption(newId(), owner, earner, rewardType, threshold) }
