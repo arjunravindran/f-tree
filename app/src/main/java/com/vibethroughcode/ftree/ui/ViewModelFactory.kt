@@ -12,6 +12,8 @@ import com.vibethroughcode.ftree.book.BookComposer
 import com.vibethroughcode.ftree.ui.book.BookViewModel
 import com.vibethroughcode.ftree.data.FamilyRepository
 import com.vibethroughcode.ftree.data.PhotoStore
+import com.vibethroughcode.ftree.ui.network.ContactsViewModel
+import com.vibethroughcode.ftree.ui.network.PairingViewModel
 import com.vibethroughcode.ftree.ui.people.PeopleViewModel
 import com.vibethroughcode.ftree.ui.person.PersonDetailViewModel
 import com.vibethroughcode.ftree.ui.person.PersonEditViewModel
@@ -45,6 +47,10 @@ object FTreeViewModels {
         initializer { WholeTreeViewModel(repository()) }
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication
+            ContactsViewModel(repository(), app.container.kutumbRepository, app.container.signatureScheme)
+        }
+        initializer {
+            val app = this[APPLICATION_KEY] as FTreeApplication
             SettingsViewModel(
                 preferences = app.container.updatePreferences,
                 chart = app.container.chartPreferences,
@@ -76,6 +82,10 @@ object FTreeViewModels {
                 exporter = app.container.exporter,
                 outgoingDirectory = java.io.File(app.cacheDir, "nearby-out"),
             )
+        }
+        initializer {
+            val app = this[APPLICATION_KEY] as FTreeApplication
+            PairingViewModel(app.container.pairingFlow, repository().observeAllPeople(), app.container.kutumbRepository)
         }
         initializer {
             val handle: SavedStateHandle = createSavedStateHandle()

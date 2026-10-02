@@ -14,6 +14,12 @@ import com.vibethroughcode.ftree.entitlement.FreeForEveryone
 import com.vibethroughcode.ftree.entitlement.Policy
 import com.vibethroughcode.ftree.entitlement.PolicyAssets
 import com.vibethroughcode.ftree.entitlement.UsageLedger
+import com.vibethroughcode.ftree.kutumb.Bip340Scheme
+import com.vibethroughcode.ftree.kutumb.InMemoryKutumbRepository
+import com.vibethroughcode.ftree.kutumb.KutumbRepository
+import com.vibethroughcode.ftree.kutumb.PairingFlow
+import com.vibethroughcode.ftree.kutumb.UnavailablePairingFlow
+import com.vibethroughcode.ftree.kutumb.trust.SignatureScheme
 import com.vibethroughcode.ftree.nearby.LanTransport
 import com.vibethroughcode.ftree.nearby.NearbyIdentity
 import com.vibethroughcode.ftree.nearby.NearbyPreferences
@@ -62,6 +68,21 @@ class AppContainer(context: Context) {
             workingDirectory = context.applicationContext.filesDir,
         )
     }
+
+    /**
+     * The family network's records. In memory until the Room tables arrive, which is why nothing
+     * here survives a restart yet.
+     */
+    val kutumbRepository: KutumbRepository by lazy { InMemoryKutumbRepository() }
+
+    /**
+     * The in-person pairing handshake. A `var` so a test can put a fake in before the screen first
+     * reads it; the real one rides the nearby protocol.
+     */
+    var pairingFlow: PairingFlow = UnavailablePairingFlow
+
+    /** The signature algorithm behind every attestation; swapped as a whole, not per call site. */
+    val signatureScheme: SignatureScheme by lazy { Bip340Scheme }
 
     val updatePreferences: UpdatePreferences by lazy { UpdatePreferences(context) }
     val chartPreferences: ChartPreferences by lazy { ChartPreferences(context) }

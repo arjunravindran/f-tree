@@ -242,6 +242,9 @@ kotlin {
 }
 
 dependencies {
+    // Trust, recovery, game and sync-outbox logic: pure Kotlin/JVM, tested there.
+    implementation(project(":kutumb-core"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -274,10 +277,16 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
+    // BIP-340 Schnorr over secp256k1: Nostr's own signature scheme, which neither the JDK nor
+    // Android provides (their Ed25519 is keystore-only and cannot hold an exportable key).
+    implementation(libs.secp256k1.kmp)
+    implementation(libs.secp256k1.android)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
+    testImplementation(libs.secp256k1.jvm)
     testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.junit)

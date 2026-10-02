@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Family network: who this phone trusts, and how it came to. -->
+    <string name="nav_network">Network</string>
+    <string name="network_title">Family network</string>
+    <string name="network_pair">Pair with someone nearby</string>
+    <string name="network_status_direct">Paired in person</string>
+    <string name="network_status_vouched">Vouched by %1$s</string>
+    <string name="network_status_vouched_unknown">Vouched by a relative</string>
+    <string name="network_message">Message %1$s</string>
+    <string name="network_message_locked">Meet in person to unlock messaging</string>
+    <string name="network_hint">Vouched contacts unlock messaging once you meet them in person.</string>
+    <string name="network_removed_person">Someone removed from the tree</string>
+    <string name="network_empty_title">No one paired yet</string>
+    <string name="network_empty_body">Meet a relative in person to pair. After that you stay connected, and any paired relative can restore you if you lose your phone.</string>
+    <string name="network_empty_action">Pair with someone</string>
+    <string name="network_who_title">Who are you in this tree?</string>
+    <string name="network_who_body">Pairing needs to know which person is you. The key that proves it stays on this phone.</string>
+    <string name="network_who_hint">Search your tree</string>
+    <string name="network_who_none">Nobody in your tree matches that.</string>
+    <string name="network_who_empty">Add yourself to the tree first, then come back to pair.</string>
+
+    <!-- Pairing with a relative, in person. -->
+    <string name="pairing_title">Pair with a relative</string>
+    <string name="pairing_cancel">Cancel pairing</string>
+    <string name="pairing_waiting">Ask them to scan this, or scan theirs. This phone shows as %1$s.</string>
+    <string name="pairing_connecting">Connecting to %1$s…</string>
+    <string name="pairing_code_label">Pairing code</string>
+    <string name="pairing_code_question">Does %1$s\'s screen show the same code?</string>
+    <string name="pairing_code_match">Yes, it\'s the same</string>
+    <string name="pairing_code_mismatch">No, it\'s different</string>
+    <string name="pairing_retry">Try again</string>
+    <string name="pairing_failed_unavailable">Pairing is not available in this version yet.</string>
+    <string name="pairing_failed_mismatch">The codes did not match. Someone may be interfering with the connection, so nothing was saved. Pair again somewhere else, with only the two of you on the network.</string>
+    <string name="pairing_failed_lost">The connection was lost before pairing finished.</string>
+    <string name="pairing_failed_declined">The other person did not confirm the code, so nothing was saved.</string>
+    <string name="pairing_who_title">Who is %1$s in your tree?</string>
+    <string name="pairing_who_body">Pick the person you just met. They will show as paired in person.</string>
+    <string name="pairing_who_none">No one left in your tree to pick.</string>
+    <string name="pairing_footer">This happens once, in person. After that you are connected everywhere, and even after a lost phone any relative here can restore you.</string>
+</resources>

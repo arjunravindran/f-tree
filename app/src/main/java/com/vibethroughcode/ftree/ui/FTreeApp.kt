@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -56,6 +57,8 @@ import com.vibethroughcode.ftree.transfer.sendBranchIntent
 import com.vibethroughcode.ftree.ui.common.LocalKinshipLanguage
 import com.vibethroughcode.ftree.ui.common.isShortWindow
 import com.vibethroughcode.ftree.ui.nearby.NearbyScreen
+import com.vibethroughcode.ftree.ui.network.ContactsScreen
+import com.vibethroughcode.ftree.ui.network.PairingScreen
 import com.vibethroughcode.ftree.ui.nearby.QrPanel
 import com.vibethroughcode.ftree.ui.nearby.ScanAction
 import com.vibethroughcode.ftree.ui.nearby.NearbyViewModel
@@ -88,9 +91,10 @@ private val noReminder: StateFlow<ReminderTap?> = MutableStateFlow<ReminderTap?>
 
 const val NavTreeTag = "nav-tree"
 const val NavPeopleTag = "nav-people"
+const val NavNetworkTag = "nav-network"
 const val NavSettingsTag = "nav-settings"
 
-/** The three places the app is, rather than three of the places it can go. */
+/** The places the app is, rather than the places it can go. */
 private data class Destination(
     val route: Any,
     val type: KClass<*>,
@@ -102,6 +106,7 @@ private data class Destination(
 private val destinations = listOf(
     Destination(TreeRoute(), TreeRoute::class, Icons.Default.AccountTree, R.string.nav_tree, NavTreeTag),
     Destination(PeopleRoute, PeopleRoute::class, Icons.AutoMirrored.Filled.List, R.string.nav_people, NavPeopleTag),
+    Destination(NetworkRoute, NetworkRoute::class, Icons.Default.Group, R.string.nav_network, NavNetworkTag),
     Destination(SettingsRoute, SettingsRoute::class, Icons.Default.Settings, R.string.nav_settings, NavSettingsTag),
 )
 
@@ -289,6 +294,17 @@ fun FTreeApp(
                                 navController.switchTo(SettingsRoute)
                             },
                         )
+                    }
+
+                    composable<NetworkRoute> {
+                        ContactsScreen(
+                            onPair = { navController.navigate(PairRoute) },
+                            onOpenContact = { navController.navigate(PersonRoute(it)) },
+                        )
+                    }
+
+                    composable<PairRoute> {
+                        PairingScreen(onClose = { navController.popBackStack() })
                     }
 
                     composable<SettingsRoute> {

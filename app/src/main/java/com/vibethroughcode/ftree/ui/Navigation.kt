@@ -39,6 +39,14 @@ data class PersonRoute(val personId: String)
 @Serializable
 data class EditPersonRoute(val personId: String? = null)
 
+/** The family network: who this phone trusts. */
+@Serializable
+data object NetworkRoute
+
+/** Pairing with a relative in person. */
+@Serializable
+data object PairRoute
+
 @Serializable
 data object SettingsRoute
 
