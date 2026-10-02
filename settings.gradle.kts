@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "f-tree"
 include(":app")
+include(":kutumb-core")

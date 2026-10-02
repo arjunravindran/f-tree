@@ -28,3 +28,10 @@ Observations, not changed (spec-conformant, but worth knowing):
 - Owner can pick any answer, including their own, to award points (spec: owner resolves). Points on own facts are in the ledger but earn no reward.
 - Not in kutumb-core at all: `PersonLocation`, `MessageThread`/`Message`. They are Room-only concerns for step 4.
 - Signatures are Ed25519 (JDK), not Nostr's BIP-340. Revisit in step 6.
+
+## Step 2 — full build
+
+- `:kutumb-core` is now `include`d in `settings.gradle.kts`. Its Kotlin plugin and JUnit come from the root version catalog (`kotlin-jvm` plugin alias added, declared `apply false` at root because KGP is already on the root classpath with a version). Its own `settings.gradle.kts` imports the same catalog, so `cd kutumb-core && ./gradlew test` still works standalone.
+- `./gradlew build` on the full project: BUILD SUCCESSFUL (debug + release incl. R8, lint, unit tests). Only pre-existing Kotlin warnings in app tests.
+- CI runs `./gradlew testDebugUnitTest`, which does **not** run `:kutumb-core:test` (a plain JVM module has no `testDebugUnitTest`). CI needs `:kutumb-core:test` added to be covered; I did not touch `.github/workflows`.
+- Emulator: `Medium_Phone_API_35` AVD, started with `emulator -avd Medium_Phone_API_35 -no-snapshot`; `adb` lives in the SDK `platform-tools` dir, not on PATH.
