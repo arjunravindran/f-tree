@@ -20,6 +20,40 @@
     <string name="network_who_none">Nobody in your tree matches that.</string>
     <string name="network_who_empty">Add yourself to the tree first, then come back to pair.</string>
 
+    <!-- How the reader is related to one relative. -->
+    <string name="path_title">You &amp; %1$s</string>
+    <string name="path_subtitle">Relationship</string>
+    <string name="path_back">Back</string>
+    <string name="path_unrecorded">Nothing in your tree connects you yet.</string>
+    <string name="path_you">You</string>
+    <string name="path_distance_label">How far apart</string>
+    <string name="path_distance_km">%1$s km</string>
+    <string name="path_distance_mi">%1$s mi</string>
+    <string name="path_facts_title">Fun facts</string>
+    <string name="path_fact_birth_month">Same birth month: both born in %1$s</string>
+    <plurals name="path_fact_age_gap">
+        <item quantity="one">%1$d year apart</item>
+        <item quantity="other">%1$d years apart</item>
+    </plurals>
+    <string name="path_fact_zodiac">Same star sign: both %1$s</string>
+    <string name="path_fact_nearby">Born close to each other, about %1$s apart</string>
+    <string name="path_message">Message %1$s</string>
+    <string name="path_tree">Tree</string>
+    <string-array name="zodiac_names">
+        <item>Aries</item>
+        <item>Taurus</item>
+        <item>Gemini</item>
+        <item>Cancer</item>
+        <item>Leo</item>
+        <item>Virgo</item>
+        <item>Libra</item>
+        <item>Scorpio</item>
+        <item>Sagittarius</item>
+        <item>Capricorn</item>
+        <item>Aquarius</item>
+        <item>Pisces</item>
+    </string-array>
+
     <!-- Pairing with a relative, in person. -->
     <string name="pairing_title">Pair with a relative</string>
     <string name="pairing_cancel">Cancel pairing</string>

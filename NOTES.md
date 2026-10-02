@@ -67,3 +67,12 @@ Also found while testing: `Bip340Scheme.verify` must catch `Secp256k1Exception` 
 ### Test status after 3a/3b
 
 Full `connectedDebugAndroidTest`: 203 tests, 3 failures at the time of the run. One was mine (the tab label, fixed). The other two, `BookFlowTest.theStorybookReallyFeaturesOnePerson` and `theChartOpensTheBookAndSharesAPdfNamedForTheFamily`, fail identically on the untouched baseline (checked with my changes stashed), so they predate this work. I have not investigated them (the first looks for a downloaded "Diwali" template).
+
+### 3c Relationship path ("main" mockup)
+
+`ui/network/PathScreen.kt`, `PathModel.kt` (pure, JVM-tested), `PathViewModel.kt`. Reached by tapping a contact. New pure logic in kutumb-core: `geo/Geo.kt` (haversine, `PersonLocation`, sharing switch) and `geo/FunFacts.kt` (birth month, age gap, zodiac, hometown), 10 new tests (72 total).
+
+- **Hometown fact:** the mockup says "Both born in Chennai", but SPEC's `PersonLocation` stores only lat/lon, no place name, and Person has no birthplace field. So the fact is "born close to each other" (birthplaces within 50 km), which is computable from what the spec stores. A named hometown would need a schema addition; not made.
+- **Distance** is between the two people's *current* locations, shown only if both have sharing on. Miles for US/GB/LR/MM locales, km elsewhere.
+- **No UI exists to enter a location** (the six mockups do not include one, and the spec's person-edit change is not in the task list). Until one exists, distance and the hometown fact never appear outside tests. Worth a follow-up.
+- Message button shows only for direct pairings and is disabled (messaging unbuilt).

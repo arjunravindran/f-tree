@@ -59,6 +59,7 @@ import com.vibethroughcode.ftree.ui.common.isShortWindow
 import com.vibethroughcode.ftree.ui.nearby.NearbyScreen
 import com.vibethroughcode.ftree.ui.network.ContactsScreen
 import com.vibethroughcode.ftree.ui.network.PairingScreen
+import com.vibethroughcode.ftree.ui.network.PathScreen
 import com.vibethroughcode.ftree.ui.nearby.QrPanel
 import com.vibethroughcode.ftree.ui.nearby.ScanAction
 import com.vibethroughcode.ftree.ui.nearby.NearbyViewModel
@@ -299,7 +300,18 @@ fun FTreeApp(
                     composable<NetworkRoute> {
                         ContactsScreen(
                             onPair = { navController.navigate(PairRoute) },
-                            onOpenContact = { navController.navigate(PersonRoute(it)) },
+                            onOpenContact = { navController.navigate(PathRoute(it)) },
+                        )
+                    }
+
+                    composable<PathRoute> {
+                        PathScreen(
+                            onBack = { navController.popBackStack() },
+                            onTree = { personId ->
+                                navController.navigate(TreeRoute(focusId = personId)) {
+                                    popUpTo<TreeRoute> { inclusive = true }
+                                }
+                            },
                         )
                     }
 

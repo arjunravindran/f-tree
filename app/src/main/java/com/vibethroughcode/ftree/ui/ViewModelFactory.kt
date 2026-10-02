@@ -14,6 +14,7 @@ import com.vibethroughcode.ftree.data.FamilyRepository
 import com.vibethroughcode.ftree.data.PhotoStore
 import com.vibethroughcode.ftree.ui.network.ContactsViewModel
 import com.vibethroughcode.ftree.ui.network.PairingViewModel
+import com.vibethroughcode.ftree.ui.network.PathViewModel
 import com.vibethroughcode.ftree.ui.people.PeopleViewModel
 import com.vibethroughcode.ftree.ui.person.PersonDetailViewModel
 import com.vibethroughcode.ftree.ui.person.PersonEditViewModel
@@ -82,6 +83,10 @@ object FTreeViewModels {
                 exporter = app.container.exporter,
                 outgoingDirectory = java.io.File(app.cacheDir, "nearby-out"),
             )
+        }
+        initializer {
+            val app = this[APPLICATION_KEY] as FTreeApplication
+            PathViewModel(repository(), app.container.kutumbRepository, createSavedStateHandle().toRoute<PathRoute>().personId)
         }
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication

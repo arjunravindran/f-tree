@@ -43,6 +43,10 @@ data class EditPersonRoute(val personId: String? = null)
 @Serializable
 data object NetworkRoute
 
+/** How the reader is related to one trusted relative. */
+@Serializable
+data class PathRoute(val personId: String)
+
 /** Pairing with a relative in person. */
 @Serializable
 data object PairRoute
