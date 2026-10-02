@@ -52,6 +52,7 @@ import androidx.navigation.toRoute
 import com.vibethroughcode.ftree.BuildConfig
 import com.vibethroughcode.ftree.FTreeApplication
 import com.vibethroughcode.ftree.R
+import com.vibethroughcode.ftree.kutumb.observePendingResolutions
 import com.vibethroughcode.ftree.nearby.NearbyState
 import com.vibethroughcode.ftree.transfer.TreeDocument
 import com.vibethroughcode.ftree.transfer.sendBranchIntent
@@ -59,6 +60,7 @@ import com.vibethroughcode.ftree.ui.common.LocalKinshipLanguage
 import com.vibethroughcode.ftree.ui.common.isShortWindow
 import com.vibethroughcode.ftree.ui.nearby.NearbyScreen
 import com.vibethroughcode.ftree.ui.facts.FactsScreen
+import com.vibethroughcode.ftree.ui.facts.ResolveScreen
 import com.vibethroughcode.ftree.ui.network.ContactsScreen
 import com.vibethroughcode.ftree.ui.network.PairingScreen
 import com.vibethroughcode.ftree.ui.network.PathScreen
@@ -81,6 +83,7 @@ import com.vibethroughcode.ftree.ui.tree.TreeScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlin.reflect.KClass
 
@@ -223,6 +226,12 @@ fun FTreeApp(
         kutumbRepository.observeContacts().map { contacts -> contacts.mapTo(HashSet()) { it.personId } as Set<String> }
     }.collectAsStateWithLifecycle(emptySet())
 
+    // The next time the app opens, a question about the reader that is waiting for an answer to be
+    // picked comes up by itself. Once per launch, never on a timer, and never resolved for them.
+    LaunchedEffect(kutumbRepository) {
+        if (kutumbRepository.observePendingResolutions().first().isNotEmpty()) navController.navigate(ResolveRoute)
+    }
+
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onTopLevel = destinations.any { destination?.hasRoute(it.type) == true }
@@ -318,7 +327,11 @@ fun FTreeApp(
                     }
 
                     composable<FactsRoute> {
-                        FactsScreen(onResolve = {})
+                        FactsScreen(onResolve = { navController.navigate(ResolveRoute) })
+                    }
+
+                    composable<ResolveRoute> {
+                        ResolveScreen(onBack = { navController.popBackStack() })
                     }
 
                     composable<PathRoute> {

@@ -43,6 +43,10 @@ data class EditPersonRoute(val personId: String? = null)
 @Serializable
 data object NetworkRoute
 
+/** The card where the reader picks the right answer to a question about them. */
+@Serializable
+data object ResolveRoute
+
 /** The family facts game. */
 @Serializable
 data object FactsRoute

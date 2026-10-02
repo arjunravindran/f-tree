@@ -100,3 +100,9 @@ class InMemoryKutumbRepository : KutumbRepository {
     override suspend fun saveRedemption(redemption: RewardRedemption) =
         redemptions.update { all -> all.filter { it.id != redemption.id } + redemption }
 }
+
+/** The cards waiting for the reader to pick a right answer: their own facts that have answers and no resolution. */
+fun KutumbRepository.observePendingResolutions(): Flow<List<Pair<Fact, List<FactAnswer>>>> =
+    kotlinx.coroutines.flow.combine(observeIdentity(), observeFacts(), observeAnswers(), observeResolutions()) { identity, facts, answers, resolutions ->
+        identity?.let { com.vibethroughcode.ftree.kutumb.game.FactResolver.pendingResolutions(it.personId, facts, answers, resolutions) }.orEmpty()
+    }

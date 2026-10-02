@@ -13,6 +13,7 @@ import com.vibethroughcode.ftree.ui.book.BookViewModel
 import com.vibethroughcode.ftree.data.FamilyRepository
 import com.vibethroughcode.ftree.data.PhotoStore
 import com.vibethroughcode.ftree.ui.facts.FactsViewModel
+import com.vibethroughcode.ftree.ui.facts.ResolveViewModel
 import com.vibethroughcode.ftree.ui.network.ContactsViewModel
 import com.vibethroughcode.ftree.ui.network.PairingViewModel
 import com.vibethroughcode.ftree.ui.network.PathViewModel
@@ -88,6 +89,10 @@ object FTreeViewModels {
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication
             FactsViewModel(app.container.kutumbRepository, repository().observeAllPeople())
+        }
+        initializer {
+            val app = this[APPLICATION_KEY] as FTreeApplication
+            ResolveViewModel(app.container.kutumbRepository, repository().observeAllPeople())
         }
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication

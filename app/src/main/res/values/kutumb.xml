@@ -76,6 +76,16 @@
         <item quantity="one">%1$d answer is waiting for you to check</item>
         <item quantity="other">%1$d answers are waiting for you to check</item>
     </plurals>
+    <string name="resolve_title">Resolve a fact</string>
+    <string name="resolve_hint">Pick the answer that\'s actually right. Whoever submitted it gets the points.</string>
+    <string name="resolve_self">%1$s (self)</string>
+    <string name="resolve_confirm">Confirm</string>
+    <string name="resolve_winner">%1$s +1 pt toward a coffee</string>
+    <string name="resolve_winner_own">Your own answer. It counts for your points, and nothing is owed to yourself.</string>
+    <string name="resolve_progress">%1$d / %2$d pts</string>
+    <string name="resolve_reward">%1$s has earned a coffee from you.</string>
+    <string name="resolve_done_title">All caught up</string>
+    <string name="resolve_done_body">Nothing is waiting for you to check.</string>
     <string name="facts_cat_food">Food</string>
     <string name="facts_cat_growing_up">Growing up</string>
     <string name="facts_cat_family_history">Family history</string>

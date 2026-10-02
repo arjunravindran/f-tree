@@ -94,3 +94,12 @@ The existing chart already has the mockup's three views (Chart / Compact / Every
 - The mockup's "+10 pts toward a coffee" is not used: `FactResolver.DEFAULT_POINTS` is 1 and the spec gives no number. Reward thresholds/redemption have no screen in the six mockups, so points accumulate in the ledger with no way yet to redeem them in the UI.
 - A "N answers waiting for you" banner links to the resolve screen (next step).
 - Guesses are stored locally only until the sync layer (step 6) sends them; the guessed-about person's phone cannot see them yet.
+
+### 3f Resolve
+
+`ui/facts/ResolveScreen.kt`, `ResolveViewModel.kt`. Shows the oldest unresolved question about the reader with every answer (their own marked "(self)"); picking one and confirming runs `FactResolver.resolve` (owner-only, once-only), writes the ledger entry, and if the answerer's points from the reader reach the threshold, creates a `RewardRedemption` (reader owes them).
+
+- **Auto-surfacing:** per the spec ("surfaces automatically the next time they open the app"), `FTreeApp` opens the card once at launch if one is waiting. No timeout, never auto-resolved. A banner on the Facts tab also links to it.
+- **Assumptions with no spec number:** reward threshold is **5 points** and reward type **coffee** for every pair (`ResolveViewModel.DEFAULT_THRESHOLD/DEFAULT_REWARD`). The spec says both are configurable per relationship, but no mockup has that screen. The mockup's "40 / 100 pts" and "+10" were illustrative and are not used.
+- Picking your own answer awards you points but no reward (nothing owed to yourself), and the screen says so.
+- No screen yet lists owed rewards or lets either side mark one redeemed; the data and core rules (`RewardRedemption.settle`) exist. A follow-up.
