@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.PersonAddAlt
@@ -85,6 +86,7 @@ const val TreeAddButtonTag = "tree-add"
 const val TreeFocusHereTag = "tree-focus-here"
 const val TreeOpenPersonTag = "tree-open-person"
 const val TreeModeCompactTag = "tree-mode-compact"
+const val TreeInNetworkTag = "tree-in-network"
 const val TreeModeFocusedTag = "tree-mode-focused"
 const val TreeModeWholeTag = "tree-mode-whole"
 const val TreeRelateTag = "tree-relate"
@@ -147,6 +149,9 @@ fun TreeScreen(
     modifier: Modifier = Modifier,
     /** Somebody the reader has already named for a relation, arriving from their page. */
     relateFrom: String? = null,
+    /** People this phone trusts: their sheet offers a way into the family network. */
+    trustedIds: Set<String> = emptySet(),
+    onOpenNetwork: (String) -> Unit = {},
     viewModel: TreeViewModel = viewModel(factory = FTreeViewModels.Factory),
     wholeTreeViewModel: WholeTreeViewModel = viewModel(factory = FTreeViewModels.Factory),
     relationViewModel: RelationViewModel = viewModel(factory = FTreeViewModels.Factory),
@@ -480,6 +485,11 @@ fun TreeScreen(
             PersonActions(
                 person = person,
                 isFocus = mode.isAroundOnePerson && person.id == state.layout.focusId,
+                inNetwork = person.id in trustedIds,
+                onNetwork = {
+                    selected = null
+                    onOpenNetwork(person.id)
+                },
                 onOpen = {
                     selected = null
                     onOpenPerson(person.id)
@@ -656,6 +666,8 @@ private fun wholeSummary(state: WholeTreeUiState): String {
 private fun PersonActions(
     person: Person,
     isFocus: Boolean,
+    inNetwork: Boolean,
+    onNetwork: () -> Unit,
     onOpen: () -> Unit,
     onFocus: () -> Unit,
     onRelate: () -> Unit,
@@ -683,6 +695,14 @@ private fun PersonActions(
             tag = TreeOpenPersonTag,
             onClick = onOpen,
         )
+        if (inNetwork) {
+            SheetAction(
+                icon = { Icon(Icons.Default.Group, contentDescription = null) },
+                label = stringResource(R.string.tree_in_network),
+                tag = TreeInNetworkTag,
+                onClick = onNetwork,
+            )
+        }
         SheetAction(
             icon = { Icon(Icons.Default.CompareArrows, contentDescription = null) },
             label = stringResource(R.string.relation_open_from_person),

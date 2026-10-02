@@ -79,6 +79,7 @@ import com.vibethroughcode.ftree.ui.tree.TreeScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlin.reflect.KClass
 
 /** Nothing was handed to the app: the ordinary case, and a single instance rather than a new one
@@ -212,6 +213,12 @@ fun FTreeApp(
     val remindersOn by (LocalContext.current.applicationContext as FTreeApplication)
         .container.reminderPreferences.enabled.collectAsStateWithLifecycle()
 
+    // Who this phone trusts, so the chart's person sheet can lead to their relationship screen.
+    val kutumbRepository = (context.applicationContext as FTreeApplication).container.kutumbRepository
+    val trustedIds by remember(kutumbRepository) {
+        kutumbRepository.observeContacts().map { contacts -> contacts.mapTo(HashSet()) { it.personId } as Set<String> }
+    }.collectAsStateWithLifecycle(emptySet())
+
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onTopLevel = destinations.any { destination?.hasRoute(it.type) == true }
@@ -271,6 +278,8 @@ fun FTreeApp(
                     composable<TreeRoute> { entry ->
                         TreeScreen(
                             relateFrom = entry.toRoute<TreeRoute>().relateFrom,
+                            trustedIds = trustedIds,
+                            onOpenNetwork = { navController.navigate(PathRoute(it)) },
                             onOpenPerson = { navController.navigate(PersonRoute(it)) },
                             onAddPerson = { navController.navigate(EditPersonRoute()) },
                             onAddRelative = { anchorId, kind ->

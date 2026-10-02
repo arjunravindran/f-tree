@@ -76,3 +76,10 @@ Full `connectedDebugAndroidTest`: 203 tests, 3 failures at the time of the run. 
 - **Distance** is between the two people's *current* locations, shown only if both have sharing on. Miles for US/GB/LR/MM locales, km elsewhere.
 - **No UI exists to enter a location** (the six mockups do not include one, and the spec's person-edit change is not in the task list). Until one exists, distance and the hometown fact never appear outside tests. Worth a follow-up.
 - Message button shows only for direct pairings and is disabled (messaging unbuilt).
+
+### 3d Tree
+
+The existing chart already has the mockup's three views (Chart / Compact / Everyone) and tap-to-see-how-related, so nothing was rebuilt. What was added: a person's sheet in the tree shows **"In your family network"** for people this phone trusts, opening their relationship screen (3c).
+
+- Deliberately **not** done: a paired badge drawn on the chart nodes. The chart is a single Canvas whose per-frame cost is a documented design constraint; adding per-node state to it for decoration was not worth the risk. The sheet link carries the same information.
+- Whole `ui` instrumented package after this step: 108 tests, 2 failures, the same two pre-existing `BookFlowTest` failures as before.

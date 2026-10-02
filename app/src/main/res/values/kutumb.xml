@@ -54,6 +54,8 @@
         <item>Pisces</item>
     </string-array>
 
+    <string name="tree_in_network">In your family network</string>
+
     <!-- Pairing with a relative, in person. -->
     <string name="pairing_title">Pair with a relative</string>
     <string name="pairing_cancel">Cancel pairing</string>
