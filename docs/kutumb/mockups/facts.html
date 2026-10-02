@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Family facts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{--bg:#F7F4EE;--card:#ffffff;--border:#E7E1D6;--ink:#21201C;--muted:#6B6558;--sage:#5C7A5E;--accent:#BC5B39;}
+  body{margin:0;font-family:'Work Sans',system-ui,sans-serif;color:var(--ink);background:#ddd4c2;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  a{color:var(--ink);text-decoration:none;}
+  h1,h2{font-family:'Fraunces',serif;margin:0;}
+  button{font-family:'Work Sans',system-ui,sans-serif;}
+  input{font-family:'Work Sans',system-ui,sans-serif;}
+  .tab{flex:1;padding:12px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--ink);}
+  .tab.active{border:1px solid var(--accent);background:var(--accent);color:#fff;}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 16px; border-bottom: 1px solid var(--border);">
+    <h1 style="font-size: 20px; font-weight: 600;">Family facts</h1>
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600;">128 pts</div>
+  </header>
+
+  <div style="flex-grow: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+
+    <div style="display: flex; gap: 8px;">
+      <button id="tabSelf" class="tab active" onclick="pick('self')">Answer about myself</button>
+      <button id="tabGuess" class="tab" onclick="pick('guess')">Guess about someone</button>
+    </div>
+
+    <div id="guessWho" style="display: none; align-items: center; gap: 10px;">
+      <div style="width: 34px; height: 34px; border-radius: 50%; background: #3F6C82; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 13px;">K</div>
+      <div style="font-size: 14px; color: var(--muted);">Guessing about <strong style="color: var(--ink);">Kiran</strong></div>
+    </div>
+
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="align-self: flex-start; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em;">Food</div>
+      <div id="qSelf" style="font-family: 'Fraunces',serif; font-size: 21px; font-weight: 500; line-height: 1.3;">What's your go-to pizza topping?</div>
+      <div id="qGuess" style="display:none; font-family: 'Fraunces',serif; font-size: 21px; font-weight: 500; line-height: 1.3;">What's Kiran's go-to pizza topping?</div>
+
+      <label for="answer" style="font-size: 13px; color: var(--muted); margin-top: 4px;">Your answer</label>
+      <input id="answer" type="text" placeholder="Type an answer&hellip;" style="border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 15px; background: var(--bg);">
+
+      <a href="resolve.html" style="background: var(--accent); color: #fff; border-radius: 12px; padding: 13px; font-weight: 600; font-size: 15px; margin-top: 4px; text-align: center;">Submit</a>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 4px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 8h13a3 3 0 010 6h-1"/><path d="M4 8v7a4 4 0 004 4h5a4 4 0 004-4v-1"/></svg>
+      <div style="font-size: 13px; color: var(--muted); line-height: 1.4;">Points bank toward a coffee, beer, or ice cream with them &mdash; whoever's right redeems in person.</div>
+    </div>
+
+  </div>
+
+</div>
+<script>
+  function pick(mode) {
+    const isSelf = mode === 'self';
+    document.getElementById('tabSelf').className = 'tab' + (isSelf ? ' active' : '');
+    document.getElementById('tabGuess').className = 'tab' + (isSelf ? '' : ' active');
+    document.getElementById('guessWho').style.display = isSelf ? 'none' : 'flex';
+    document.getElementById('qSelf').style.display = isSelf ? 'block' : 'none';
+    document.getElementById('qGuess').style.display = isSelf ? 'none' : 'block';
+  }
+</script>
+</body>
+</html>

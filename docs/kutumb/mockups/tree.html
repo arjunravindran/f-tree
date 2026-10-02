@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Family tree</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{--bg:#F7F4EE;--card:#ffffff;--border:#E7E1D6;--ink:#21201C;--muted:#6B6558;--sage:#5C7A5E;--accent:#BC5B39;}
+  body{margin:0;font-family:'Work Sans',system-ui,sans-serif;color:var(--ink);background:#ddd4c2;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  a{color:var(--ink);text-decoration:none;}
+  h1,h2{font-family:'Fraunces',serif;margin:0;}
+  button{font-family:'Work Sans',system-ui,sans-serif;}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+
+  <header style="display: flex; align-items: center; gap: 12px; padding: 22px 24px 14px; border-bottom: 1px solid var(--border);">
+    <a href="main.html" aria-label="Back" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); display: flex; align-items: center; justify-content: center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#21201C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <h1 style="font-size: 20px; font-weight: 600;">Family tree</h1>
+  </header>
+
+  <div style="display: flex; gap: 8px; padding: 14px 24px 0;">
+    <div style="background: var(--accent); color: #fff; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600;">Chart</div>
+    <div style="background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600;">Compact</div>
+    <div style="background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600;">Everyone</div>
+  </div>
+
+  <div style="flex-grow: 1; overflow: auto; padding: 28px 24px; display: flex; flex-direction: column; align-items: center;">
+
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <div style="width: 38px; height: 38px; border-radius: 50%; background: #9C7A3E; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 14px; opacity: 0.85;">T</div>
+      <div style="width: 14px; height: 2px; background: var(--border);"></div>
+      <div style="width: 38px; height: 38px; border-radius: 50%; background: #7A5C82; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 14px; opacity: 0.85;">R</div>
+    </div>
+
+    <div style="width: 2px; height: 18px; background: var(--border);"></div>
+    <div style="width: 280px; height: 2px; background: var(--border);"></div>
+    <div style="width: 280px; display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center;">
+      <div style="width: 2px; height: 18px; background: var(--border);"></div>
+      <div style="width: 2px; height: 18px; background: var(--border);"></div>
+      <div style="width: 2px; height: 18px; background: var(--border);"></div>
+    </div>
+
+    <div style="width: 280px; display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center; gap: 4px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #9C7A3E; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 15px;">A</div>
+        <div style="font-size: 12px; font-weight: 600; text-align: center;">Amma</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #BC5B39; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 15px;">A</div>
+        <div style="font-size: 12px; font-weight: 600; text-align: center;">Asha</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #3F6C82; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 15px;">M</div>
+        <div style="font-size: 12px; font-weight: 600; text-align: center;">Meera</div>
+      </div>
+    </div>
+
+    <div style="width: 280px; display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center;">
+      <div style="width: 2px; height: 18px; background: var(--border);"></div>
+      <div style="width: 2px; height: 18px; background: var(--border);"></div>
+      <div style="width: 2px; height: 18px; background: var(--border);"></div>
+    </div>
+
+    <div style="width: 280px; display: grid; grid-template-columns: repeat(3, 1fr); justify-items: center; gap: 4px;">
+      <a href="main.html" style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div style="width: 46px; height: 46px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 16px; border: 2px solid var(--ink); box-sizing: border-box;">Y</div>
+        <div style="font-size: 12px; font-weight: 600;">You</div>
+      </a>
+      <a href="main.html" style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #3F6C82; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 15px;">K</div>
+        <div style="font-size: 12px; font-weight: 600;">Kiran</div>
+      </a>
+      <a href="main.html" style="display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--sage); display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 15px; position: relative;">
+          D
+          <div style="position: absolute; bottom: -3px; right: -3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.5 7-12a7 7 0 10-14 0c0 4.5 7 12 7 12z"/></svg>
+          </div>
+        </div>
+        <div style="font-size: 12px; font-weight: 600;">Devika</div>
+      </a>
+    </div>
+
+  </div>
+
+  <div style="padding: 12px 24px 26px; text-align: center;">
+    <div style="font-size: 12px; color: var(--muted);">Tap anyone to see how you're related</div>
+  </div>
+
+</div>
+</body>
+</html>

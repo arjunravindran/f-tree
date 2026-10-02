@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Resolve a fact</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Work+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{--bg:#F7F4EE;--card:#ffffff;--border:#E7E1D6;--ink:#21201C;--muted:#6B6558;--sage:#5C7A5E;--accent:#BC5B39;}
+  body{margin:0;font-family:'Work Sans',system-ui,sans-serif;color:var(--ink);background:#ddd4c2;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  a{color:var(--ink);text-decoration:none;}
+  h1,h2{font-family:'Fraunces',serif;margin:0;}
+  button{font-family:'Work Sans',system-ui,sans-serif;}
+  .answer-card{width:100%;text-align:left;background:#fff;border-radius:14px;padding:14px 16px;cursor:pointer;border:1px solid var(--border);}
+  .answer-card.selected{border:2px solid var(--accent);}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+
+  <header style="padding: 22px 24px 16px; border-bottom: 1px solid var(--border);">
+    <div style="font-size: 13px; color: var(--muted); margin-bottom: 3px;">Resolve a fact</div>
+    <h1 style="font-size: 19px; font-weight: 600; line-height: 1.3;">Kiran's go-to pizza topping</h1>
+  </header>
+
+  <div style="flex-grow: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+
+    <div style="font-size: 13px; color: var(--muted); margin-bottom: 2px;">Pick the answer that's actually right &mdash; whoever submitted it gets the points.</div>
+
+    <button class="answer-card" data-id="a1" data-name="Devika" onclick="choose(this)">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #5C7A5E; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 13px; flex-shrink: 0;">D</div>
+        <div style="flex-grow: 1; text-align: left;">
+          <div style="font-size: 13px; color: var(--muted);">Devika</div>
+          <div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Pepperoni</div>
+        </div>
+        <div class="badge" style="display:none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+      </div>
+    </button>
+
+    <button class="answer-card" data-id="a2" data-name="Asha" onclick="choose(this)">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #9C7A3E; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 13px; flex-shrink: 0;">A</div>
+        <div style="flex-grow: 1; text-align: left;">
+          <div style="font-size: 13px; color: var(--muted);">Asha</div>
+          <div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Mushroom</div>
+        </div>
+        <div class="badge" style="display:none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+      </div>
+    </button>
+
+    <button class="answer-card" data-id="a3" data-name="Kiran (self)" onclick="choose(this)">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #3F6C82; display: flex; align-items: center; justify-content: center; color: #fff; font-family: 'Fraunces',serif; font-weight: 600; font-size: 13px; flex-shrink: 0;">K</div>
+        <div style="flex-grow: 1; text-align: left;">
+          <div style="font-size: 13px; color: var(--muted);">Kiran (self)</div>
+          <div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Pepperoni</div>
+        </div>
+        <div class="badge" style="display:none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+      </div>
+    </button>
+
+    <div id="winnerCard" style="display:none; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin-top: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M4 8h13a3 3 0 010 6h-1"/><path d="M4 8v7a4 4 0 004 4h5a4 4 0 004-4v-1"/></svg>
+        <div id="winnerText" style="font-size: 14px; font-weight: 600;"></div>
+      </div>
+      <div style="background: var(--bg); border-radius: 999px; height: 10px; overflow: hidden;">
+        <div style="width: 40%; height: 100%; background: var(--accent); border-radius: 999px;"></div>
+      </div>
+      <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">40 / 100 pts</div>
+    </div>
+
+  </div>
+
+  <div style="padding: 16px 24px 26px; border-top: 1px solid var(--border);">
+    <button style="width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 14px; font-weight: 600; font-size: 15px; cursor: pointer;">Confirm</button>
+  </div>
+
+</div>
+<script>
+  function choose(el) {
+    document.querySelectorAll('.answer-card').forEach(c => {
+      c.classList.remove('selected');
+      c.querySelector('.badge').style.display = 'none';
+    });
+    el.classList.add('selected');
+    el.querySelector('.badge').style.display = 'flex';
+    document.getElementById('winnerCard').style.display = 'block';
+    document.getElementById('winnerText').textContent = el.dataset.name + ' +10 pts toward a coffee';
+  }
+</script>
+</body>
+</html>
