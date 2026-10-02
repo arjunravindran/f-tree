@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -57,6 +58,7 @@ import com.vibethroughcode.ftree.transfer.sendBranchIntent
 import com.vibethroughcode.ftree.ui.common.LocalKinshipLanguage
 import com.vibethroughcode.ftree.ui.common.isShortWindow
 import com.vibethroughcode.ftree.ui.nearby.NearbyScreen
+import com.vibethroughcode.ftree.ui.facts.FactsScreen
 import com.vibethroughcode.ftree.ui.network.ContactsScreen
 import com.vibethroughcode.ftree.ui.network.PairingScreen
 import com.vibethroughcode.ftree.ui.network.PathScreen
@@ -94,6 +96,7 @@ private val noReminder: StateFlow<ReminderTap?> = MutableStateFlow<ReminderTap?>
 const val NavTreeTag = "nav-tree"
 const val NavPeopleTag = "nav-people"
 const val NavNetworkTag = "nav-network"
+const val NavFactsTag = "nav-facts"
 const val NavSettingsTag = "nav-settings"
 
 /** The places the app is, rather than the places it can go. */
@@ -109,6 +112,7 @@ private val destinations = listOf(
     Destination(TreeRoute(), TreeRoute::class, Icons.Default.AccountTree, R.string.nav_tree, NavTreeTag),
     Destination(PeopleRoute, PeopleRoute::class, Icons.AutoMirrored.Filled.List, R.string.nav_people, NavPeopleTag),
     Destination(NetworkRoute, NetworkRoute::class, Icons.Default.Group, R.string.nav_network, NavNetworkTag),
+    Destination(FactsRoute, FactsRoute::class, Icons.Default.Quiz, R.string.nav_facts, NavFactsTag),
     Destination(SettingsRoute, SettingsRoute::class, Icons.Default.Settings, R.string.nav_settings, NavSettingsTag),
 )
 
@@ -311,6 +315,10 @@ fun FTreeApp(
                             onPair = { navController.navigate(PairRoute) },
                             onOpenContact = { navController.navigate(PathRoute(it)) },
                         )
+                    }
+
+                    composable<FactsRoute> {
+                        FactsScreen(onResolve = {})
                     }
 
                     composable<PathRoute> {

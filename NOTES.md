@@ -83,3 +83,14 @@ The existing chart already has the mockup's three views (Chart / Compact / Every
 
 - Deliberately **not** done: a paired badge drawn on the chart nodes. The chart is a single Canvas whose per-frame cost is a documented design constraint; adding per-node state to it for decoration was not worth the risk. The sheet link carries the same information.
 - Whole `ui` instrumented package after this step: 108 tests, 2 failures, the same two pre-existing `BookFlowTest` failures as before.
+
+### 3e Facts
+
+`ui/facts/FactsScreen.kt`, `FactsViewModel.kt`, `QuestionText.kt`; new "Facts" tab (5th destination). Core gained `game/QuestionBank.kt` (8 starter questions across the spec's 7 categories; 4 new core tests, 76 total).
+
+- A fact's id is `"<ownerId>/<questionId>"`, the same on every phone, so answers from different phones land on one fact. `Fact.prompt` stores the question *id*, not text, so wording can be translated and a phone that does not know an id shows "a question from a newer version" instead of failing.
+- Answers go through `FactResolver.submit` (self-report flag checked, repeats refused). Wrong guesses cost nothing: the spec leaves penalties undecided and the core models none.
+- Guesses can only be about people this phone trusts (up to four shown as chips; more than four relatives would need a real picker).
+- The mockup's "+10 pts toward a coffee" is not used: `FactResolver.DEFAULT_POINTS` is 1 and the spec gives no number. Reward thresholds/redemption have no screen in the six mockups, so points accumulate in the ledger with no way yet to redeem them in the UI.
+- A "N answers waiting for you" banner links to the resolve screen (next step).
+- Guesses are stored locally only until the sync layer (step 6) sends them; the guessed-about person's phone cannot see them yet.

@@ -56,6 +56,51 @@
 
     <string name="tree_in_network">In your family network</string>
 
+    <!-- Family facts: the async trivia game. -->
+    <string name="nav_facts">Facts</string>
+    <string name="facts_title">Family facts</string>
+    <string name="facts_points">%1$d pts</string>
+    <string name="facts_tab_self">Answer about myself</string>
+    <string name="facts_tab_guess">Guess about someone</string>
+    <string name="facts_guessing">Guessing about %1$s</string>
+    <string name="facts_pick_who">Who are you guessing about?</string>
+    <string name="facts_your_answer">Your answer</string>
+    <string name="facts_answer_hint">Type an answer…</string>
+    <string name="facts_submit">Submit</string>
+    <string name="facts_another">Another question</string>
+    <string name="facts_info">Points bank toward a coffee, beer, or ice cream with them. Whoever\'s right redeems in person.</string>
+    <string name="facts_saved">Answer saved.</string>
+    <string name="facts_need_identity">Say who you are on the Network tab first.</string>
+    <string name="facts_no_contacts">Pair with a relative first, then you can guess about them.</string>
+    <plurals name="facts_pending">
+        <item quantity="one">%1$d answer is waiting for you to check</item>
+        <item quantity="other">%1$d answers are waiting for you to check</item>
+    </plurals>
+    <string name="facts_cat_food">Food</string>
+    <string name="facts_cat_growing_up">Growing up</string>
+    <string name="facts_cat_family_history">Family history</string>
+    <string name="facts_cat_traditions">Family traditions</string>
+    <string name="facts_cat_milestones">Milestones</string>
+    <string name="facts_cat_story">Guess the story</string>
+    <string name="facts_cat_habits">Everyday habits</string>
+    <string name="q_food_pizza_self">What\'s your go-to pizza topping?</string>
+    <string name="q_food_pizza_about">What\'s %1$s\'s go-to pizza topping?</string>
+    <string name="q_food_breakfast_self">What do you usually have for breakfast?</string>
+    <string name="q_food_breakfast_about">What does %1$s usually have for breakfast?</string>
+    <string name="q_growing_up_first_pet_self">What was your first pet\'s name?</string>
+    <string name="q_growing_up_first_pet_about">What was %1$s\'s first pet\'s name?</string>
+    <string name="q_family_history_emigrated_from_self">What country did your great-grandparents emigrate from?</string>
+    <string name="q_family_history_emigrated_from_about">What country did %1$s\'s great-grandparents emigrate from?</string>
+    <string name="q_traditions_reunion_dish_self">What dish do you always bring to reunions?</string>
+    <string name="q_traditions_reunion_dish_about">What dish does %1$s always bring to reunions?</string>
+    <string name="q_milestones_oldest_living_self">Who is the oldest living member of the family right now?</string>
+    <string name="q_milestones_oldest_living_about">Who does %1$s say is the oldest living member of the family right now?</string>
+    <string name="q_story_got_lost_self">Who got lost on a family trip and turned up hours later eating ice cream?</string>
+    <string name="q_story_got_lost_about">Who, in %1$s\'s telling, got lost on a family trip and turned up hours later eating ice cream?</string>
+    <string name="q_habits_first_five_minutes_self">What do you do in the first five minutes after waking up?</string>
+    <string name="q_habits_first_five_minutes_about">What does %1$s do in the first five minutes after waking up?</string>
+    <string name="q_unknown">A question from a newer version of the app</string>
+
     <!-- Pairing with a relative, in person. -->
     <string name="pairing_title">Pair with a relative</string>
     <string name="pairing_cancel">Cancel pairing</string>
