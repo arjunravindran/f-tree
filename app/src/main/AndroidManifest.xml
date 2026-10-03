@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
         Every permission the app asks for, and what each one is for. Six are normal permissions:
@@ -51,6 +52,19 @@
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+        Kutumb: finding the person you are pairing with by Bluetooth (SPEC, "Android BLE permission").
+        neverForLocation states that scan results are not used to derive where the phone is, which
+        is what lets Android skip the location prompt. Nothing requests this at runtime yet: the
+        pairing that exists today runs over the local network (see nearby/), so this is a
+        declaration only. Whoever adds the BLE scan must ask for it at the moment of pairing.
+        Not declared for Android 11 and older: they would need location, which this avoids.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
 
     <application
         android:name=".FTreeApplication"

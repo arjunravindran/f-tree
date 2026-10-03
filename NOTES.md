@@ -159,3 +159,16 @@ Known gaps:
 - No test drives `NearbyRepository`'s pairing mode, `NearbyPairingFlow` or `problemOf` (the new `receivePairing` and `pairByLink` paths), and none runs two real devices; the transport is only exercised through the pure sessions.
 - A receiver who answers "no, different" to the digits is reported to the sender as `DECLINED`, not as a mismatch (by the state mapping; no test).
 - Typed-address pairing is not offered on the pairing screen, only the scan.
+
+## Step 6 — Sync over Nostr (in progress)
+
+Already committed before this entry (per their commit messages; I re-ran the whole build, not each piece): `kutumb-core` Nostr event model, NIP-44 v2, NIP-59/17 gift wrap, relay frames; app-side `NostrCrypto` and `SyncEngine` over the abstract `RelayConnection`, tested against `FakeRelay`.
+
+Added in this session:
+
+- **Fixed a pre-existing failing build.** `./gradlew build` was red: lint `NonObservableLocale` in `PathScreen.kt` (now reads `LocalConfiguration`), and `NearbyRepositoryPairingTest."ending a pairing while the other phone waits releases it"` failed because a cancelled session's `onFailed` overwrote the `Idle` that `endPairing()` had just set. Both failure handlers in `NearbyRepository` now ignore failures once pairing has ended. Test passed 3 reruns in a row.
+- **`kutumb/sync/relay/WebSocketRelay.kt`**: the real `RelayConnection`, a hand-written RFC 6455 text-frame client over `Socket`/`SSLSocket`. **Decision:** no OkHttp (not on the classpath; CLAUDE.md wants discussion before new dependencies), same reasoning as the hand-rolled UDP beacon. `wss://` verifies the hostname; `ws://` is refused except loopback unless `allowPlaintext`; frame size capped at 1 MiB; server-masked frames, bad `Sec-WebSocket-Accept` and non-101 replies are refused. Tested (11 tests, all passing) against an in-process RFC 6455 server on loopback: ordering and buffering before collection, masking at the 3 length classes, ping/pong, fragmentation, 64-bit lengths, size cap, close, bad handshakes, unreachable host.
+- **NOT verified: any real relay.** Nothing in this session has talked to a public Nostr relay, and TLS (`wss://`) has not been exercised at all (the tests are plaintext loopback). **Needs verification on a machine with reliable relay access:** connect to 2-3 public relays, send a REQ, publish a gift wrap and read the OK, and confirm relays accept our frames (relay-specific limits, rate limiting, AUTH requests are unknown). Also nothing reconnects yet: a closed connection ends `incoming`.
+- **`BLUETOOTH_SCAN` (`neverForLocation`)** declared in the manifest, with `tools:targetApi="s"`. It is a declaration only: no BLE code exists, pairing still runs over the local network. A permission that nothing requests may be flagged by store review; remove it if BLE pairing is dropped. Android 11 and older are not covered (they would need location).
+
+Still to do: wire `SyncEngine` + `WebSocketRelay.connector()` into `AppContainer` (relay list, reconnect, lifecycle), a Settings entry for relays, route local fact/guess changes into the outbox, and CI should run `:kutumb-core:test`.
