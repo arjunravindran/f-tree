@@ -405,7 +405,8 @@ class NearbyRepository(
                     }
 
                     override fun onFailed(problem: NearbyProblem, importProblem: ImportProblem?) {
-                        _pair.value = NearbyPairState.Failed(problem)
+                        // endPairing() already reset the state; a cancelled session must not overwrite it.
+                        if (pairingIdentity != null) _pair.value = NearbyPairState.Failed(problem)
                     }
                 },
                 pairing = identity,
@@ -724,7 +725,8 @@ class NearbyRepository(
                     }
 
                     override fun onFailed(problem: NearbyProblem, importProblem: ImportProblem?) {
-                        _pair.value = NearbyPairState.Failed(problem)
+                        // endPairing() already reset the state; a cancelled session must not overwrite it.
+                        if (pairingIdentity != null) _pair.value = NearbyPairState.Failed(problem)
                     }
                 },
                 pairing = pairing,

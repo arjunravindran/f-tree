@@ -174,7 +174,7 @@ private fun ChainCard(path: PathUi) {
 
 @Composable
 private fun DistanceCard(km: Double) {
-    val locale = Locale.getDefault()
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val miles = usesMiles(locale)
     val value = NumberFormat.getIntegerInstance(locale).format(if (miles) km / Geo.KM_PER_MILE else km)
     Card(Modifier.testTag(PathDistanceTag)) {
@@ -193,7 +193,7 @@ private fun DistanceCard(km: Double) {
 
 @Composable
 private fun Facts(facts: List<FunFact>) {
-    val locale = Locale.getDefault()
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val zodiacNames = stringArrayResource(R.array.zodiac_names)
     Column(Modifier.testTag(PathFactsTag), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(stringResource(R.string.path_facts_title), style = MaterialTheme.typography.titleMedium)
