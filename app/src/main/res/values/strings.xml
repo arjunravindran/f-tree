@@ -496,6 +496,15 @@
     <string name="settings_nearby_forget">Forget</string>
     <string name="settings_nearby_forget_named">Forget %1$s</string>
     <string name="settings_nearby_forget_all">Forget all</string>
+    <string name="settings_section_sync">Family sync over the internet</string>
+    <string name="settings_sync_toggle">Sync with family over the internet</string>
+    <string name="settings_sync_explainer">Off by default. When on, this phone connects to the relay servers you name below and exchanges end-to-end encrypted messages with the people you have paired with. Relays see that messages pass through, never what they say. Nothing is sent until you turn this on and add a relay.</string>
+    <string name="settings_sync_relays_label">Relays (wss:// addresses separated by commas, up to 5)</string>
+    <string name="settings_sync_relays_save">Save relays</string>
+    <string name="settings_sync_relays_refused">Not used (only wss:// addresses work): %1$s</string>
+    <string name="settings_sync_status_on">Connected to your relays</string>
+    <string name="settings_sync_status_setup">Add a relay, and set who you are on the Network tab, to start</string>
+    <string name="settings_sync_status_off">Off</string>
 
     <string name="nearby_send_title">Send to a nearby device</string>
     <string name="nearby_receive_title">Receive from a nearby device</string>

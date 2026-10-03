@@ -67,6 +67,7 @@ import com.vibethroughcode.ftree.R
 import com.vibethroughcode.ftree.book.TemplateDownloader
 import com.vibethroughcode.ftree.data.KinshipLanguage
 import com.vibethroughcode.ftree.ui.common.SectionRule
+import com.vibethroughcode.ftree.kutumb.sync.SyncStatus
 import com.vibethroughcode.ftree.ui.nearby.NearbyMode
 import com.vibethroughcode.ftree.ui.common.READABLE_MEASURE
 import com.vibethroughcode.ftree.ui.common.ReadingColumns
@@ -102,6 +103,8 @@ private fun templateRefreshMessage(refresh: TemplateDownloader.Refresh): Int = w
 }
 const val SettingsBetaConfirmTag = "settings-beta-confirm"
 const val SettingsNearbyToggleTag = "settings-nearby-toggle"
+const val SettingsSyncToggleTag = "settings-sync-toggle"
+const val SettingsSyncRelaysTag = "settings-sync-relays"
 const val SettingsNearbySendTag = "settings-nearby-send"
 const val SettingsNearbyReceiveTag = "settings-nearby-receive"
 const val SettingsNearbyRenameTag = "settings-nearby-rename"
@@ -135,6 +138,9 @@ fun SettingsScreen(
     val templateRefresh by viewModel.templateRefresh.collectAsStateWithLifecycle()
     var confirmingBeta by remember { mutableStateOf(false) }
     val nearbyEnabled by viewModel.nearbyEnabled.collectAsStateWithLifecycle()
+    val syncEnabled by viewModel.syncEnabled.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val syncRelays by viewModel.syncRelays.collectAsStateWithLifecycle()
     val deviceName by viewModel.deviceName.collectAsStateWithLifecycle()
     val trustedOnly by viewModel.trustedOnly.collectAsStateWithLifecycle()
     val trustedDevices by viewModel.trustedDevices.collectAsStateWithLifecycle()
@@ -364,6 +370,58 @@ fun SettingsScreen(
                                 Text(stringResource(R.string.settings_nearby_forget_all))
                             }
                         }
+                    }
+                }
+            }
+
+            /*
+             * Off until switched on, and no relay is built in: the only servers this talks to are
+             * ones the person typed. Messages are end-to-end encrypted before they leave the phone.
+             */
+            Column {
+                SectionRule(stringResource(R.string.settings_section_sync))
+
+                SettingsSwitch(
+                    title = stringResource(R.string.settings_sync_toggle),
+                    body = stringResource(R.string.settings_sync_explainer),
+                    checked = syncEnabled,
+                    onCheckedChange = viewModel::setSyncEnabled,
+                    tag = SettingsSyncToggleTag,
+                )
+
+                AnimatedVisibility(visible = syncEnabled) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        var relayText by remember(syncRelays) { mutableStateOf(syncRelays.joinToString(", ")) }
+                        var refused by remember { mutableStateOf(emptyList<String>()) }
+                        OutlinedTextField(
+                            value = relayText,
+                            onValueChange = { relayText = it.take(1000) },
+                            label = { Text(stringResource(R.string.settings_sync_relays_label)) },
+                            minLines = 2,
+                            maxLines = 6,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag(SettingsSyncRelaysTag),
+                        )
+                        if (refused.isNotEmpty()) {
+                            Text(
+                                stringResource(R.string.settings_sync_relays_refused, refused.joinToString(", ")),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        TextButton(onClick = { refused = viewModel.setSyncRelays(relayText) }) {
+                            Text(stringResource(R.string.settings_sync_relays_save))
+                        }
+                        Text(
+                            stringResource(
+                                when (syncStatus) {
+                                    SyncStatus.ON -> R.string.settings_sync_status_on
+                                    SyncStatus.NEEDS_SETUP -> R.string.settings_sync_status_setup
+                                    SyncStatus.OFF -> R.string.settings_sync_status_off
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

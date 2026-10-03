@@ -172,3 +172,15 @@ Added in this session:
 - **`BLUETOOTH_SCAN` (`neverForLocation`)** declared in the manifest, with `tools:targetApi="s"`. It is a declaration only: no BLE code exists, pairing still runs over the local network. A permission that nothing requests may be flagged by store review; remove it if BLE pairing is dropped. Android 11 and older are not covered (they would need location).
 
 Still to do: wire `SyncEngine` + `WebSocketRelay.connector()` into `AppContainer` (relay list, reconnect, lifecycle), a Settings entry for relays, route local fact/guess changes into the outbox, and CI should run `:kutumb-core:test`.
+
+### Step 6, continued: opt-in sync service
+
+- **`SyncPreferences`**: sync is **off** and the relay list is **empty** by default (your call: opt-in). No relay is built in. Only `wss://` addresses with a dotted host are accepted (plaintext, credentials, fragments, spaces refused), max 5.
+- **`SyncService`**: runs a `SyncEngine` only while the switch is on, relays are named and this phone has an identity; any of those going away stops the engine and closes every socket; changing relays or identity restarts it. While running it re-subscribes (which reconnects dropped relays) and flushes the outbox every 60 s at most, sooner when a retry is due or `poke()`/`publish()` is called. Tests (`SyncServiceTest`, 6; `SyncPreferencesTest`, 1) cover off-by-default opening no connection, needing setup, subscribing/publishing, switching off, retrying a relay that was down, and changing relays.
+- **Wiring:** `AppContainer.syncService` is lazy and starts on construction; `FTreeApplication` touches it only if the switch is on, and `SettingsViewModel` builds it only after the switch is turned on. New Settings section "Family sync over the internet" (switch, relay field, status line). Relays are typed comma-separated.
+- **Not done, so sync currently moves nothing useful:**
+  1. `SyncService` uses the default `NoOpSyncHandler`: inbound messages from trusted contacts are decrypted, verified and dropped. Applying facts, answers, resolutions, rotations and tree edits is the next piece, and the handler must be idempotent.
+  2. Nothing calls `SyncService.publish` yet, so local facts/guesses/resolutions are not queued. `publish` returns false (queues nothing) while sync is off.
+  3. Still no real relay or TLS verification (see above). No background (WorkManager) sync: it runs only while the app process is alive.
+  4. No UI test of the new Settings section.
+- **CI:** `:kutumb-core:test` added to the three workflows' unit-test step (it was not being run by CI).

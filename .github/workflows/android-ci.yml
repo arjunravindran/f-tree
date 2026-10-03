@@ -33,7 +33,7 @@ jobs:
       # matching, and the new trust/recovery/game logic) should all be
       # covered here — these run on the JVM, no emulator needed.
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew testDebugUnitTest :kutumb-core:test
 
       - name: Android Lint
         run: ./gradlew lintDebug

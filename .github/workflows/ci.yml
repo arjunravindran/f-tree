@@ -40,7 +40,7 @@ jobs:
 
       - name: Unit tests
         env: { FTREE_REQUIRE_NODE: '1' }
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew testDebugUnitTest :kutumb-core:test
 
       - name: Lint
         run: ./gradlew lintDebug

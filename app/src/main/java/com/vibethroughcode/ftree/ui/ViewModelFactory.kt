@@ -65,6 +65,8 @@ object FTreeViewModels {
                 reminderPreferences = app.container.reminderPreferences,
                 reminders = app.container.reminders,
                 templateDownloads = app.container.templateDownloader,
+                syncPreferences = app.container.syncPreferences,
+                syncService = { app.container.syncService },
             )
         }
         initializer {

@@ -22,7 +22,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import com.vibethroughcode.ftree.kutumb.sync.SyncPreferences
+import com.vibethroughcode.ftree.kutumb.sync.SyncService
+import com.vibethroughcode.ftree.kutumb.sync.SyncStatus
 import java.io.File
 
 class SettingsViewModel(
@@ -36,7 +44,23 @@ class SettingsViewModel(
     private val reminderPreferences: ReminderPreferences,
     private val reminders: Reminders,
     private val templateDownloads: TemplateDownloader,
+    private val syncPreferences: SyncPreferences,
+    private val syncService: () -> SyncService,
 ) : ViewModel() {
+
+    val syncEnabled: StateFlow<Boolean> = syncPreferences.enabled
+    val syncRelays: StateFlow<List<String>> = syncPreferences.relays
+
+    /** The service is built only once sync is on, so a phone that never turns it on never builds one. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val syncStatus: StateFlow<SyncStatus> = syncPreferences.enabled
+        .flatMapLatest { on -> if (on) syncService().status else flowOf(SyncStatus.OFF) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SyncStatus.OFF)
+
+    fun setSyncEnabled(value: Boolean) = syncPreferences.setEnabled(value)
+
+    /** Returns the entries that were not usable relay addresses. */
+    fun setSyncRelays(text: String): List<String> = syncPreferences.setRelaysFromText(text)
 
     val remindersEnabled: StateFlow<Boolean> = reminderPreferences.enabled
     val reminderLead: StateFlow<ReminderLead> = reminderPreferences.lead

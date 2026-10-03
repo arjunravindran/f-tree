@@ -20,6 +20,10 @@ import com.vibethroughcode.ftree.kutumb.PairingFlow
 import com.vibethroughcode.ftree.kutumb.pairing.NearbyPairingFlow
 import com.vibethroughcode.ftree.kutumb.db.AndroidKeyVault
 import com.vibethroughcode.ftree.kutumb.db.RoomKutumbRepository
+import com.vibethroughcode.ftree.kutumb.sync.SyncEngine
+import com.vibethroughcode.ftree.kutumb.sync.SyncPreferences
+import com.vibethroughcode.ftree.kutumb.sync.SyncService
+import com.vibethroughcode.ftree.kutumb.sync.relay.WebSocketRelay
 import com.vibethroughcode.ftree.kutumb.trust.SignatureScheme
 import com.vibethroughcode.ftree.nearby.LanTransport
 import com.vibethroughcode.ftree.nearby.NearbyIdentity
@@ -72,6 +76,35 @@ class AppContainer(context: Context) {
 
     /** The family network's records, in the app's database. The private key is sealed by the Keystore first. */
     val kutumbRepository: KutumbRepository by lazy { RoomKutumbRepository(database, AndroidKeyVault()) }
+
+    /** Off, with no relays, until a person turns sync on in Settings and names some. */
+    val syncPreferences: SyncPreferences by lazy { SyncPreferences(context) }
+
+    /**
+     * Keeps the relay connections up while sync is on. Constructing it starts it, so callers touch
+     * this only when [syncPreferences] says enabled (the application does at launch, and Settings
+     * does when the switch is turned on); with the switch off nothing here is ever built.
+     */
+    val syncService: SyncService by lazy {
+        SyncService(
+            enabled = syncPreferences.enabled,
+            relays = syncPreferences.relays,
+            repository = kutumbRepository,
+            newEngine = { keys ->
+                SyncEngine(
+                    repository = kutumbRepository,
+                    keyPair = keys,
+                    connector = WebSocketRelay.connector(),
+                    scope = syncScope,
+                    clock = System::currentTimeMillis,
+                )
+            },
+            scope = syncScope,
+            clock = System::currentTimeMillis,
+        ).also { it.start() }
+    }
+
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * The in-person pairing handshake. A `var` so a test can put a fake in before the screen first

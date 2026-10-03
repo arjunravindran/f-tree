@@ -56,7 +56,7 @@ jobs:
       # A release that fails its own tests should not be published.
       - name: Unit tests and lint
         env: { FTREE_REQUIRE_NODE: '1' }
-        run: ./gradlew testDebugUnitTest lintDebug
+        run: ./gradlew testDebugUnitTest :kutumb-core:test lintDebug
 
       - name: Restore the signing key
         env:
