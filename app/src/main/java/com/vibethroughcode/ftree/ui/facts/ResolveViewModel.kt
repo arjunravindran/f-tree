@@ -7,6 +7,10 @@ import com.vibethroughcode.ftree.kutumb.KutumbRepository
 import com.vibethroughcode.ftree.kutumb.game.Fact
 import com.vibethroughcode.ftree.kutumb.game.FactAnswer
 import com.vibethroughcode.ftree.kutumb.game.FactResolver
+import com.vibethroughcode.ftree.kutumb.game.GameSync
+import com.vibethroughcode.ftree.kutumb.game.ResolutionMessage
+import com.vibethroughcode.ftree.kutumb.sync.NoSyncPublisher
+import com.vibethroughcode.ftree.kutumb.sync.SyncPublisher
 import com.vibethroughcode.ftree.kutumb.game.PointsLedger
 import com.vibethroughcode.ftree.kutumb.game.ResolveResult
 import com.vibethroughcode.ftree.kutumb.game.RewardRules
@@ -48,6 +52,7 @@ class ResolveViewModel(
     people: Flow<List<Person>>,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val publisher: SyncPublisher = NoSyncPublisher,
 ) : ViewModel() {
 
     private val selectedId = MutableStateFlow<String?>(null)
@@ -106,6 +111,11 @@ class ResolveViewModel(
             val result = FactResolver.resolve(fact, answers, existing, choice.answer.id, me.id, clock())
             if (result !is ResolveResult.Resolved) return@launch
             kutumb.saveResolution(result.resolution, result.ledgerEntry)
+            // Everyone who guessed learns which answer was right and who earned the points.
+            publisher.publish(
+                GameSync.resolutionEnvelope(ResolutionMessage(fact, choice.answer, result.resolution.pointsAwarded, result.ledgerEntry.awardedAt)),
+                answers.map { it.answererId }.filter { it != me.id },
+            )
 
             val earner = result.ledgerEntry.personId
             val facts = kutumb.observeFacts().first()

@@ -20,7 +20,10 @@ import com.vibethroughcode.ftree.kutumb.PairingFlow
 import com.vibethroughcode.ftree.kutumb.pairing.NearbyPairingFlow
 import com.vibethroughcode.ftree.kutumb.db.AndroidKeyVault
 import com.vibethroughcode.ftree.kutumb.db.RoomKutumbRepository
+import com.vibethroughcode.ftree.kutumb.sync.GameSyncHandler
+import com.vibethroughcode.ftree.kutumb.sync.ServiceSyncPublisher
 import com.vibethroughcode.ftree.kutumb.sync.SyncEngine
+import com.vibethroughcode.ftree.kutumb.sync.SyncPublisher
 import com.vibethroughcode.ftree.kutumb.sync.SyncPreferences
 import com.vibethroughcode.ftree.kutumb.sync.SyncService
 import com.vibethroughcode.ftree.kutumb.sync.relay.WebSocketRelay
@@ -97,11 +100,17 @@ class AppContainer(context: Context) {
                     connector = WebSocketRelay.connector(),
                     scope = syncScope,
                     clock = System::currentTimeMillis,
+                    handler = GameSyncHandler(kutumbRepository),
                 )
             },
             scope = syncScope,
             clock = System::currentTimeMillis,
         ).also { it.start() }
+    }
+
+    /** What the facts screens use to send their changes; does nothing while sync is off. */
+    val syncPublisher: SyncPublisher by lazy {
+        ServiceSyncPublisher(kutumbRepository, enabled = { syncPreferences.enabled.value }, service = { syncService })
     }
 
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

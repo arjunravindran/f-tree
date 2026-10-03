@@ -90,11 +90,11 @@ object FTreeViewModels {
         }
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication
-            FactsViewModel(app.container.kutumbRepository, repository().observeAllPeople())
+            FactsViewModel(app.container.kutumbRepository, repository().observeAllPeople(), publisher = app.container.syncPublisher)
         }
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication
-            ResolveViewModel(app.container.kutumbRepository, repository().observeAllPeople())
+            ResolveViewModel(app.container.kutumbRepository, repository().observeAllPeople(), publisher = app.container.syncPublisher)
         }
         initializer {
             val app = this[APPLICATION_KEY] as FTreeApplication

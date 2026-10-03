@@ -7,6 +7,9 @@ import com.vibethroughcode.ftree.kutumb.KutumbRepository
 import com.vibethroughcode.ftree.kutumb.game.Fact
 import com.vibethroughcode.ftree.kutumb.game.FactAnswer
 import com.vibethroughcode.ftree.kutumb.game.FactResolver
+import com.vibethroughcode.ftree.kutumb.game.GameSync
+import com.vibethroughcode.ftree.kutumb.sync.NoSyncPublisher
+import com.vibethroughcode.ftree.kutumb.sync.SyncPublisher
 import com.vibethroughcode.ftree.kutumb.game.PointsLedger
 import com.vibethroughcode.ftree.kutumb.game.Question
 import com.vibethroughcode.ftree.kutumb.game.QuestionBank
@@ -49,6 +52,7 @@ class FactsViewModel(
     people: Flow<List<Person>>,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val publisher: SyncPublisher = NoSyncPublisher,
 ) : ViewModel() {
 
     private val mode = MutableStateFlow(FactsMode.SELF)
@@ -124,6 +128,8 @@ class FactsViewModel(
             )
             if (FactResolver.submit(fact, existing, answer) is SubmitResult.Added) {
                 kutumb.saveAnswer(answer)
+                // A guess goes to the person it is about; their own answer about themselves goes to no one.
+                if (owner.id != me.id) publisher.publish(GameSync.answerEnvelope(fact, answer), listOf(owner.id))
                 this@FactsViewModel.answer.value = ""
                 questionIndex.value += 1
                 justSaved.value = true
