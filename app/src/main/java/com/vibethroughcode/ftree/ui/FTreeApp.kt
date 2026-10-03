@@ -80,6 +80,9 @@ import com.vibethroughcode.ftree.ui.transfer.TransferViewModel
 import com.vibethroughcode.ftree.ui.transfer.defaultExportName
 import com.vibethroughcode.ftree.ui.book.BookScreen
 import com.vibethroughcode.ftree.ui.tree.TreeScreen
+import com.vibethroughcode.ftree.ui.circle.AddConnectionScreen
+import com.vibethroughcode.ftree.ui.circle.CircleScreen
+import com.vibethroughcode.ftree.data.TreeKind
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -143,6 +146,7 @@ fun FTreeApp(
     onReminderFollowed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    val isCircle = (LocalContext.current.applicationContext as FTreeApplication).container.tree.kind == TreeKind.CIRCLE
     val context = LocalContext.current
     // Named once here and read by every screen that says a relationship out loud.
     val kinshipLanguage by (LocalContext.current.applicationContext as FTreeApplication)
@@ -288,7 +292,20 @@ fun FTreeApp(
                     startDestination = TreeRoute(),
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 ) {
+                    composable<AddConnectionRoute> {
+                        AddConnectionScreen(onBack = { navController.popBackStack() })
+                    }
+
                     composable<TreeRoute> { entry ->
+                        if (isCircle) {
+                            CircleScreen(
+                                focusId = entry.toRoute<TreeRoute>().focusId,
+                                onOpenPerson = { navController.navigate(PersonRoute(it)) },
+                                onAddPerson = { navController.navigate(EditPersonRoute()) },
+                                onAddConnection = { navController.navigate(AddConnectionRoute(it)) },
+                            )
+                            return@composable
+                        }
                         TreeScreen(
                             relateFrom = entry.toRoute<TreeRoute>().relateFrom,
                             trustedIds = trustedIds,
@@ -370,6 +387,7 @@ fun FTreeApp(
                             onAddRelative = { anchorId, kind ->
                                 navController.navigate(AddRelativeRoute(anchorId, kind))
                             },
+                            onAddConnection = { navController.navigate(AddConnectionRoute(it)) },
                             onShowOnTree = { personId ->
                                 navController.navigate(TreeRoute(focusId = personId)) {
                                     popUpTo<TreeRoute> { inclusive = true }

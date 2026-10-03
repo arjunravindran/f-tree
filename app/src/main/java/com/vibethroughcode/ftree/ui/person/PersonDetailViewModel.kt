@@ -8,6 +8,8 @@ import com.vibethroughcode.ftree.data.Person
 import com.vibethroughcode.ftree.data.RelationshipType
 import com.vibethroughcode.ftree.data.RelativeKind
 import com.vibethroughcode.ftree.data.SpouseKind
+import com.vibethroughcode.ftree.graph.Circle
+import com.vibethroughcode.ftree.graph.Connection
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -43,6 +45,16 @@ class PersonDetailViewModel(
             RelativeKind.CHILD to children,
             RelativeKind.SIBLING to siblings,
         )
+    }
+
+    /** Their lines to others in a Circle, labelled. Empty in a family tree, which has no such edges. */
+    val connections: StateFlow<List<Connection>> = combine(
+        repository.observeAllPeople(), repository.observeEdgesOf(personId),
+    ) { people, edges -> Circle.connectionsOf(personId, people, edges) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun setConnectionLabel(edgeId: String, label: String) {
+        viewModelScope.launch { repository.setConnectionLabel(edgeId, label) }
     }
 
     val uiState: StateFlow<PersonDetailUiState> = combine(

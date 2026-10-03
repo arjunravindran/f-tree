@@ -21,6 +21,8 @@ import com.vibethroughcode.ftree.ui.people.PeopleViewModel
 import com.vibethroughcode.ftree.ui.person.PersonDetailViewModel
 import com.vibethroughcode.ftree.ui.person.PersonEditViewModel
 import com.vibethroughcode.ftree.ui.relation.RelationViewModel
+import com.vibethroughcode.ftree.ui.circle.AddConnectionViewModel
+import com.vibethroughcode.ftree.ui.circle.CircleViewModel
 import com.vibethroughcode.ftree.ui.relative.AddRelativeViewModel
 import com.vibethroughcode.ftree.ui.transfer.TransferViewModel
 import com.vibethroughcode.ftree.ui.nearby.NearbyViewModel
@@ -122,6 +124,11 @@ object FTreeViewModels {
             val handle: SavedStateHandle = createSavedStateHandle()
             val route = handle.toRoute<TreeRoute>()
             RelationViewModel(repository(), handle, route.relateFrom, null)
+        }
+        initializer { CircleViewModel(repository()) }
+        initializer {
+            val route = createSavedStateHandle().toRoute<AddConnectionRoute>()
+            AddConnectionViewModel(repository(), route.anchorPersonId)
         }
         initializer {
             val route = createSavedStateHandle().toRoute<AddRelativeRoute>()

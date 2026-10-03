@@ -88,6 +88,7 @@ fun PersonDetailScreen(
     onEdit: (String) -> Unit,
     onOpenPerson: (String) -> Unit,
     onAddRelative: (String, RelativeKind) -> Unit,
+    onAddConnection: (String) -> Unit = {},
     onShowOnTree: (String) -> Unit,
     onRelate: (String) -> Unit,
     onShare: (String) -> Unit,
@@ -98,6 +99,10 @@ fun PersonDetailScreen(
     var confirmingDelete by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var pendingRemoval by remember { mutableStateOf<Person?>(null) }
+    var relabelling by remember { mutableStateOf<com.vibethroughcode.ftree.graph.Connection?>(null) }
+    val isCircle = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.vibethroughcode.ftree.FTreeApplication)
+        .container.tree.kind == com.vibethroughcode.ftree.data.TreeKind.CIRCLE
+    val connections by viewModel.connections.collectAsStateWithLifecycle()
 
     // A person can disappear underneath this screen — deleted here, or removed by an import — so
     // leaving is driven by the data rather than assumed at the moment of the tap.
@@ -146,28 +151,31 @@ fun PersonDetailScreen(
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         // Starting from the person whose page this is, because "how am I related
                         // to them" is nearly always asked about somebody already in front of you.
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.relation_open_from_person)) },
-                            leadingIcon = {
-                                Icon(Icons.Default.CompareArrows, contentDescription = null)
-                            },
-                            onClick = { menuOpen = false; onRelate(viewModel.personId) },
-                            modifier = Modifier.testTag(PersonRelateTag),
-                        )
-                        /*
-                         * Sending one person's family, rather than the whole archive.
-                         *
-                         * Above delete because it is the one somebody actually comes here to do,
-                         * and because the two should not be neighbours a mis-tap apart.
-                         */
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.share_branch)) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                            },
-                            onClick = { menuOpen = false; onShare(viewModel.personId) },
-                            modifier = Modifier.testTag(PersonShareTag),
-                        )
+                        // Both are about family lines; a Circle has none.
+                        if (!isCircle) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.relation_open_from_person)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.CompareArrows, contentDescription = null)
+                                },
+                                onClick = { menuOpen = false; onRelate(viewModel.personId) },
+                                modifier = Modifier.testTag(PersonRelateTag),
+                            )
+                            /*
+                             * Sending one person's family, rather than the whole archive.
+                             *
+                             * Above delete because it is the one somebody actually comes here to do,
+                             * and because the two should not be neighbours a mis-tap apart.
+                             */
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.share_branch)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Share, contentDescription = null)
+                                },
+                                onClick = { menuOpen = false; onShare(viewModel.personId) },
+                                modifier = Modifier.testTag(PersonShareTag),
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.delete_person)) },
                             leadingIcon = {
@@ -203,16 +211,28 @@ fun PersonDetailScreen(
             // No gutter: each section already holds its rows twenty points off its own edges, so
             // two of them side by side keep forty points between the names, which is enough.
             ReadingColumns(gutter = 0.dp) {
-                RelativeKind.entries.forEach { kind ->
+                if (isCircle) {
                     Column {
-                        RelativeSection(
-                            kind = kind,
-                            relatives = state.of(kind),
-                            spouseKinds = state.spouseKinds,
+                        ConnectionsSection(
+                            connections = connections,
                             onOpen = onOpenPerson,
-                            onAdd = { onAddRelative(viewModel.personId, kind) },
+                            onAdd = { onAddConnection(viewModel.personId) },
                             onRemove = { other -> pendingRemoval = other },
+                            onRelabel = { relabelling = it },
                         )
+                    }
+                } else {
+                    RelativeKind.entries.forEach { kind ->
+                        Column {
+                            RelativeSection(
+                                kind = kind,
+                                relatives = state.of(kind),
+                                spouseKinds = state.spouseKinds,
+                                onOpen = onOpenPerson,
+                                onAdd = { onAddRelative(viewModel.personId, kind) },
+                                onRemove = { other -> pendingRemoval = other },
+                            )
+                        }
                     }
                 }
 
@@ -235,6 +255,29 @@ fun PersonDetailScreen(
 
             Spacer(Modifier.height(40.dp))
         }
+    }
+
+    relabelling?.let { connection ->
+        var text by remember(connection.edgeId) { mutableStateOf(connection.label.orEmpty()) }
+        AlertDialog(
+            onDismissRequest = { relabelling = null },
+            title = { Text(stringResource(R.string.circle_relabel_title, connection.other.displayName())) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(com.vibethroughcode.ftree.graph.Circle.MAX_LABEL) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.circle_label_hint)) },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.setConnectionLabel(connection.edgeId, text)
+                    relabelling = null
+                }) { Text(stringResource(R.string.trees_save)) }
+            },
+            dismissButton = { TextButton(onClick = { relabelling = null }) { Text(stringResource(R.string.trees_cancel)) } },
+        )
     }
 
     pendingRemoval?.let { other ->
@@ -345,6 +388,46 @@ private fun LifeLine(person: Person) {
                 style = FTreeText.record,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+/** A person's lines to others in a Circle: who, and what the connection is, with the add action on the rule. */
+@Composable
+private fun ConnectionsSection(
+    connections: List<com.vibethroughcode.ftree.graph.Connection>,
+    onOpen: (String) -> Unit,
+    onAdd: () -> Unit,
+    onRemove: (Person) -> Unit,
+    onRelabel: (com.vibethroughcode.ftree.graph.Connection) -> Unit,
+) {
+    SectionRule(
+        label = stringResource(R.string.circle_connections_title, connections.size),
+        modifier = Modifier.padding(horizontal = 20.dp),
+        trailing = {
+            IconButton(onClick = onAdd) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.circle_add_connection))
+            }
+        },
+    )
+    if (connections.isEmpty()) {
+        Text(
+            stringResource(R.string.circle_connections_none),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+    }
+    connections.forEach { connection ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PersonRow(
+                person = connection.other,
+                onClick = { onOpen(connection.other.id) },
+                onLongClick = { onRemove(connection.other) },
+                supporting = connection.label ?: stringResource(R.string.circle_unlabelled),
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { onRelabel(connection) }) { Text(stringResource(R.string.circle_relabel)) }
         }
     }
 }

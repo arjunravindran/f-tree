@@ -21,10 +21,17 @@ enum class RelationshipType {
      */
     SIBLING,
 
+    /**
+     * Symmetric, and not familial: two people in a Circle (friends, colleagues) who know each other.
+     * The optional label ("colleague", "manager") is the edge's `subtype`, free text, so naming a
+     * kind of connection never needs a migration.
+     */
+    CONNECTED,
+
     UNKNOWN;
 
     /** Symmetric edges are stored canonically so that duplicates collide on the unique index. */
-    val isSymmetric: Boolean get() = this == SPOUSE || this == SIBLING
+    val isSymmetric: Boolean get() = this == SPOUSE || this == SIBLING || this == CONNECTED
 
     companion object {
         fun fromName(value: String?): RelationshipType =

@@ -211,10 +211,19 @@ Still to do: wire `SyncEngine` + `WebSocketRelay.connector()` into `AppContainer
 - Settings > "Your trees": open, rename, delete (with confirmation), new (name, Family or Circle).
 - Verified on the emulator: `TreeSwitchingTest` (3 tests): people stay in their own tree across switches, deleting a tree removes its database and photo directory, the open tree cannot be deleted.
 - **Still global, by design:** chart/kinship/update/reminder/nearby/sync preferences and the relay list. **Per open tree only, for now:** birthday reminders (they read the open tree's people) and the sync service (it runs for the open tree; trees you are not looking at do not sync until opened).
-- The Family/Circle kind is stored and shown, but **a Circle currently behaves exactly like a Family tree**: phase 2 below gives it its own connections and view.
+- The Family/Circle kind drives what the open tree looks like; see "Circles (phase 2)" below.
 
-### Not done (phase 2 and 3)
+### Not done (phase 3)
 
-2. **Circles:** a plain connection between two people with an optional label (friend, colleague, manager...), a list/graph view instead of the ancestors-above chart, no kinship names, add-person flow for circles. Needs a `CONNECTED` relationship type plus a `label` column (database version 3 for every tree, migration and schema export; CLAUDE.md asks for discussion before schema changes, which you have now given for this).
-3. **Network per tree:** one phone key shared by all trees (today each tree's `local_identity` would mint its own key), with who-am-I, contacts, facts and points per tree; sync for every tree at once rather than the open one; .ftree export/import is per tree already.
-4. A tree switcher on the main screen (today only in Settings), and a first-run prompt.
+1. **Network per tree:** one phone key shared by all trees (today each tree's `local_identity` would mint its own key), with who-am-I, contacts, facts and points per tree; sync for every tree at once rather than the open one; .ftree export/import is per tree already.
+2. A tree switcher on the main screen (today only in Settings), and a first-run prompt.
+
+### Circles (phase 2)
+
+- **No schema change, no migration.** I had planned a `label` column and database version 3, then found `relationships.subtype` is already free text and relationship types are stored by enum *name*. So `RelationshipType.CONNECTED` (symmetric) is new, its label lives in `subtype`, and existing databases and `.ftree` files need nothing. An older app reading a file with a connection degrades it to `UNKNOWN`, as designed.
+- **One connection per pair, one label.** The unique index is (from, to, type), so two people have at most one `CONNECTED` edge; "friend and colleague" is typed as one label ("Friend, colleague"). Labels are trimmed, whitespace-collapsed and capped at 30 characters; "Friend" and "friend" group together.
+- **Pure logic** `graph/Circle.kt` (7 JVM tests): connections of a person, grouped by label, people reached *through* others (with who leads there), the best-connected starting point, labels already in use.
+- **A Circle's tree tab** (`ui/circle/CircleScreen`): the circle seen from one person, grouped by label, then "Through people they know" (introductions). Tapping anyone moves the view to them. This replaces the ancestors-above chart; there is no canvas, a list is enough at circle sizes. Adding: `AddConnectionScreen` (label with suggestions, new person or existing). Person detail shows Connections (add, change label, long-press to remove) instead of Parents/Spouses/Children/Siblings, and hides "How are we related" and "Share this branch".
+- **Verified on the emulator** (`CircleFlowTest`, 2 tests): the circle opens on the best-connected person with FRIEND / COLLEAGUE groups and a "via Ben" introduction, tapping moves the view, and adding a connection with a label shows the new person under it.
+- **Still shown in a Circle, deliberately for now:** the Network and Facts tabs (the game and pairing are per tree, phase 3) and Settings. Birthdays/People tab work as is. Export/import writes `CONNECTED` edges as ordinary relationships.
+- **Not done:** a drawn graph (the list view is the only one), a "who am I" for circles, deleting a label across a circle, bulk adding.

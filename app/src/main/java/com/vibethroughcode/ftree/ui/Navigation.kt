@@ -62,6 +62,10 @@ data object PairRoute
 @Serializable
 data object SettingsRoute
 
+/** Connecting someone in a Circle to [anchorPersonId]. */
+@Serializable
+data class AddConnectionRoute(val anchorPersonId: String)
+
 /** Picking who to attach to [anchorPersonId] as a [kind]. */
 @Serializable
 data class AddRelativeRoute(val anchorPersonId: String, val kind: RelativeKind)

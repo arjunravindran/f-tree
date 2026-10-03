@@ -1,6 +1,7 @@
 package com.vibethroughcode.ftree.data
 
 import androidx.room.withTransaction
+import com.vibethroughcode.ftree.graph.Circle
 import com.vibethroughcode.ftree.graph.FamilyGraph
 import com.vibethroughcode.ftree.graph.FamilySnapshot
 import com.vibethroughcode.ftree.graph.RelationshipCheck
@@ -45,6 +46,9 @@ class FamilyRepository(
     fun observeSpouses(id: String): Flow<List<Person>> = relationships.observeSpouses(id)
     fun observeSiblings(id: String): Flow<List<Person>> = relationships.observeSiblings(id)
     fun observeEdgesOf(id: String): Flow<List<Relationship>> = relationships.observeEdgesOf(id)
+
+    /** Every edge. Fine for a Circle, which is small; a family chart reads a neighbourhood instead. */
+    fun observeAllEdges(): Flow<List<Relationship>> = relationships.observeAllRelationships()
 
     suspend fun person(id: String): Person? = people.findById(id)
 
@@ -130,6 +134,22 @@ class FamilyRepository(
     }
 
     suspend fun removeRelationship(id: String) = relationships.deleteById(id)
+
+    /** Joins two people in a Circle, with an optional label ("colleague"). Same rules as any edge: no self, no duplicates. */
+    suspend fun addConnection(aId: String, bId: String, label: String?): Result<Unit> =
+        addRelationship(aId, bId, RelationshipType.CONNECTED, Circle.cleanLabel(label)).map {}
+
+    /** Creates a person and connects them, or neither. */
+    suspend fun addNewConnection(anchorId: String, person: Person, label: String?): Result<Person> = runCatching {
+        db.withTransaction {
+            people.insert(person)
+            addConnection(anchorId, person.id, label).getOrThrow()
+            person
+        }
+    }
+
+    suspend fun setConnectionLabel(edgeId: String, label: String?) =
+        relationships.setSubtype(edgeId, Circle.cleanLabel(label))
 
     /**
      * Records a relationship the way the user described it.

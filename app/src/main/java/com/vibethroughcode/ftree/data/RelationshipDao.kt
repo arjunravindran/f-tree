@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface RelationshipDao {
 
+    @Query("UPDATE relationships SET subtype = :subtype WHERE id = :id")
+    suspend fun setSubtype(id: String, subtype: String?)
+
     @Query("SELECT * FROM relationships WHERE id = :id")
     suspend fun findById(id: String): Relationship?
 
