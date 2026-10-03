@@ -4,7 +4,7 @@
 
 Nothing is blocked. These are calls I made that a person should look at when convenient:
 
-1. **New native dependency: `fr.acinq.secp256k1:secp256k1-kmp(-jni-android)` 0.24.0** (BIP-340 Schnorr, Nostr's signature scheme). Needed in step 3, earlier than the task list implied: kutumb-core's JDK `Ed25519Scheme` cannot work on Android at all. `KeyPairGenerator.getInstance("Ed25519")` resolves to the AndroidKeyStore provider and throws `IllegalStateException: Not initialized` (seen on the API 35 emulator), and keystore keys cannot be exported as the hex strings the core interface uses. Alternatives I did not take: BouncyCastle (larger, no BIP-340 built in), hand-rolled BigInteger Schnorr (not constant-time), rust-nostr bindings (much heavier). Things to weigh: it ships prebuilt `.so` files, which F-Droid's scanner may object to (SPEC lists F-Droid as the preferred channel), and it adds APK size per ABI. Reverting means replacing `Bip340Scheme` only; nothing above `SignatureScheme` changes.
+1. **New native dependency: `fr.acinq.secp256k1:secp256k1-kmp(-jni-android)` 0.24.0** (BIP-340 Schnorr, Nostr's signature scheme). Needed in step 3, earlier than the task list implied: kutumb-core's JDK `Ed25519Scheme` cannot work on Android at all. `KeyPairGenerator.getInstance("Ed25519")` resolves to the AndroidKeyStore provider and throws `IllegalStateException: Not initialized` (seen on the API 35 emulator), and keystore keys cannot be exported as the hex strings the core interface uses. Alternatives I did not take: BouncyCastle (larger, no BIP-340 built in), hand-rolled BigInteger Schnorr (not constant-time), rust-nostr bindings (much heavier). Things to weigh: it ships prebuilt `.so` files, which would have troubled F-Droid's scanner (no longer a concern: distribution is Google Play, decided), and it adds APK size per ABI. Reverting means replacing `Bip340Scheme` only; nothing above `SignatureScheme` changes.
 
 ## Assumptions and decisions
 
@@ -193,3 +193,28 @@ Still to do: wire `SyncEngine` + `WebSocketRelay.connector()` into `AppContainer
 - **Decision to review:** a change made while sync is off or has no relays is **not** queued for later; `SyncService.publish` returns false and nothing is stored, so it is never sent after sync is switched on. Queuing regardless would hold family answers on disk waiting for a switch the person may never flip. Say if you want it queued instead.
 - **Assumption to verify on two real phones:** fact ids use the tree person id (`<personId>/<questionId>`), so this only works when both phones hold the same person ids for the same people (true after a `.ftree` import with origins, per NOTES Step 3e). Two independently built trees will not line up.
 - Not tested: the publisher against a real service, the Settings section, and anything over a real relay.
+
+## Decisions from the owner (2026-10-03)
+
+- **Distribution:** Google Play. F-Droid is not a target; the secp256k1 native libraries stand.
+- **Wrong guesses cost nothing** (already how the core behaves; SPEC updated).
+- **No recovery path** for someone with no relative nearby; no key backup planned (SPEC updated).
+- **Android-to-Android only** for now.
+- **Multiple trees**, not only familial: friends, work and so on. Answers to my design questions: one database per tree; two kinds of tree (Family and Circle, circles joined by plain connections with an optional label and a simple list/graph view, no kinship); one identity key per phone with contacts, facts and points scoped per tree.
+
+## Multiple trees
+
+### Done: storage, switching, management (phase 1)
+
+- `data/TreeCatalog.kt` (pure, 6 JVM tests): the list of trees and which is open, in a SharedPreferences string. Names are unique (ignoring case), 1-40 characters; the open tree and the last tree cannot be removed. The first tree is `TreeCatalog.ORIGINAL` ("My family") and keeps the old file names (`f-tree.db`, `photos`, `f-tree` prefs), so an update touches no file on disk. An unreadable catalog falls back to the original tree (other trees' files would then be orphaned, not lost: they stay on disk).
+- Each tree has its own database (`tree-<id>.db`), photo directory and tree-identity file. `AppContainer(context, tree)` is now per tree; `FTreeApplication.switchTo` stops the old container's services at once, builds the new container, and closes the old database 3 s later (the old screens are still collecting from it until destroyed). `relaunch()` restarts the main task so no view model of the old tree survives.
+- Settings > "Your trees": open, rename, delete (with confirmation), new (name, Family or Circle).
+- Verified on the emulator: `TreeSwitchingTest` (3 tests): people stay in their own tree across switches, deleting a tree removes its database and photo directory, the open tree cannot be deleted.
+- **Still global, by design:** chart/kinship/update/reminder/nearby/sync preferences and the relay list. **Per open tree only, for now:** birthday reminders (they read the open tree's people) and the sync service (it runs for the open tree; trees you are not looking at do not sync until opened).
+- The Family/Circle kind is stored and shown, but **a Circle currently behaves exactly like a Family tree**: phase 2 below gives it its own connections and view.
+
+### Not done (phase 2 and 3)
+
+2. **Circles:** a plain connection between two people with an optional label (friend, colleague, manager...), a list/graph view instead of the ancestors-above chart, no kinship names, add-person flow for circles. Needs a `CONNECTED` relationship type plus a `label` column (database version 3 for every tree, migration and schema export; CLAUDE.md asks for discussion before schema changes, which you have now given for this).
+3. **Network per tree:** one phone key shared by all trees (today each tree's `local_identity` would mint its own key), with who-am-I, contacts, facts and points per tree; sync for every tree at once rather than the open one; .ftree export/import is per tree already.
+4. A tree switcher on the main screen (today only in Settings), and a first-run prompt.

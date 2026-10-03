@@ -9,10 +9,10 @@ import java.util.UUID
  * Generated once and never changed, so every export this device produces claims the same origin
  * and a re-import can recognise its own people with certainty rather than by comparing names.
  */
-open class TreeIdentity(context: Context) {
+open class TreeIdentity(context: Context, file: String = "f-tree") {
 
     private val preferences =
-        context.applicationContext.getSharedPreferences("f-tree", Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences(file, Context.MODE_PRIVATE)
 
     open val treeId: String
         get() = preferences.getString(KEY, null) ?: UUID.randomUUID().toString().also {

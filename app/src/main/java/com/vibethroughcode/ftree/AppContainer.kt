@@ -6,6 +6,8 @@ import com.vibethroughcode.ftree.data.FTreeDatabase
 import com.vibethroughcode.ftree.data.FamilyRepository
 import com.vibethroughcode.ftree.data.KinshipPreferences
 import com.vibethroughcode.ftree.data.PhotoStore
+import com.vibethroughcode.ftree.data.TreeCatalog
+import com.vibethroughcode.ftree.data.TreeInfo
 import com.vibethroughcode.ftree.book.BookPrinter
 import com.vibethroughcode.ftree.book.BookTemplates
 import com.vibethroughcode.ftree.book.TemplateDownloader
@@ -49,6 +51,7 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 /**
  * Hand-rolled dependency wiring.
@@ -56,13 +59,19 @@ import kotlinx.coroutines.SupervisorJob
  * The app has a handful of screens and one repository; a DI framework would add a compiler plugin
  * and a layer of indirection to solve a problem this size does not have. Tests construct the
  * repository directly against an in-memory database.
+ *
+ * One container serves one tree ([tree]): its database, photographs, identity file and everything
+ * built on them. Opening a different tree builds a new container and drops this one ([close]);
+ * preferences, the updater and the relay list are the same for every tree.
  */
-class AppContainer(context: Context) {
+class AppContainer(context: Context, val tree: TreeInfo = TreeCatalog.ORIGINAL) {
+    private val databaseLazy = lazy { FTreeDatabase.build(context, tree.databaseName) }
+
     /** Public so instrumented tests can call `clearAllTables()` between runs. */
-    val database: FTreeDatabase by lazy { FTreeDatabase.build(context) }
+    val database: FTreeDatabase by databaseLazy
     val familyRepository: FamilyRepository by lazy { FamilyRepository(database, photoStore) }
-    val photoStore: PhotoStore by lazy { PhotoStore(context.applicationContext) }
-    val treeIdentity: TreeIdentity by lazy { TreeIdentity(context.applicationContext) }
+    val photoStore: PhotoStore by lazy { PhotoStore(context.applicationContext, tree.photoDirectory) }
+    val treeIdentity: TreeIdentity by lazy { TreeIdentity(context.applicationContext, tree.identityFile) }
     val exporter: TreeExporter by lazy { TreeExporter(familyRepository, photoStore, treeIdentity) }
     val branchShare: BranchShare by lazy { BranchShare(context, familyRepository, exporter) }
     val cardShare: CardShare by lazy { CardShare(context) }
@@ -121,13 +130,15 @@ class AppContainer(context: Context) {
      */
     var pairingFlowOverride: PairingFlow? = null
 
+    private val pairingScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     private val nearbyPairingFlow: PairingFlow by lazy {
         NearbyPairingFlow(
             nearby = nearbyRepository,
             kutumb = kutumbRepository,
             scheme = signatureScheme,
             deviceName = { nearbyIdentity.displayName },
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            scope = pairingScope,
         )
     }
 
@@ -214,7 +225,7 @@ class AppContainer(context: Context) {
      */
     var nearbyTransport: NearbyTransport? = null
 
-    val nearbyRepository: NearbyRepository by lazy {
+    private val nearbyLazy = lazy {
         NearbyRepository(
             preferences = nearbyPreferences,
             identity = nearbyIdentity,
@@ -223,5 +234,23 @@ class AppContainer(context: Context) {
             downloadDirectory = File(context.applicationContext.filesDir, "nearby"),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
         )
+    }
+
+    val nearbyRepository: NearbyRepository by nearbyLazy
+
+    /** Stops what this container started on its own: relay connections, pairing, the nearby sockets. */
+    fun stopServices() {
+        syncScope.cancel()
+        pairingScope.cancel()
+        if (nearbyLazy.isInitialized()) nearbyLazy.value.stop()
+    }
+
+    /**
+     * Closes the database. Separate from [stopServices] because the screens of the tree being left
+     * are still collecting from it until they are destroyed; closing under them would crash. The
+     * application calls this a few seconds after the switch. Nothing may use the container after.
+     */
+    fun closeDatabase() {
+        if (databaseLazy.isInitialized()) database.close()
     }
 }

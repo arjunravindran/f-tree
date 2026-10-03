@@ -31,10 +31,10 @@ data class SquareCrop(val x: Int, val y: Int, val size: Int)
  * the way in. A face at 512px is sharper than any of those circles can show even on a 4x screen,
  * and a family of a thousand then costs tens of megabytes rather than gigabytes.
  */
-class PhotoStore(private val context: Context) {
+class PhotoStore(private val context: Context, private val directoryName: String = DIRECTORY) {
 
     private val directory: File
-        get() = File(context.filesDir, DIRECTORY).apply { mkdirs() }
+        get() = File(context.filesDir, directoryName).apply { mkdirs() }
 
     fun file(photoId: String): File = File(directory, photoId)
 

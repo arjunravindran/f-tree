@@ -374,6 +374,8 @@ fun SettingsScreen(
                 }
             }
 
+            TreesSettings()
+
             /*
              * Off until switched on, and no relay is built in: the only servers this talks to are
              * ones the person typed. Messages are end-to-end encrypted before they leave the phone.

@@ -50,8 +50,9 @@ abstract class FTreeDatabase : RoomDatabase() {
             }
         }
 
-        fun build(context: Context): FTreeDatabase =
-            Room.databaseBuilder(context.applicationContext, FTreeDatabase::class.java, NAME)
+        /** [name] is the file; each tree has its own (see `TreeCatalog`), and the default is the original. */
+        fun build(context: Context, name: String = NAME): FTreeDatabase =
+            Room.databaseBuilder(context.applicationContext, FTreeDatabase::class.java, name)
                 .addMigrations(MIGRATION_1_2)
                 .addCallback(enforceForeignKeys)
                 .build()

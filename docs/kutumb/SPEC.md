@@ -175,13 +175,13 @@ Fully async — no live/synchronous multiplayer. A prompt is shown, and the play
 | Third-party personal data | Not a policy issue — standard genealogy-app pattern (Ancestry, FamilySearch, Geni all do this) |
 | Minors' birthdates | Fine — not a children's app, no COPPA trigger |
 | Licensing | MIT-licensed baseline — no copyleft constraints on forking or rebranding |
-| Distribution | F-Droid is a lower-friction fit given the no-accounts, no-tracker posture; Play Store remains optional |
+| Distribution | Google Play (decided). F-Droid is not a target, so prebuilt native libraries (secp256k1) are acceptable |
 
 ## Open questions & risks
 
 - **Threshold-of-one recovery risk** — accepted as designed; revisit if the app ever holds higher-stakes data.
 - **Relay reliability** — Nostr relays are best-effort. Mitigated by publishing to multiple relays plus the local SyncOutbox retry queue, but not a durable guarantee.
-- **No fallback if nobody's reachable** — the web-of-trust recovery assumes at least one existing relative is available to re-pair with. What happens for someone with no one nearby (e.g. the first person in a new branch of the family) isn't answered yet — worth an optional encrypted local key backup as a secondary path.
-- **Wrong-guess scoring** — pure upside, or a small penalty for a wrong guess? Undecided.
+- **No fallback if nobody's reachable** — DECIDED: there is no recovery path for someone with no relative nearby. Web-of-trust recovery needs at least one existing contact to re-pair with; without one, a lost phone means a new identity. No key backup is planned.
+- **Wrong-guess scoring** — DECIDED: a wrong guess costs nothing. The game is pure upside.
 - **Fork relationship to upstream** — contribute back to `thisisankit27/f-tree`, or diverge as an independent rebrand? Affects MIT attribution and how much of this stays a PR vs. a separate project.
-- **No iOS build** — cross-platform proximity pairing isn't possible until one exists.
+- **No iOS build** — DECIDED: Android-to-Android only for now.
